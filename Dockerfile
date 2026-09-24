@@ -16,10 +16,14 @@ RUN npm run build
 FROM node:22-bullseye-slim AS runner
 WORKDIR /app
 
-# Instalar dependências necessárias para bibliotecas nativas se aplicável
+# Instalar dependências necessárias para compilação nativa de addons (better-sqlite3) e healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    python3 \
+    make \
+    g++ \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências do backend
