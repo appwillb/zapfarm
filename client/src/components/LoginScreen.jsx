@@ -1,11 +1,31 @@
-import React, { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck, Building2, Store } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Mail, ArrowRight, ShieldCheck, Building2, Store, ArrowLeft } from 'lucide-react';
 
 export default function LoginScreen({ onLoginSuccess }) {
-  const [email, setEmail] = useState('camila@farmaciacentral.com.br');
-  const [password, setPassword] = useState('admin123');
+  // Check if URL specifies admin route (/admin or ?admin=true)
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    return (
+      window.location.pathname.startsWith('/admin') ||
+      window.location.search.includes('admin=true')
+    );
+  });
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Pre-fill placeholder based on mode
+  useEffect(() => {
+    setError('');
+    if (isAdminMode) {
+      setEmail('');
+      setPassword('');
+    } else {
+      setEmail('');
+      setPassword('');
+    }
+  }, [isAdminMode]);
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -24,6 +44,11 @@ export default function LoginScreen({ onLoginSuccess }) {
         throw new Error(data.error || 'Credenciais inválidas');
       }
 
+      // Check if trying to access admin mode with non-superadmin account
+      if (isAdminMode && data.user.role !== 'superadmin') {
+        throw new Error('Esta conta não possui permissões de Administrador Master da plataforma.');
+      }
+
       onLoginSuccess(data);
     } catch (err) {
       setError(err.message);
@@ -32,43 +57,71 @@ export default function LoginScreen({ onLoginSuccess }) {
     }
   };
 
-  const handleQuickLogin = (testEmail, testPass) => {
-    setEmail(testEmail);
-    setPassword(testPass);
-    setTimeout(() => {
-      fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: testEmail, password: testPass }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.token) onLoginSuccess(data);
-        });
-    }, 100);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Background Ambient Glow */}
+      <div
+        className={`absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl pointer-events-none transition-all duration-500 ${
+          isAdminMode ? 'bg-indigo-600/15' : 'bg-emerald-500/10'
+        }`}
+      />
 
       <div className="max-w-md w-full relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white text-3xl shadow-xl shadow-emerald-500/20 mx-auto font-bold">
-            ⚕️
+          <div
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-3xl shadow-xl mx-auto font-bold transition-all duration-300 ${
+              isAdminMode
+                ? 'bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-600/20'
+                : 'bg-gradient-to-tr from-emerald-600 to-teal-400 shadow-emerald-500/20'
+            }`}
+          >
+            {isAdminMode ? '👑' : '⚕️'}
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
-            ZapFarm <span className="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">SaaS</span>
-          </h1>
-          <p className="text-xs text-slate-400">
-            Acesso Seguro ao Sistema de Vendas e Atendimento da Farmácia
-          </p>
+
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+              ZapFarm{' '}
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  isAdminMode
+                    ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                }`}
+              >
+                {isAdminMode ? 'Master Admin' : 'SaaS'}
+              </span>
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              {isAdminMode
+                ? 'Painel de Gestão e Operações da Plataforma (Restrito)'
+                : 'Portal de Vendas e Atendimento da Farmácia no WhatsApp'}
+            </p>
+          </div>
         </div>
 
         {/* Login Box */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+        <div
+          className={`bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 border transition-all duration-300 ${
+            isAdminMode ? 'border-indigo-900/60 shadow-indigo-950/50' : 'border-slate-800'
+          }`}
+        >
+          {isAdminMode && (
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Building2 size={13} /> Acesso Master da Plataforma
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAdminMode(false)}
+                className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+              >
+                <ArrowLeft size={12} />
+                Portal da Farmácia
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs">
               {error}
@@ -77,7 +130,9 @@ export default function LoginScreen({ onLoginSuccess }) {
 
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="text-slate-300 font-bold block mb-1.5">E-mail de Acesso</label>
+              <label className="text-slate-300 font-bold block mb-1.5">
+                {isAdminMode ? 'E-mail do Administrador Master' : 'E-mail da Farmácia'}
+              </label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-3 text-slate-500" />
                 <input
@@ -85,8 +140,12 @@ export default function LoginScreen({ onLoginSuccess }) {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu-email@farmacia.com.br"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                  placeholder={isAdminMode ? 'admin@zapfarm.com' : 'farmacia@exemplo.com.br'}
+                  className={`w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none transition-colors ${
+                    isAdminMode
+                      ? 'border-indigo-700/60 focus:border-indigo-400'
+                      : 'border-slate-700 focus:border-emerald-500'
+                  }`}
                 />
               </div>
             </div>
@@ -101,7 +160,11 @@ export default function LoginScreen({ onLoginSuccess }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className={`w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none transition-colors ${
+                    isAdminMode
+                      ? 'border-indigo-700/60 focus:border-indigo-400'
+                      : 'border-slate-700 focus:border-emerald-500'
+                  }`}
                 />
               </div>
             </div>
@@ -109,68 +172,35 @@ export default function LoginScreen({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 text-xs mt-2"
+              className={`w-full py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 text-xs mt-2 ${
+                isAdminMode
+                  ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
+                  : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+              }`}
             >
-              <span>{loading ? 'Autenticando...' : 'Entrar no Sistema'}</span>
+              <span>{loading ? 'Autenticando...' : isAdminMode ? 'Entrar no Painel Master' : 'Entrar no Sistema'}</span>
               <ArrowRight size={14} />
             </button>
           </form>
 
-          {/* Quick Demo Switcher */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-2">
-            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 text-center">
-              🧪 Testar Níveis de Acesso com 1 Clique:
-            </p>
-
-            <div className="grid grid-cols-1 gap-2 text-left">
+          {/* Discreet Footer Link for Master Admin Access */}
+          {!isAdminMode && (
+            <div className="pt-3 border-t border-slate-800/60 text-center">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('camila@farmaciacentral.com.br', 'admin123')}
-                className="p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition-colors flex items-center justify-between text-xs group"
+                onClick={() => setIsAdminMode(true)}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1"
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                    <Store size={14} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-200 group-hover:text-emerald-300">
-                      Entrar como Farmácia Central (Dra. Camila)
-                    </p>
-                    <p className="text-[10px] text-slate-400">
-                      Acesso isolado: vê apenas o estoque e pedidos dela
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] text-emerald-400 font-mono">Entrar &rarr;</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@zapfarm.com', 'admin123')}
-                className="p-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-950/60 border border-indigo-500/30 transition-colors flex items-center justify-between text-xs group"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                    <Building2 size={14} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-indigo-200 group-hover:text-indigo-100">
-                      Entrar como Dono da Plataforma (Superadmin)
-                    </p>
-                    <p className="text-[10px] text-indigo-400/80">
-                      Acesso Master: cadastra farmácias e define planos
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] text-indigo-300 font-mono">Entrar &rarr;</span>
+                <span>Área do Administrador da Plataforma (Master)</span>
+                <ArrowRight size={11} />
               </button>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Security Footer */}
         <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-          <ShieldCheck size={13} className="text-emerald-500" />
+          <ShieldCheck size={13} className={isAdminMode ? 'text-indigo-400' : 'text-emerald-500'} />
           Multi-tenancy com isolamento de dados por token JWT criptografado
         </p>
       </div>
