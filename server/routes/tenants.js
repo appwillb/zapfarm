@@ -62,6 +62,18 @@ router.post('/', (req, res) => {
     );
 
     const newTenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(result.lastInsertRowid);
+
+    // If initial admin user credentials provided, create the pharmacy owner user
+    const { admin_name, admin_email, admin_password } = req.body;
+    if (admin_email && admin_password) {
+      const bcrypt = require('bcryptjs');
+      const hash = bcrypt.hashSync(admin_password, 10);
+      db.prepare(`
+        INSERT INTO users (tenant_id, name, email, password_hash, role)
+        VALUES (?, ?, ?, ?, 'admin')
+      `).run(newTenant.id, admin_name || `Admin ${name}`, admin_email, hash);
+    }
+
     res.status(201).json(newTenant);
   } catch (err) {
     if (err.message.includes('UNIQUE constraint failed: tenants.slug')) {

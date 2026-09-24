@@ -25,7 +25,10 @@ export default function Sidebar({
   mobileOpen,
   setMobileOpen,
   onOpenSimulator,
+  currentUser,
 }) {
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, badge: 'Fluxo' },
@@ -37,6 +40,10 @@ export default function Sidebar({
     { id: 'settings', label: 'Configurações', icon: Settings },
     { id: 'saas_admin', label: 'Painel Dono SaaS', icon: Building2, adminOnly: true },
   ];
+
+  const visibleMenuItems = menuItems.filter(
+    (item) => !item.adminOnly || isSuperAdmin
+  );
 
   return (
     <>
@@ -74,33 +81,53 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Tenant / Pharmacy Selector */}
+        {/* Tenant / Pharmacy Area */}
         <div className="p-3 border-b border-slate-800/80">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1.5">
-            Farmácia Ativa
-          </label>
-          <div className="relative">
-            <select
-              value={selectedTenant?.id || ''}
-              onChange={(e) => {
-                const found = tenants.find((t) => t.id === Number(e.target.value));
-                if (found) setSelectedTenant(found);
-              }}
-              className="w-full bg-slate-800/90 text-sm font-medium text-slate-100 rounded-lg px-3 py-2.5 pr-8 appearance-none border border-slate-700/60 focus:outline-none focus:border-emerald-500 cursor-pointer"
-            >
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          {isSuperAdmin ? (
+            <div>
+              <div className="flex items-center justify-between mb-1.5 px-2">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-indigo-400">
+                  👑 Gerenciar Farmácia
+                </label>
+                <span className="text-[9px] bg-indigo-500/30 text-indigo-300 px-1 rounded">Superadmin</span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedTenant?.id || ''}
+                  onChange={(e) => {
+                    const found = tenants.find((t) => t.id === Number(e.target.value));
+                    if (found) setSelectedTenant(found);
+                  }}
+                  className="w-full bg-slate-800/90 text-xs font-semibold text-slate-100 rounded-lg px-3 py-2 pr-8 appearance-none border border-slate-700/60 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {tenants.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          ) : (
+            <div className="px-2 py-1">
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
+                Sua Farmácia
+              </label>
+              <div className="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60">
+                <p className="text-xs font-bold text-white truncate">{selectedTenant?.name}</p>
+                <p className="text-[10px] text-emerald-400 font-medium mt-0.5 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                  Plano {selectedTenant?.plan?.toUpperCase()} &bull; Ativa
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Navigation Links */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
             return (

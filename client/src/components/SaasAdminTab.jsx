@@ -14,13 +14,16 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
     pix_key: '',
     delivery_fee_default: '7.00',
     address: '',
+    admin_name: '',
+    admin_email: '',
+    admin_password: '',
   });
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       await api.createTenant(formData);
-      alert('Nova farmácia cadastrada com sucesso na plataforma SaaS!');
+      alert('Nova farmácia cadastrada com sucesso! O acesso do cliente foi liberado com o e-mail e senha configurados.');
       setModalOpen(false);
       setFormData({
         name: '',
@@ -32,6 +35,9 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
         pix_key: '',
         delivery_fee_default: '7.00',
         address: '',
+        admin_name: '',
+        admin_email: '',
+        admin_password: '',
       });
       if (onTenantCreated) onTenantCreated();
     } catch (err) {
@@ -233,15 +239,46 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
                 />
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Endereço da Farmácia</label>
-                <input
-                  type="text"
-                  placeholder="Rua, número, bairro, cidade"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                />
+              <div className="p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-3">
+                <p className="font-bold text-indigo-950 text-xs flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-indigo-600" />
+                  Dados de Login do Proprietário / Farmacêutico
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Nome do Responsável</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Dr. Roberto / Gerente"
+                      value={formData.admin_name}
+                      onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">E-mail de Acesso (Login)</label>
+                    <input
+                      type="email"
+                      placeholder="gerente@farmacia.com.br"
+                      value={formData.admin_email}
+                      onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Senha Inicial de Acesso</label>
+                  <input
+                    type="password"
+                    placeholder="Defina a senha para o cliente acessar..."
+                    value={formData.admin_password}
+                    onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Esses dados serão utilizados pelo cliente para entrar exclusivamente na conta da farmácia dele.
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3">

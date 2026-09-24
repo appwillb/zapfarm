@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, QrCode, Bot, User, Bell } from 'lucide-react';
+import { Menu, QrCode, Bot, User, Bell, LogOut } from 'lucide-react';
 
 export default function Header({
   setMobileOpen,
@@ -8,6 +8,8 @@ export default function Header({
   whatsappStatus,
   onOpenWhatsApp,
   onOpenSimulator,
+  currentUser,
+  onLogout,
 }) {
   const getTabTitle = () => {
     switch (currentTab) {
@@ -79,15 +81,24 @@ export default function Header({
           <span className="hidden sm:inline">Simular Conversa</span>
         </button>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs">
-            DC
+        {/* User Profile & Logout */}
+        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold text-xs">
+            {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'US'}
           </div>
           <div className="hidden xl:block text-left">
-            <p className="text-xs font-semibold text-slate-800 leading-none">Dra. Camila</p>
-            <p className="text-[10px] text-slate-500">Farmacêutica Resp.</p>
+            <p className="text-xs font-semibold text-slate-800 leading-none">{currentUser?.name || 'Usuário'}</p>
+            <p className="text-[10px] text-slate-500 capitalize">
+              {currentUser?.role === 'superadmin' ? '👑 Dono SaaS' : currentUser?.role === 'pharmacist' ? 'Farmacêutica' : 'Atendente'}
+            </p>
           </div>
+          <button
+            onClick={onLogout}
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+            title="Sair do Sistema"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>

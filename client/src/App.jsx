@@ -15,9 +15,19 @@ import DriverModal from './components/DriverModal';
 import CsvImportModal from './components/CsvImportModal';
 import OrderDetailsModal from './components/OrderDetailsModal';
 import SimulatorModal from './components/SimulatorModal';
+import LoginScreen from './components/LoginScreen';
 import { api } from './api';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('zapfarm_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [tenants, setTenants] = useState([]);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -37,12 +47,32 @@ export default function App() {
   const [orderModal, setOrderModal] = useState({ open: false, order: null });
   const [simulatorOpen, setSimulatorOpen] = useState(false);
 
+  // Handle Authentication
+  const handleLoginSuccess = (data) => {
+    localStorage.setItem('zapfarm_token', data.token);
+    localStorage.setItem('zapfarm_user', JSON.stringify(data.user));
+    setCurrentUser(data.user);
+    if (data.tenant) {
+      setSelectedTenant(data.tenant);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('zapfarm_token');
+    localStorage.removeItem('zapfarm_user');
+    setCurrentUser(null);
+    setCurrentTab('dashboard');
+  };
+
   // 1. Initial Load: Tenants
   const loadTenants = async () => {
     try {
       const data = await api.getTenants();
       setTenants(data);
-      if (!selectedTenant && data.length > 0) {
+      if (currentUser?.tenant_id) {
+        const myTenant = data.find((t) => t.id === currentUser.tenant_id);
+        if (myTenant) setSelectedTenant(myTenant);
+      } else if (!selectedTenant && data.length > 0) {
         setSelectedTenant(data[0]);
       }
     } catch (e) {
@@ -177,6 +207,11 @@ export default function App() {
     }
   };
 
+  // If user is not logged in, show Login Screen
+  if (!currentUser) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
@@ -190,6 +225,7 @@ export default function App() {
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         onOpenSimulator={() => setSimulatorOpen(true)}
+        currentUser={currentUser}
       />
 
       {/* Main Content Area */}
@@ -201,6 +237,8 @@ export default function App() {
           whatsappStatus={whatsappStatus}
           onOpenWhatsApp={() => setCurrentTab('whatsapp')}
           onOpenSimulator={() => setSimulatorOpen(true)}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
