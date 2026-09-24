@@ -182,20 +182,6 @@ export default function LoginScreen({ onLoginSuccess }) {
               <ArrowRight size={14} />
             </button>
           </form>
-
-          {/* Discreet Footer Link for Master Admin Access */}
-          {!isAdminMode && (
-            <div className="pt-3 border-t border-slate-800/60 text-center">
-              <button
-                type="button"
-                onClick={() => setIsAdminMode(true)}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1"
-              >
-                <span>Área do Administrador da Plataforma (Master)</span>
-                <ArrowRight size={11} />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Security Footer */}
