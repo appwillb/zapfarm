@@ -1,0 +1,22 @@
+services:
+  zapfarm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zapfarm_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - DATABASE_PATH=/app/data/zapfarm.db
+      - JWT_SECRET=sua_chave_secreta_super_segura_coolify_2026
+    volumes:
+      # Volume persistente fundamental para manter sessões do Baileys e o banco de dados
+      - zapfarm_data:/app/data
+
+volumes:
+  zapfarm_data:
+    name: zapfarm_data
