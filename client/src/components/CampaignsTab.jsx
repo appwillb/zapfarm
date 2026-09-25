@@ -16,12 +16,38 @@ import {
   Sparkles,
   Smartphone,
   RefreshCw,
-  QrCode,
   Info,
   Check,
   Eye,
+  UserPlus,
+  FileSpreadsheet,
+  Search,
+  Filter,
+  X,
+  ChevronRight,
+  ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '../api';
+
+// Helper to format Brazilian phone numbers for friendly UI
+function formatPhone(raw) {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 13 && digits.startsWith('55')) {
+    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  if (digits.length === 12 && digits.startsWith('55')) {
+    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  }
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return raw;
+}
 
 // Helper to compress image in browser before sending to server
 function compressImage(file, maxWidth = 1200, quality = 0.8) {
@@ -57,17 +83,38 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
 }
 
 export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) {
+  // Navigation section: 'builder' | 'preview' | 'leads' | 'history'
+  const [activeSection, setActiveSection] = useState('builder');
+
   const [leadsData, setLeadsData] = useState({ total_available: 0, total_opt_out: 0, leads: [] });
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [campaignsList, setCampaignsList] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
 
-  // Form State
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
-  const [imagePreview, setImagePreview] = useState(null);
-  const [includeOptOut, setIncludeOptOut] = useState(true);
-  const [delaySeconds, setDelaySeconds] = useState(25);
+  // Draft persistence helper
+  const draftKey = tenant?.id ? `zapfarm_campaign_draft_${tenant.id}` : null;
+  const loadDraft = () => {
+    if (!draftKey) return null;
+    try {
+      const saved = localStorage.getItem(draftKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const initialDraft = loadDraft();
+
+  // Form State (hydrated from draft)
+  const [title, setTitle] = useState(initialDraft?.title || '');
+  const [message, setMessage] = useState(initialDraft?.message || '');
+  const [imagePreview, setImagePreview] = useState(initialDraft?.imagePreview || null);
+  const [includeOptOut, setIncludeOptOut] = useState(
+    initialDraft?.includeOptOut !== undefined ? initialDraft.includeOptOut : true
+  );
+  const [delaySeconds, setDelaySeconds] = useState(initialDraft?.delaySeconds || 25);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
+
   const [testPhone, setTestPhone] = useState(tenant?.phone || '');
   const [testingSend, setTestingSend] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
@@ -76,7 +123,58 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
   // Live active campaign tracking
   const [activeCampaign, setActiveCampaign] = useState(null);
 
+  // Lead Management state & filters
+  const [leadSearch, setLeadSearch] = useState('');
+  const [leadSourceFilter, setLeadSourceFilter] = useState('all');
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // Add Single Lead Form
+  const [newLeadName, setNewLeadName] = useState('');
+  const [newLeadPhone, setNewLeadPhone] = useState('');
+  const [savingLead, setSavingLead] = useState(false);
+
+  // Bulk Import Form
+  const [bulkText, setBulkText] = useState('');
+  const [importingBulk, setImportingBulk] = useState(false);
+
   const fileInputRef = useRef(null);
+
+  // Auto-save draft on every change
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const draft = {
+          title,
+          message,
+          imagePreview,
+          includeOptOut,
+          delaySeconds,
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+        setDraftSavedAt(new Date());
+      } catch (err) {
+        console.warn('Erro ao salvar rascunho:', err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [draftKey, title, message, imagePreview, includeOptOut, delaySeconds]);
+
+  // Clear draft function
+  const handleClearDraft = () => {
+    if (!title && !message && !imagePreview) return;
+    if (confirm('Deseja limpar todo o rascunho da campanha (título, texto e foto)?')) {
+      setTitle('');
+      setMessage('');
+      setImagePreview(null);
+      if (draftKey) {
+        localStorage.removeItem(draftKey);
+      }
+      setDraftSavedAt(null);
+    }
+  };
 
   // Pre-built promotional templates for pharmacies
   const TEMPLATES = [
@@ -230,7 +328,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
       return;
     }
     if (leadsData.total_available === 0) {
-      alert('Nenhum cliente disponível na base desta farmácia para disparo.');
+      alert('Nenhum cliente disponível na base desta farmácia para disparo. Adicione contatos na aba "Gerenciar Leads".');
       return;
     }
 
@@ -249,6 +347,8 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
 
       if (res.error) throw new Error(res.error);
       setActiveCampaign(res);
+      // Clear draft since campaign has begun
+      if (draftKey) localStorage.removeItem(draftKey);
       await loadData();
       alert('🚀 Campanha iniciada com sucesso! O sistema está processando a fila com segurança anti-ban.');
     } catch (err) {
@@ -313,15 +413,115 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
     }
   };
 
+  // Add single lead
+  const handleAddSingleLead = async (e) => {
+    e.preventDefault();
+    if (!newLeadPhone.trim()) {
+      alert('Informe o WhatsApp do cliente com DDD.');
+      return;
+    }
+    setSavingLead(true);
+    try {
+      const res = await api.addCampaignLead({
+        tenant_id: tenant.id,
+        phone: newLeadPhone.trim(),
+        name: newLeadName.trim() || 'Cliente',
+      });
+      if (res.error) throw new Error(res.error);
+      alert('✅ Contato adicionado com sucesso!');
+      setNewLeadName('');
+      setNewLeadPhone('');
+      setShowAddLeadModal(false);
+      await loadData();
+    } catch (err) {
+      alert('Erro ao adicionar contato: ' + err.message);
+    } finally {
+      setSavingLead(false);
+    }
+  };
+
+  // Bulk import leads
+  const handleBulkImport = async (e) => {
+    e.preventDefault();
+    if (!bulkText.trim()) {
+      alert('Cole a lista de contatos ou telefones no campo de texto.');
+      return;
+    }
+    setImportingBulk(true);
+    try {
+      const res = await api.importCampaignLeads({
+        tenant_id: tenant.id,
+        raw_text: bulkText,
+      });
+      if (res.error) throw new Error(res.error);
+      alert(`✅ ${res.message || 'Contatos importados com sucesso!'}`);
+      setBulkText('');
+      setShowBulkModal(false);
+      await loadData();
+    } catch (err) {
+      alert('Erro na importação: ' + err.message);
+    } finally {
+      setImportingBulk(false);
+    }
+  };
+
+  // Delete single lead
+  const handleDeleteLead = async (lead) => {
+    if (
+      !confirm(
+        `Remover ${lead.name || 'este contato'} (${lead.phone}) dos disparos da farmácia?\nEle também será marcado para não receber propagandas.`
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await api.deleteCampaignLead(tenant.id, lead.phone);
+      if (res.error) throw new Error(res.error);
+      await loadData();
+    } catch (err) {
+      alert('Erro ao remover contato: ' + err.message);
+    }
+  };
+
+  // Filtered leads
+  const filteredLeads = (leadsData.leads || []).filter((lead) => {
+    const term = leadSearch.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      (lead.name && lead.name.toLowerCase().includes(term)) ||
+      (lead.phone && lead.phone.includes(term)) ||
+      (lead.clean_phone && lead.clean_phone.includes(term));
+
+    const matchesSource =
+      leadSourceFilter === 'all' ||
+      (leadSourceFilter === 'chat' && lead.source === 'chat') ||
+      (leadSourceFilter === 'order' && lead.source === 'order') ||
+      (leadSourceFilter === 'manual' && (lead.source === 'manual' || lead.source === 'import'));
+
+    return matchesSearch && matchesSource;
+  });
+
+  // Calculate parsed numbers preview for bulk textarea
+  const countDetectedPhonesInBulk = () => {
+    if (!bulkText.trim()) return 0;
+    const lines = bulkText.split(/\r?\n/);
+    let count = 0;
+    for (const l of lines) {
+      const digits = l.replace(/\D/g, '');
+      if (digits.length >= 10) count++;
+    }
+    return count;
+  };
+
   const isConnected = whatsappStatus?.status === 'connected';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
       {/* Top Banner & Header */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 rounded-3xl p-5 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
               <Megaphone size={14} className="text-emerald-400" />
@@ -330,7 +530,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Disparos Automáticos de Ofertas & Fotos
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Divulgue medicamentos isentos, dermocosméticos e encartes semanais para os clientes da sua farmácia com
               upload direto do celular ou PC e <strong className="text-emerald-300">proteção anti-bloqueio avançada</strong>.
             </p>
@@ -374,7 +574,10 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
 
         {/* 4 Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-white/10 text-xs">
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+          <div
+            onClick={() => setActiveSection('leads')}
+            className="bg-white/5 hover:bg-white/10 rounded-2xl p-3 border border-white/10 cursor-pointer transition-colors"
+          >
             <div className="flex items-center gap-2 text-slate-300 mb-1">
               <Users size={14} className="text-emerald-400" />
               <span>Clientes na Base</span>
@@ -382,7 +585,9 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
             <p className="text-xl font-extrabold text-white">
               {loadingLeads ? '...' : leadsData.total_available}
             </p>
-            <span className="text-[10px] text-slate-400">Contatos quentes da farmácia</span>
+            <span className="text-[10px] text-emerald-300 flex items-center gap-1 mt-0.5">
+              Ver ou Adicionar Contatos →
+            </span>
           </div>
 
           <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
@@ -405,24 +610,99 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
             <span className="text-[10px] text-slate-400">Garantia anti-denúncia</span>
           </div>
 
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+          <div
+            onClick={() => setActiveSection('history')}
+            className="bg-white/5 hover:bg-white/10 rounded-2xl p-3 border border-white/10 cursor-pointer transition-colors"
+          >
             <div className="flex items-center gap-2 text-slate-300 mb-1">
               <CheckCircle2 size={14} className="text-amber-400" />
               <span>Campanhas Criadas</span>
             </div>
             <p className="text-xl font-extrabold text-amber-300">{campaignsList.length}</p>
-            <span className="text-[10px] text-slate-400">Total histórico</span>
+            <span className="text-[10px] text-amber-200/80 flex items-center gap-1 mt-0.5">
+              Ver Histórico Completo →
+            </span>
           </div>
         </div>
       </div>
 
+      {/* Responsive Section Switcher (Sub-tabs for seamless mobile & desktop experience) */}
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto scrollbar-none shadow-inner border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveSection('builder')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeSection === 'builder'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Megaphone size={15} className={activeSection === 'builder' ? 'text-emerald-600' : 'text-slate-400'} />
+          <span>Montar Campanha & Oferta</span>
+          {(title || message || imagePreview) && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Rascunho ativo" />
+          )}
+        </button>
+
+        {/* Preview Tab (Extra useful on mobile) */}
+        <button
+          type="button"
+          onClick={() => setActiveSection('preview')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeSection === 'preview'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Eye size={15} className={activeSection === 'preview' ? 'text-emerald-600' : 'text-slate-400'} />
+          <span>Prévia no WhatsApp</span>
+          {imagePreview && (
+            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded-md font-mono">
+              Foto Anexada
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection('leads')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeSection === 'leads'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Users size={15} className={activeSection === 'leads' ? 'text-emerald-600' : 'text-slate-400'} />
+          <span>Gerenciar Leads & Contatos</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
+            {leadsData.total_available}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection('history')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeSection === 'history'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Clock size={15} className={activeSection === 'history' ? 'text-emerald-600' : 'text-slate-400'} />
+          <span>Histórico de Disparos</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
+            {campaignsList.length}
+          </span>
+        </button>
+      </div>
+
       {/* Active Campaign Live Monitor (If running) */}
       {activeCampaign && (
-        <div className="bg-white rounded-3xl border border-emerald-200 shadow-md p-6 space-y-4 animate-fade-in">
+        <div className="bg-white rounded-3xl border border-emerald-200 shadow-md p-5 sm:p-6 space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
                   activeCampaign.status === 'running'
                     ? 'bg-emerald-100 text-emerald-700 animate-pulse'
                     : activeCampaign.status === 'paused'
@@ -454,7 +734,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Enviando de 1 em 1 com intervalo de segurança anti-ban para proteger o chip.
+                  Enviando de 1 em 1 com intervalo de segurança anti-ban para proteger seu chip.
                 </p>
               </div>
             </div>
@@ -464,7 +744,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                 <button
                   type="button"
                   onClick={handlePause}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center gap-1.5 transition-colors"
                 >
                   <Pause size={13} /> Pausar
                 </button>
@@ -472,7 +752,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                 <button
                   type="button"
                   onClick={handleResume}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1.5 transition-colors"
                 >
                   <Play size={13} /> Retomar
                 </button>
@@ -480,7 +760,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-colors"
               >
                 <XCircle size={13} /> Cancelar
               </button>
@@ -515,429 +795,893 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
         </div>
       )}
 
-      {/* Main Grid: Form Builder (Left) & WhatsApp Preview (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: Campaign Builder Form */}
-        <div className="lg:col-span-7 space-y-6">
-          <form
-            onSubmit={handleStartCampaign}
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-7 space-y-5"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Criar Nova Campanha de Oferta</h2>
-                <p className="text-xs text-slate-500">Configure a foto do produto, texto e agendamento seguro</p>
-              </div>
-              <span className="text-xs text-indigo-600 bg-indigo-50 font-bold px-3 py-1 rounded-full border border-indigo-100">
-                Passo a Passo
-              </span>
-            </div>
-
-            {/* Step 1: Upload Imagem do Computador ou Celular */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                <span>1. Foto ou Banner do Produto / Oferta</span>
-                <span className="text-[11px] font-normal text-slate-400">
-                  (Opcional, mas aumenta muito as vendas!)
-                </span>
-              </label>
-
-              {imagePreview ? (
-                <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 p-2 flex items-center gap-3">
-                  <img
-                    src={imagePreview}
-                    alt="Preview da Oferta"
-                    className="w-20 h-20 object-cover rounded-xl bg-white border border-slate-200 shadow-xs"
-                  />
-                  <div className="flex-1 min-w-0 text-xs">
-                    <p className="font-bold text-slate-800 truncate">Imagem Pronta para Envio</p>
-                    <p className="text-[11px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Compactada com alta nitidez (~150KB)
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Enviada diretamente pelo WhatsApp sem sobrecarregar o servidor.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setImagePreview(null)}
-                    className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors"
-                    title="Remover Imagem"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-200 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/20 rounded-2xl p-5 text-center cursor-pointer transition-all group"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png, image/jpeg, image/jpg, image/webp"
-                    capture="environment"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2 group-hover:scale-105 transition-transform">
-                    <Upload size={22} />
-                  </div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Clique aqui para selecionar do Celular ou Computador
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    No celular abre a Galeria ou Câmera • No PC selecione qualquer PNG ou JPG
+      {/* SECTION 1: BUILDER & LIVE PREVIEW */}
+      {activeSection === 'builder' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT: Builder Form */}
+          <div className="lg:col-span-7 space-y-6">
+            <form
+              onSubmit={handleStartCampaign}
+              className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5"
+            >
+              {/* Form Header with Draft Notice & Reset */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-800">Criar Nova Campanha de Oferta</h2>
+                  <p className="text-xs text-slate-500">
+                    Foto do produto, texto promocional e agendamento seguro
                   </p>
                 </div>
-              )}
-            </div>
 
-            {/* Step 2: Título Interno */}
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                2. Nome da Campanha (Uso Interno) *
-              </label>
-              <input
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Oferta Fraldas Pampers - Terça-Feira"
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {/* Step 3: Modelos Prontos */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 block">
-                3. Usar um Modelo de Mensagem Pronto (Opcional):
-              </label>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                {TEMPLATES.map((tmpl, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setTitle(tmpl.title.replace(/^[^\w\s]+/, '').trim());
-                      setMessage(tmpl.text);
-                    }}
-                    className="p-2 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl text-left font-medium text-slate-700 transition-colors truncate"
-                  >
-                    {tmpl.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Step 4: Mensagem da Campanha */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-700">4. Texto da Mensagem *</label>
-                <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                  <span className="font-semibold text-slate-400">Tags:</span>
-                  <button
-                    type="button"
-                    onClick={() => setMessage((m) => m + ' {nome}')}
-                    className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono text-[10px]"
-                  >
-                    {'{nome}'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMessage((m) => m + ' {farmacia}')}
-                    className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono text-[10px]"
-                  >
-                    {'{farmacia}'}
-                  </button>
+                <div className="flex items-center gap-2">
+                  {(title || message || imagePreview) && (
+                    <>
+                      <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-medium">
+                        <Check size={12} /> Salvo automaticamente
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearDraft}
+                        className="px-2.5 py-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-[11px] font-semibold rounded-lg border border-slate-200 transition-colors flex items-center gap-1"
+                        title="Limpar formulário"
+                      >
+                        <RotateCcw size={12} /> Limpar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <textarea
-                rows={6}
-                required
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Escreva a oferta ou selecione um dos modelos acima... Use {nome} para o nome do cliente."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 font-sans leading-relaxed"
-              />
-
-              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
-                <span>Caracteres: {message.length}</span>
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={includeOptOut}
-                    onChange={(e) => setIncludeOptOut(e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span>Incluir aviso de descadastro "PARAR" (Anti-Ban)</span>
+              {/* Step 1: Upload Imagem do Computador ou Celular */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>1. Foto ou Encarte da Oferta</span>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    (Opcional, mas atrai muito mais compras!)
+                  </span>
                 </label>
+
+                {imagePreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 p-3 flex items-center gap-3">
+                    <img
+                      src={imagePreview}
+                      alt="Preview da Oferta"
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl bg-white border border-slate-200 shadow-xs shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 text-xs">
+                      <p className="font-bold text-slate-800 truncate">Imagem Pronta para Envio</p>
+                      <p className="text-[11px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Compactada com alta resolução (~150KB)
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">
+                        Puxada diretamente da sua câmera, galeria ou computador sem lentidão no servidor.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImagePreview(null)}
+                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                      title="Remover Imagem"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/20 rounded-2xl p-5 text-center cursor-pointer transition-all group"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      capture="environment"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2 group-hover:scale-105 transition-transform">
+                      <Upload size={22} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Toque para escolher a foto do Celular ou Computador
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      No celular abre a Câmera ou Galeria • No PC escolha qualquer PNG ou JPG
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Step 5: Configuração Anti-Ban (Delay) */}
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                  <Clock size={14} className="text-slate-500" />
-                  Intervalo Inteligente entre Mensagens:
-                </span>
-                <span className="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">
-                  {delaySeconds} segundos (+ randomização)
-                </span>
-              </div>
-              <input
-                type="range"
-                min={15}
-                max={60}
-                step={5}
-                value={delaySeconds}
-                onChange={(e) => setDelaySeconds(Number(e.target.value))}
-                className="w-full accent-emerald-600"
-              />
-              <p className="text-[10px] text-slate-400 leading-tight">
-                🛡️ O algoritmo adiciona variação humana aleatória para que nenhuma mensagem saia com tempo idêntico,
-                garantindo a segurança do seu WhatsApp.
-              </p>
-            </div>
-
-            {/* Aviso Anvisa */}
-            <div className="flex items-start gap-2 p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-[11px] text-amber-800 leading-relaxed">
-              <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                <strong>Regulamentação Anvisa:</strong> Priorize campanhas de perfumaria, dermocosméticos, produtos de
-                higiene, suplementos/vitaminas e remédios isentos de receita médica (MIPs).
-              </span>
-            </div>
-
-            {/* Botoes de Ação */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
-              {/* Envio de Teste */}
-              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              {/* Step 2: Título Interno */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  2. Nome da Campanha (Para seu controle interno) *
+                </label>
                 <input
                   type="text"
-                  placeholder="Seu WhatsApp (DDD+Nº)"
-                  value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
-                  className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full sm:w-36 font-mono text-[11px]"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Ex: Oferta Fraldas Pampers - Terça-Feira"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              {/* Step 3: Modelos Prontos */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
+                  3. Usar um Modelo de Mensagem Pronto (Opcional):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  {TEMPLATES.map((tmpl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setTitle(tmpl.title.replace(/^[^\w\s]+/, '').trim());
+                        setMessage(tmpl.text);
+                      }}
+                      className="p-2.5 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl text-left font-medium text-slate-700 transition-colors truncate"
+                    >
+                      {tmpl.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 4: Mensagem da Campanha */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">4. Texto da Mensagem *</label>
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-400">Tags:</span>
+                    <button
+                      type="button"
+                      onClick={() => setMessage((m) => m + ' {nome}')}
+                      className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono text-[10px]"
+                    >
+                      {'{nome}'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMessage((m) => m + ' {farmacia}')}
+                      className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono text-[10px]"
+                    >
+                      {'{farmacia}'}
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  rows={6}
+                  required
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Escreva a oferta ou selecione um dos modelos acima... Dica: use {nome} para chamar o cliente pelo nome!"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 font-sans leading-relaxed"
+                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400 mt-1">
+                  <span>Caracteres digitados: {message.length}</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={includeOptOut}
+                      onChange={(e) => setIncludeOptOut(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Incluir aviso de descadastro "PARAR" (Garante segurança anti-ban)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Step 5: Configuração Anti-Ban (Delay) */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Clock size={14} className="text-slate-500" />
+                    Intervalo Seguro entre Mensagens:
+                  </span>
+                  <span className="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">
+                    {delaySeconds} segundos (+ jitter aleatório)
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={15}
+                  max={60}
+                  step={5}
+                  value={delaySeconds}
+                  onChange={(e) => setDelaySeconds(Number(e.target.value))}
+                  className="w-full accent-emerald-600"
+                />
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  🛡️ O algoritmo adiciona variação humana aleatória para que nenhuma mensagem saia com tempo idêntico,
+                  garantindo a reputação e saúde da sua conta de WhatsApp.
+                </p>
+              </div>
+
+              {/* Mobile Shortcut to Preview */}
+              <div className="lg:hidden">
                 <button
                   type="button"
-                  disabled={testingSend}
-                  onClick={handleSendTest}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1 shrink-0 transition-all disabled:opacity-50"
-                  title="Dispara um teste agora para o seu celular"
+                  onClick={() => setActiveSection('preview')}
+                  className="w-full py-2.5 px-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
                 >
-                  <Send size={13} className={testingSend ? 'animate-spin' : ''} />
-                  <span>{testingSend ? 'Enviando...' : testSuccess ? '✅ Enviado!' : 'Testar no Meu Celular'}</span>
+                  <Eye size={15} />
+                  <span>Ver Como Fica no WhatsApp do Cliente (Simulador)</span>
                 </button>
               </div>
 
-              {/* Botão de Disparo Geral */}
-              <button
-                type="submit"
-                disabled={startingCampaign || !isConnected || leadsData.total_available === 0}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                <Play size={14} />
-                <span>
-                  {startingCampaign
-                    ? 'Iniciando Campanha...'
-                    : `Disparar para ${leadsData.total_available} Clientes`}
+              {/* Botoes de Ação */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
+                {/* Envio de Teste */}
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    placeholder="Seu WhatsApp (DDD+Nº)"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                    className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full sm:w-40 font-mono text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    disabled={testingSend}
+                    onClick={handleSendTest}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1 shrink-0 transition-all disabled:opacity-50"
+                    title="Dispara um teste agora para o seu celular"
+                  >
+                    <Send size={13} className={testingSend ? 'animate-spin' : ''} />
+                    <span>{testingSend ? 'Enviando...' : testSuccess ? '✅ Enviado!' : 'Testar no Meu Celular'}</span>
+                  </button>
+                </div>
+
+                {/* Botão de Disparo Geral */}
+                <button
+                  type="submit"
+                  disabled={startingCampaign || !isConnected || leadsData.total_available === 0}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Play size={14} />
+                  <span>
+                    {startingCampaign
+                      ? 'Iniciando Campanha...'
+                      : `Disparar para ${leadsData.total_available} Clientes`}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* RIGHT: Live Phone Mockup Preview (Always visible on desktop!) */}
+          <div className="hidden lg:block lg:col-span-5 space-y-4">
+            <div className="sticky top-20">
+              <div className="flex items-center justify-between px-2 mb-2">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Eye size={14} className="text-emerald-600" />
+                  Prévia ao Vivo no WhatsApp
                 </span>
-              </button>
-            </div>
-          </form>
-        </div>
+                <span className="text-[10px] text-slate-400 font-mono">Simulador</span>
+              </div>
 
-        {/* RIGHT COLUMN: WhatsApp Mockup Live Preview */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="sticky top-20">
-            <div className="flex items-center justify-between px-2 mb-2">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Eye size={14} className="text-emerald-600" />
-                Prévia ao Vivo no WhatsApp do Cliente
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">Simulador</span>
-            </div>
+              {/* Mockup Frame */}
+              <div className="w-full max-w-sm mx-auto bg-slate-900 rounded-[36px] p-3.5 shadow-2xl border-4 border-slate-800">
+                {/* Phone Speaker Notch */}
+                <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
 
-            {/* Mockup Frame */}
-            <div className="w-full max-w-sm mx-auto bg-slate-900 rounded-[36px] p-3.5 shadow-2xl border-4 border-slate-800">
-              {/* Phone Speaker Notch */}
-              <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
-
-              {/* WhatsApp Chat Window */}
-              <div className="bg-[#EFEAE2] rounded-[24px] overflow-hidden flex flex-col h-[520px] shadow-inner relative">
-                {/* WhatsApp Chat Header */}
-                <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5 shrink-0 shadow-xs">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">
-                    💊
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold truncate leading-tight">
-                      {tenant?.name || 'Farmácia Central'}
-                    </p>
-                    <p className="text-[9px] text-emerald-200">Online • Conta Comercial</p>
-                  </div>
-                </div>
-
-                {/* WhatsApp Chat Body */}
-                <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[radial-gradient(#d1d7db_1px,transparent_1px)] [background-size:16px_16px]">
-                  {/* Date badge */}
-                  <div className="text-center">
-                    <span className="text-[9px] bg-white/80 text-slate-600 px-2 py-0.5 rounded-full shadow-2xs font-semibold">
-                      HOJE
-                    </span>
-                  </div>
-
-                  {/* Message Balloon */}
-                  <div className="max-w-[92%] bg-[#D9FDD3] text-slate-800 rounded-2xl rounded-tr-xs p-2.5 shadow-xs space-y-2 ml-auto text-xs">
-                    {/* Image Preview inside balloon */}
-                    {imagePreview ? (
-                      <div className="rounded-xl overflow-hidden bg-black/5">
-                        <img
-                          src={imagePreview}
-                          alt="Oferta"
-                          className="w-full max-h-52 object-cover rounded-xl"
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-emerald-900/5 rounded-xl p-6 text-center border border-dashed border-emerald-900/15">
-                        <ImageIcon size={28} className="mx-auto text-emerald-700/40 mb-1" />
-                        <span className="text-[10px] text-slate-500 font-medium">
-                          Nenhuma foto selecionada ainda
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Caption / Text */}
-                    <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-sans break-words">
-                      {getPreviewText()}
+                {/* WhatsApp Chat Window */}
+                <div className="bg-[#EFEAE2] rounded-[24px] overflow-hidden flex flex-col h-[520px] shadow-inner relative">
+                  {/* WhatsApp Chat Header */}
+                  <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5 shrink-0 shadow-xs">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">
+                      💊
                     </div>
-
-                    {/* Time & Double Blue Checks */}
-                    <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 pt-0.5">
-                      <span>14:32</span>
-                      <span className="text-[#53BDEB] font-bold">✓✓</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate leading-tight">
+                        {tenant?.name || 'Farmácia Central'}
+                      </p>
+                      <p className="text-[9px] text-emerald-200">Online • Conta Comercial</p>
                     </div>
                   </div>
-                </div>
 
-                {/* WhatsApp Chat Footer Bar */}
-                <div className="bg-[#F0F2F5] p-2 flex items-center gap-2 border-t border-slate-200 shrink-0">
-                  <div className="flex-1 bg-white rounded-full px-3 py-1.5 text-[11px] text-slate-400">
-                    Mensagem
+                  {/* WhatsApp Chat Body */}
+                  <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[radial-gradient(#d1d7db_1px,transparent_1px)] [background-size:16px_16px]">
+                    {/* Date badge */}
+                    <div className="text-center">
+                      <span className="text-[9px] bg-white/80 text-slate-600 px-2 py-0.5 rounded-full shadow-2xs font-semibold">
+                        HOJE
+                      </span>
+                    </div>
+
+                    {/* Message Balloon */}
+                    <div className="max-w-[92%] bg-[#D9FDD3] text-slate-800 rounded-2xl rounded-tr-xs p-2.5 shadow-xs space-y-2 ml-auto text-xs">
+                      {/* Image Preview inside balloon */}
+                      {imagePreview ? (
+                        <div className="rounded-xl overflow-hidden bg-black/5">
+                          <img
+                            src={imagePreview}
+                            alt="Oferta"
+                            className="w-full max-h-52 object-cover rounded-xl"
+                          />
+                        </div>
+                      ) : (
+                        <div className="bg-emerald-900/5 rounded-xl p-5 text-center border border-dashed border-emerald-900/15">
+                          <ImageIcon size={26} className="mx-auto text-emerald-700/40 mb-1" />
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            Nenhuma foto anexada
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Caption / Text */}
+                      <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-sans break-words">
+                        {getPreviewText()}
+                      </div>
+
+                      {/* Time & Double Blue Checks */}
+                      <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 pt-0.5">
+                        <span>14:32</span>
+                        <span className="text-[#53BDEB] font-bold">✓✓</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-7 h-7 rounded-full bg-[#00A884] text-white flex items-center justify-center text-xs font-bold">
-                    🎤
+
+                  {/* WhatsApp Chat Footer Bar */}
+                  <div className="bg-[#F0F2F5] p-2 flex items-center gap-2 border-t border-slate-200 shrink-0">
+                    <div className="flex-1 bg-white rounded-full px-3 py-1.5 text-[11px] text-slate-400">
+                      Mensagem
+                    </div>
+                    <div className="w-7 h-7 rounded-full bg-[#00A884] text-white flex items-center justify-center text-xs font-bold">
+                      🎤
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Histórico de Campanhas Anteriores */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">Histórico de Campanhas Realizadas</h3>
-            <p className="text-xs text-slate-500">Acompanhe os disparos anteriores e métricas de entrega</p>
+      {/* SECTION 2: MOBILE-OPTIMIZED PREVIEW VIEW */}
+      {activeSection === 'preview' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Simulador de Visualização</h2>
+              <p className="text-xs text-slate-500">Veja exatamente como o cliente receberá sua oferta no celular</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSection('builder')}
+              className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+            >
+              <span>← Voltar para Edição</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={loadData}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
-            title="Atualizar histórico"
-          >
-            <RefreshCw size={15} />
-          </button>
-        </div>
 
-        {loadingCampaigns ? (
-          <div className="py-8 text-center text-xs text-slate-400">Carregando histórico de campanhas...</div>
-        ) : campaignsList.length === 0 ? (
-          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
-            Nenhuma campanha criada nesta farmácia ainda. Preencha o formulário acima e faça seu primeiro disparo!
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="p-3">Campanha</th>
-                  <th className="p-3">Foto</th>
-                  <th className="p-3">Total de Leads</th>
-                  <th className="p-3">Enviados</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Data</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {campaignsList.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-3 font-semibold text-slate-800">
-                      <div>
-                        <span>{c.title}</span>
-                        <p className="text-[10px] text-slate-400 font-normal line-clamp-1 max-w-xs">{c.message}</p>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      {c.image_url ? (
-                        <img
-                          src={c.image_url}
-                          alt="Thumb"
-                          className="w-9 h-9 object-cover rounded-lg border border-slate-200"
-                        />
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Sem foto</span>
-                      )}
-                    </td>
-                    <td className="p-3 font-bold text-slate-700">{c.total_leads}</td>
-                    <td className="p-3">
-                      <span className="font-bold text-emerald-600">{c.sent_count}</span>
-                      {c.failed_count > 0 && (
-                        <span className="ml-1 text-[10px] text-rose-500">({c.failed_count} falhas)</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          c.status === 'completed'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : c.status === 'running'
-                            ? 'bg-blue-100 text-blue-800 animate-pulse'
-                            : c.status === 'paused'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {c.status === 'completed'
-                          ? '✅ Concluída'
-                          : c.status === 'running'
-                          ? '⚡ Enviando...'
-                          : c.status === 'paused'
-                          ? '⏸️ Pausada'
-                          : 'Cancelada'}
+          <div className="w-full max-w-sm mx-auto bg-slate-900 rounded-[36px] p-3.5 shadow-2xl border-4 border-slate-800">
+            <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
+
+            <div className="bg-[#EFEAE2] rounded-[24px] overflow-hidden flex flex-col h-[520px] shadow-inner relative">
+              <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5 shrink-0 shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">
+                  💊
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate leading-tight">
+                    {tenant?.name || 'Farmácia Central'}
+                  </p>
+                  <p className="text-[9px] text-emerald-200">Online • Conta Comercial</p>
+                </div>
+              </div>
+
+              <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[radial-gradient(#d1d7db_1px,transparent_1px)] [background-size:16px_16px]">
+                <div className="text-center">
+                  <span className="text-[9px] bg-white/80 text-slate-600 px-2 py-0.5 rounded-full shadow-2xs font-semibold">
+                    HOJE
+                  </span>
+                </div>
+
+                <div className="max-w-[92%] bg-[#D9FDD3] text-slate-800 rounded-2xl rounded-tr-xs p-2.5 shadow-xs space-y-2 ml-auto text-xs">
+                  {imagePreview ? (
+                    <div className="rounded-xl overflow-hidden bg-black/5">
+                      <img
+                        src={imagePreview}
+                        alt="Oferta"
+                        className="w-full max-h-52 object-cover rounded-xl"
+                      />
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-900/5 rounded-xl p-5 text-center border border-dashed border-emerald-900/15">
+                      <ImageIcon size={26} className="mx-auto text-emerald-700/40 mb-1" />
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Nenhuma foto anexada
                       </span>
-                    </td>
-                    <td className="p-3 text-[11px] text-slate-500">
-                      {new Date(c.created_at).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+
+                  <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-sans break-words">
+                    {getPreviewText()}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 pt-0.5">
+                    <span>14:32</span>
+                    <span className="text-[#53BDEB] font-bold">✓✓</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#F0F2F5] p-2 flex items-center gap-2 border-t border-slate-200 shrink-0">
+                <div className="flex-1 bg-white rounded-full px-3 py-1.5 text-[11px] text-slate-400">
+                  Mensagem
+                </div>
+                <div className="w-7 h-7 rounded-full bg-[#00A884] text-white flex items-center justify-center text-xs font-bold">
+                  🎤
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="max-w-sm mx-auto flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection('builder')}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl text-center transition-colors"
+            >
+              Editar Mensagem / Foto
+            </button>
+            <button
+              type="button"
+              onClick={handleSendTest}
+              disabled={testingSend}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl text-center shadow-md shadow-emerald-600/20 transition-colors disabled:opacity-50"
+            >
+              {testingSend ? 'Enviando...' : 'Testar no Meu Celular'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 3: LEAD MANAGEMENT (GERENCIAR LEADS & CONTATOS) */}
+      {activeSection === 'leads' && (
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-6 animate-fade-in">
+          {/* Header & Main Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-800">Base de Leads & Contatos da Farmácia</h2>
+                <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
+                  {leadsData.total_available} prontos para receber ofertas
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Contatos que já interagiram com o WhatsApp, fizeram pedidos ou foram adicionados manualmente.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowAddLeadModal(true)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all"
+              >
+                <UserPlus size={14} />
+                <span>+ Adicionar Contato</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(true)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-slate-200 transition-all"
+              >
+                <FileSpreadsheet size={14} />
+                <span>Importar em Massa</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={loadData}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Atualizar lista"
+              >
+                <RefreshCw size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Search & Origin Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <div className="relative w-full sm:w-72">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                placeholder="Buscar por nome ou telefone..."
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 text-xs w-full sm:w-auto overflow-x-auto">
+              <span className="text-slate-400 text-[11px] font-semibold mr-1">Origem:</span>
+              <button
+                type="button"
+                onClick={() => setLeadSourceFilter('all')}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                  leadSourceFilter === 'all'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Todos ({leadsData.leads?.length || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeadSourceFilter('chat')}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                  leadSourceFilter === 'chat'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                💬 Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeadSourceFilter('order')}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                  leadSourceFilter === 'order'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                🛍️ Pedidos
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeadSourceFilter('manual')}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                  leadSourceFilter === 'manual'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                ✍️ Adicionados / Importados
+              </button>
+            </div>
+          </div>
+
+          {/* Leads Table / List */}
+          {loadingLeads ? (
+            <div className="py-12 text-center text-xs text-slate-400">Carregando contatos e leads...</div>
+          ) : filteredLeads.length === 0 ? (
+            <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+              <Users size={32} className="mx-auto text-slate-300" />
+              <p className="text-xs font-bold text-slate-700">Nenhum contato encontrado nesta visualização</p>
+              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                {leadSearch
+                  ? 'Nenhum resultado corresponde à sua pesquisa.'
+                  : 'Comece adicionando clientes manualmente ou importando uma lista em massa clicando nos botões acima.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Nome / Cliente</th>
+                    <th className="p-3">WhatsApp</th>
+                    <th className="p-3">Origem</th>
+                    <th className="p-3">Data / Interação</th>
+                    <th className="p-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredLeads.map((lead, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3 font-semibold text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center justify-center shrink-0">
+                            {(lead.name || 'C')[0].toUpperCase()}
+                          </div>
+                          <span className="truncate max-w-[180px]">{lead.name || 'Cliente'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700">
+                        {formatPhone(lead.clean_phone || lead.phone)}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            lead.source === 'chat'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : lead.source === 'order'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : lead.source === 'import'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
+                          {lead.source === 'chat'
+                            ? '💬 Chat'
+                            : lead.source === 'order'
+                            ? '🛍️ Pedido'
+                            : lead.source === 'import'
+                            ? '📥 Importado'
+                            : '✍️ Manual'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-[11px] text-slate-500">
+                        {lead.last_interaction
+                          ? new Date(lead.last_interaction).toLocaleDateString('pt-BR')
+                          : '—'}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLead(lead)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Remover contato das listas de disparo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION 4: CAMPAIGN HISTORY */}
+      {activeSection === 'history' && (
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Histórico de Campanhas Realizadas</h3>
+              <p className="text-xs text-slate-500">Acompanhe os disparos anteriores e relatórios de entrega</p>
+            </div>
+            <button
+              type="button"
+              onClick={loadData}
+              className="p-2 text-slate-400 hover:text-slate-700 rounded-xl transition-colors"
+              title="Atualizar histórico"
+            >
+              <RefreshCw size={15} />
+            </button>
+          </div>
+
+          {loadingCampaigns ? (
+            <div className="py-12 text-center text-xs text-slate-400">Carregando histórico de campanhas...</div>
+          ) : campaignsList.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+              Nenhuma campanha criada nesta farmácia ainda. Preencha a aba "Montar Campanha" e faça seu primeiro disparo!
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Campanha</th>
+                    <th className="p-3">Foto</th>
+                    <th className="p-3">Total Leads</th>
+                    <th className="p-3">Enviados</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Data</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {campaignsList.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3 font-semibold text-slate-800">
+                        <div>
+                          <span>{c.title}</span>
+                          <p className="text-[10px] text-slate-400 font-normal line-clamp-1 max-w-xs">{c.message}</p>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        {c.image_url ? (
+                          <img
+                            src={c.image_url}
+                            alt="Thumb"
+                            className="w-10 h-10 object-cover rounded-lg border border-slate-200"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Sem foto</span>
+                        )}
+                      </td>
+                      <td className="p-3 font-bold text-slate-700">{c.total_leads}</td>
+                      <td className="p-3">
+                        <span className="font-bold text-emerald-600">{c.sent_count}</span>
+                        {c.failed_count > 0 && (
+                          <span className="ml-1 text-[10px] text-rose-500">({c.failed_count} falhas)</span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            c.status === 'completed'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : c.status === 'running'
+                              ? 'bg-blue-100 text-blue-800 animate-pulse'
+                              : c.status === 'paused'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {c.status === 'completed'
+                            ? '✅ Concluída'
+                            : c.status === 'running'
+                            ? '⚡ Enviando...'
+                            : c.status === 'paused'
+                            ? '⏸️ Pausada'
+                            : 'Cancelada'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(c.created_at).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL 1: ADICIONAR CONTATO INDIVIDUAL */}
+      {showAddLeadModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100 animate-fade-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <UserPlus size={16} />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Adicionar Contato de WhatsApp</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddLeadModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSingleLead} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Nome do Cliente</label>
+                <input
+                  type="text"
+                  value={newLeadName}
+                  onChange={(e) => setNewLeadName(e.target.value)}
+                  placeholder="Ex: Maria Silva (Opcional)"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  WhatsApp (com DDD) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLeadPhone}
+                  onChange={(e) => setNewLeadPhone(e.target.value)}
+                  placeholder="Ex: 11 98888-7777 ou 11988887777"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  O sistema adiciona o código do país (+55) automaticamente se necessário.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddLeadModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLead}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                >
+                  {savingLead ? 'Salvando...' : 'Salvar Contato'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: IMPORTAÇÃO EM MASSA (CSV / WHATSAPP / EXCEL) */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 animate-fade-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <FileSpreadsheet size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Importar Contatos em Massa</h3>
+                  <p className="text-[11px] text-slate-400">Cole números do WhatsApp, Excel ou Bloco de Notas</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkImport} className="space-y-3.5">
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl text-[11px] text-emerald-900 space-y-1">
+                <p className="font-bold flex items-center gap-1">
+                  <Sparkles size={13} className="text-emerald-600" />
+                  Formatos Aceitos Automaticamente:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+                  <li>Apenas números de telefone (um por linha): <span className="font-mono">11988887777</span></li>
+                  <li>Nome e Telefone: <span className="font-mono">Maria Silva, 11988887777</span></li>
+                  <li>Telefone e Nome: <span className="font-mono">11988887777; João Santos</span></li>
+                </ul>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">Cole sua lista abaixo *</label>
+                  <span className="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-lg">
+                    {countDetectedPhonesInBulk()} contatos detectados
+                  </span>
+                </div>
+                <textarea
+                  rows={8}
+                  required
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={`11988887777\n11977776666\nMaria Silva, 11999998888\nJoão Ferreira; 21988881234`}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-emerald-500 leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={importingBulk || countDetectedPhonesInBulk() === 0}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                >
+                  {importingBulk
+                    ? 'Importando...'
+                    : `Importar ${countDetectedPhonesInBulk()} Contatos`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

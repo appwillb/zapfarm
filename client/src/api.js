@@ -184,6 +184,22 @@ export const api = {
   // Marketing Campaigns & Broadcasts
   getCampaigns: (tenantId) => fetch(`${API_BASE}/campaigns?tenant_id=${tenantId}`).then((r) => r.json()),
   getCampaignLeads: (tenantId) => fetch(`${API_BASE}/campaigns/leads?tenant_id=${tenantId}`).then((r) => r.json()),
+  addCampaignLead: (data) =>
+    fetch(`${API_BASE}/campaigns/leads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  importCampaignLeads: (data) =>
+    fetch(`${API_BASE}/campaigns/leads/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  deleteCampaignLead: (tenantId, phone) =>
+    fetch(`${API_BASE}/campaigns/leads/${phone}?tenant_id=${tenantId}`, {
+      method: 'DELETE',
+    }).then((r) => r.json()),
   createCampaign: (data) =>
     fetch(`${API_BASE}/campaigns`, {
       method: 'POST',

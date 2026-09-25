@@ -212,6 +212,17 @@ function initDb() {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS marketing_leads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      phone TEXT NOT NULL,
+      name TEXT DEFAULT 'Cliente',
+      source TEXT DEFAULT 'manual',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tenant_id, phone),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_products_search ON products(tenant_id, name, active_ingredient, barcode);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(tenant_id, status);
     CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(tenant_id, customer_phone);
@@ -219,6 +230,7 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS idx_campaigns_tenant ON marketing_campaigns(tenant_id, status);
     CREATE INDEX IF NOT EXISTS idx_campaign_logs_camp ON campaign_logs(campaign_id, status);
     CREATE INDEX IF NOT EXISTS idx_opt_out_phone ON opt_out_leads(tenant_id, phone);
+    CREATE INDEX IF NOT EXISTS idx_marketing_leads_phone ON marketing_leads(tenant_id, phone);
   `);
 
   // Safe schema migrations for existing production databases
@@ -264,6 +276,17 @@ function initDb() {
         tenant_id INTEGER NOT NULL,
         phone TEXT NOT NULL,
         reason TEXT DEFAULT 'PARAR',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(tenant_id, phone),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS marketing_leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        name TEXT DEFAULT 'Cliente',
+        source TEXT DEFAULT 'manual',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(tenant_id, phone),
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE

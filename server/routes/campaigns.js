@@ -130,6 +130,16 @@ router.get('/', (req, res) => {
   res.json(campaigns);
 });
 
+// Helper to clean Brazilian phone numbers
+function sanitizePhone(rawPhone) {
+  if (!rawPhone) return '';
+  let clean = String(rawPhone).replace(/\D/g, '');
+  if (clean.length === 10 || clean.length === 11) {
+    clean = '55' + clean;
+  }
+  return clean;
+}
+
 // GET /api/campaigns/leads - Get available qualified leads for broadcast
 router.get('/leads', (req, res) => {
   const { tenant_id } = req.query;
@@ -141,7 +151,19 @@ router.get('/leads', (req, res) => {
   const optOutRows = db.prepare('SELECT phone FROM opt_out_leads WHERE tenant_id = ?').all(tId);
   const optOutSet = new Set(optOutRows.map((r) => r.phone.replace(/\D/g, '')));
 
-  // 2. Fetch unique leads from conversations and orders
+  // 2. Fetch manual leads
+  const manualLeads = db
+    .prepare(
+      `
+    SELECT phone, name, created_at as last_message_at, source
+    FROM marketing_leads
+    WHERE tenant_id = ?
+    ORDER BY id DESC
+  `
+    )
+    .all(tId);
+
+  // 3. Fetch unique leads from conversations and orders
   const conversations = db
     .prepare(
       `
@@ -166,7 +188,7 @@ router.get('/leads', (req, res) => {
 
   const leadMap = new Map();
 
-  for (const item of [...conversations, ...orders]) {
+  for (const item of [...manualLeads, ...conversations, ...orders]) {
     const raw = String(item.phone || '').trim();
     const digits = raw.replace(/\D/g, '');
     if (!digits || digits.length < 8) continue;
@@ -180,7 +202,7 @@ router.get('/leads', (req, res) => {
         clean_phone: digits,
         name: item.name && item.name !== 'Cliente' ? item.name : 'Cliente',
         last_interaction: item.last_message_at,
-        source: item.source,
+        source: item.source || 'chat',
       });
     } else if (item.name && item.name !== 'Cliente' && leadMap.get(digits).name === 'Cliente') {
       leadMap.get(digits).name = item.name;
@@ -194,6 +216,155 @@ router.get('/leads', (req, res) => {
     total_opt_out: optOutSet.size,
     leads,
   });
+});
+
+// POST /api/campaigns/leads - Add single lead manually
+router.post('/leads', (req, res) => {
+  const { tenant_id, phone, name } = req.body;
+  if (!tenant_id || !phone) {
+    return res.status(400).json({ error: 'tenant_id e phone são obrigatórios.' });
+  }
+
+  const cleanPhone = sanitizePhone(phone);
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return res.status(400).json({ error: 'Número de WhatsApp inválido. Digite DDD + número (ex: 11988887777).' });
+  }
+
+  const leadName = (name || 'Cliente').trim();
+  const tId = Number(tenant_id);
+
+  try {
+    db.prepare(`
+      INSERT INTO marketing_leads (tenant_id, phone, name, source)
+      VALUES (?, ?, ?, 'manual')
+      ON CONFLICT(tenant_id, phone) DO UPDATE SET name = excluded.name
+    `).run(tId, cleanPhone, leadName);
+
+    // Also register in conversations so it is readily visible in chat if needed
+    try {
+      db.prepare(`
+        INSERT INTO conversations (tenant_id, customer_phone, customer_name, state)
+        VALUES (?, ?, ?, 'idle')
+        ON CONFLICT(tenant_id, customer_phone) DO UPDATE SET customer_name = excluded.customer_name
+      `).run(tId, cleanPhone, leadName);
+    } catch (_) {}
+
+    res.status(201).json({
+      success: true,
+      lead: { phone: cleanPhone, name: leadName, source: 'manual' },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/campaigns/leads/bulk - Import multiple leads (CSV / pasted list)
+router.post('/leads/bulk', (req, res) => {
+  const { tenant_id, raw_text, contacts } = req.body;
+  if (!tenant_id) return res.status(400).json({ error: 'tenant_id é obrigatório.' });
+
+  const tId = Number(tenant_id);
+  const leadsToInsert = [];
+
+  if (Array.isArray(contacts) && contacts.length > 0) {
+    for (const c of contacts) {
+      const clean = sanitizePhone(c.phone);
+      if (clean && clean.length >= 10) {
+        leadsToInsert.push({ phone: clean, name: (c.name || 'Cliente').trim() });
+      }
+    }
+  } else if (typeof raw_text === 'string' && raw_text.trim()) {
+    // Parse lines: each line can be "Phone, Name" or "Name; Phone" or just "Phone"
+    const lines = raw_text.split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      // Check if comma or semicolon separated
+      const parts = trimmed.split(/[,;\t]/).map((p) => p.trim());
+      let pPhone = '';
+      let pName = 'Cliente';
+
+      if (parts.length >= 2) {
+        const p1Digits = parts[0].replace(/\D/g, '');
+        const p2Digits = parts[1].replace(/\D/g, '');
+
+        if (p1Digits.length >= 10) {
+          pPhone = p1Digits;
+          pName = parts[1] || 'Cliente';
+        } else if (p2Digits.length >= 10) {
+          pPhone = p2Digits;
+          pName = parts[0] || 'Cliente';
+        }
+      } else {
+        pPhone = trimmed.replace(/\D/g, '');
+      }
+
+      const clean = sanitizePhone(pPhone);
+      if (clean && clean.length >= 10) {
+        leadsToInsert.push({ phone: clean, name: pName });
+      }
+    }
+  }
+
+  if (leadsToInsert.length === 0) {
+    return res.status(400).json({ error: 'Nenhum contato com número de telefone válido encontrado.' });
+  }
+
+  const insertStmt = db.prepare(`
+    INSERT INTO marketing_leads (tenant_id, phone, name, source)
+    VALUES (?, ?, ?, 'import')
+    ON CONFLICT(tenant_id, phone) DO UPDATE SET name = excluded.name
+  `);
+
+  const insertMany = db.transaction((list) => {
+    let count = 0;
+    for (const item of list) {
+      insertStmt.run(tId, item.phone, item.name);
+      count++;
+    }
+    return count;
+  });
+
+  const inserted = insertMany(leadsToInsert);
+
+  res.json({
+    success: true,
+    total_imported: inserted,
+    message: `${inserted} contatos importados com sucesso!`,
+  });
+});
+
+// DELETE /api/campaigns/leads/:phone - Remove lead from broadcast list
+router.delete('/leads/:phone', (req, res) => {
+  const { tenant_id } = req.query;
+  const rawPhone = req.params.phone;
+
+  if (!tenant_id || !rawPhone) {
+    return res.status(400).json({ error: 'tenant_id e phone são obrigatórios.' });
+  }
+
+  const tId = Number(tenant_id);
+  const cleanPhone = sanitizePhone(rawPhone);
+
+  try {
+    // Delete from marketing_leads
+    db.prepare('DELETE FROM marketing_leads WHERE tenant_id = ? AND (phone = ? OR phone = ?)').run(
+      tId,
+      rawPhone,
+      cleanPhone
+    );
+
+    // Also register in opt_out_leads to prevent pulling from old chats/orders
+    db.prepare(`
+      INSERT OR REPLACE INTO opt_out_leads (tenant_id, phone, reason)
+      VALUES (?, ?, 'Removido pelo usuário')
+    `).run(tId, cleanPhone);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/campaigns/test - Send immediate test broadcast to single phone number
