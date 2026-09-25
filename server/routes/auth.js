@@ -57,18 +57,21 @@ router.get('/me', authenticateToken, (req, res) => {
   res.json({ user, tenant });
 });
 
-// GET /api/auth/users - list all users (for SaaS admin)
+// GET /api/auth/users - list all users (for SaaS admin or filtered by tenant_id)
 router.get('/users', (req, res) => {
-  const users = db
-    .prepare(
-      `
+  const { tenant_id } = req.query;
+  let query = `
     SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.active, u.created_at, t.name as tenant_name
     FROM users u
     LEFT JOIN tenants t ON t.id = u.tenant_id
-    ORDER BY u.id ASC
-  `
-    )
-    .all();
+  `;
+  const params = [];
+  if (tenant_id) {
+    query += ` WHERE u.tenant_id = ? `;
+    params.push(Number(tenant_id));
+  }
+  query += ` ORDER BY u.id ASC `;
+  const users = db.prepare(query).all(...params);
   res.json(users);
 });
 

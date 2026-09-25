@@ -18,6 +18,14 @@ import {
   VolumeX,
   Bell,
   Play,
+  Users,
+  UserPlus,
+  Key,
+  Shield,
+  Mail,
+  Edit2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -29,7 +37,7 @@ import {
   requestNotificationPermission,
 } from '../services/soundAlerts';
 
-export default function SettingsTab({ tenant, onTenantUpdated }) {
+export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, onTenantUpdated }) {
   const [formData, setFormData] = useState({
     name: tenant?.name || '',
     cnpj: tenant?.cnpj || '',
@@ -56,6 +64,112 @@ export default function SettingsTab({ tenant, onTenantUpdated }) {
   const [notifGranted, setNotifGranted] = useState(
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
   );
+
+  // Equipe & Acessos da Farmácia (Usuários)
+  const [teamUsers, setTeamUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userModal, setUserModal] = useState({ open: false, user: null, isNew: false });
+  const [userFormData, setUserFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'attendant',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [savingUser, setSavingUser] = useState(false);
+  const [userSuccessMsg, setUserSuccessMsg] = useState('');
+  const [copiedUserEmail, setCopiedUserEmail] = useState(null);
+
+  const loadTeamUsers = async () => {
+    if (!tenant?.id) return;
+    setLoadingUsers(true);
+    try {
+      const data = await api.getUsers(tenant.id);
+      setTeamUsers(data || []);
+    } catch (err) {
+      console.error('Erro ao carregar equipe da farmácia:', err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTeamUsers();
+  }, [tenant?.id]);
+
+  const handleOpenEditUser = (user) => {
+    setUserModal({ open: true, user, isNew: false });
+    setUserFormData({
+      name: user.name,
+      email: user.email,
+      password: '',
+      role: user.role,
+    });
+    setShowPassword(false);
+  };
+
+  const handleOpenNewUser = () => {
+    setUserModal({ open: true, user: null, isNew: true });
+    setUserFormData({
+      name: '',
+      email: '',
+      password: '',
+      role: 'attendant',
+    });
+    setShowPassword(false);
+  };
+
+  const handleSaveTeamUser = async (e) => {
+    e.preventDefault();
+    setSavingUser(true);
+    try {
+      if (userModal.isNew) {
+        const res = await api.createUser({
+          ...userFormData,
+          tenant_id: tenant.id,
+        });
+        if (res.error) throw new Error(res.error);
+      } else {
+        const payload = {
+          name: userFormData.name,
+          email: userFormData.email,
+          role: userFormData.role,
+          tenant_id: tenant.id,
+        };
+        if (userFormData.password?.trim()) payload.password = userFormData.password.trim();
+        const res = await api.updateUser(userModal.user.id, payload);
+        if (res.error) throw new Error(res.error);
+        if (currentUser?.id === userModal.user.id && onUpdateCurrentUser && res.user) {
+          onUpdateCurrentUser(res.user);
+        }
+      }
+      setUserModal({ open: false, user: null, isNew: false });
+      await loadTeamUsers();
+      setUserSuccessMsg('Equipe atualizada com sucesso!');
+      setTimeout(() => setUserSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Erro ao salvar usuário: ' + err.message);
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleDeleteTeamUser = async (userId) => {
+    if (!confirm('Deseja realmente remover o acesso deste membro da equipe?')) return;
+    try {
+      const res = await api.deleteUser(userId);
+      if (res.error) throw new Error(res.error);
+      await loadTeamUsers();
+    } catch (err) {
+      alert('Erro ao excluir membro: ' + err.message);
+    }
+  };
+
+  const handleCopyEmail = (email, id) => {
+    navigator.clipboard.writeText(email);
+    setCopiedUserEmail(id);
+    setTimeout(() => setCopiedUserEmail(null), 2000);
+  };
 
   const handleUpdateAudioConfig = (patch) => {
     const updated = saveAudioConfig(patch);
@@ -275,9 +389,19 @@ export default function SettingsTab({ tenant, onTenantUpdated }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">WhatsApp de Contato</label>
+              <label className="font-bold text-slate-700 block mb-1">E-mail Comercial / Contato</label>
+              <input
+                type="email"
+                placeholder="contato@farmacia.com.br"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono text-[11px]"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">WhatsApp de Atendimento</label>
               <input
                 type="text"
                 value={formData.phone}
@@ -647,6 +771,266 @@ export default function SettingsTab({ tenant, onTenantUpdated }) {
           </button>
         </div>
       </form>
+
+      {/* CARD 2: Equipe & Acessos da Farmácia (Usuários, Farmacêuticos e Atendentes) */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Users size={16} />
+              </div>
+              <h2 className="text-base font-bold text-slate-800">
+                Equipe & Acessos da Farmácia
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Gerencie quem pode acessar o painel desta farmácia e altere e-mails e senhas de login da sua equipe.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {userSuccessMsg && (
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1 animate-fade-in">
+                <CheckCircle size={13} /> {userSuccessMsg}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleOpenNewUser}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+            >
+              <UserPlus size={14} />
+              Novo Membro da Equipe
+            </button>
+          </div>
+        </div>
+
+        {/* Lista da Equipe */}
+        {loadingUsers ? (
+          <div className="py-8 text-center text-xs text-slate-400">
+            Carregando membros da equipe...
+          </div>
+        ) : teamUsers.length === 0 ? (
+          <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+            Nenhum membro cadastrado nesta farmácia ainda. Clique em "Novo Membro da Equipe" acima para adicionar atendentes ou farmacêuticos.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="p-3">Nome / Usuário</th>
+                  <th className="p-3">E-mail de Login</th>
+                  <th className="p-3">Cargo / Função</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {teamUsers.map((u) => {
+                  const isCurrent = currentUser?.id === u.id;
+                  return (
+                    <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3 font-semibold text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] border border-slate-200">
+                            {u.name ? u.name.substring(0, 2).toUpperCase() : 'US'}
+                          </div>
+                          <div>
+                            <span>{u.name}</span>
+                            {isCurrent && (
+                              <span className="ml-1.5 text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md">
+                                Você
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg w-fit">
+                          <Mail size={12} className="text-slate-400" />
+                          <span>{u.email}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyEmail(u.email, u.id)}
+                            className="text-slate-400 hover:text-slate-600 ml-1"
+                            title="Copiar e-mail"
+                          >
+                            {copiedUserEmail === u.id ? (
+                              <Check size={12} className="text-emerald-600" />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            u.role === 'superadmin'
+                              ? 'bg-purple-100 text-purple-700'
+                              : u.role === 'pharmacist'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}
+                        >
+                          <Shield size={10} />
+                          {u.role === 'superadmin'
+                            ? 'Super Admin'
+                            : u.role === 'pharmacist'
+                            ? 'Farmacêutica'
+                            : 'Atendente'}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Ativo
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditUser(u)}
+                            className="px-2.5 py-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                            title="Alterar e-mail e senha"
+                          >
+                            <Key size={12} />
+                            Alterar E-mail / Senha
+                          </button>
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTeamUser(u.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Remover acesso"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Editar/Criar Usuário da Farmácia */}
+      {userModal.open && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Key size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800">
+                    {userModal.isNew ? 'Novo Membro da Equipe' : 'Alterar E-mail & Senha do Usuário'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {userModal.isNew
+                      ? 'Defina o login e senha de acesso para o novo atendente ou farmacêutico'
+                      : `Editando credenciais de ${userModal.user?.name}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveTeamUser} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nome Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={userFormData.name}
+                  onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
+                  placeholder="Ex: Carlos Silva"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  E-mail de Login no Painel *
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={userFormData.email}
+                    onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                    placeholder="carlos@farmacia.com.br"
+                    className="w-full p-2.5 pl-9 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
+                  />
+                  <Mail size={15} className="absolute left-3 top-3 text-slate-400 pointer-events-none" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Este é o e-mail que o atendente utilizará para fazer login no sistema.
+                </p>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {userModal.isNew ? 'Senha Provisória *' : 'Nova Senha (opcional)'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required={userModal.isNew}
+                    placeholder={userModal.isNew ? 'Mínimo 6 caracteres' : 'Deixe em branco para manter a senha atual'}
+                    value={userFormData.password}
+                    onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                    className="w-full p-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Função / Cargo</label>
+                <select
+                  value={userFormData.role}
+                  onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-xs"
+                >
+                  <option value="attendant">Atendente de Balcão</option>
+                  <option value="pharmacist">Farmacêutica / Gerente</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setUserModal({ open: false, user: null, isNew: false })}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingUser}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs disabled:opacity-50"
+                >
+                  {savingUser ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

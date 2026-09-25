@@ -160,7 +160,10 @@ export const api = {
     }).then((r) => r.json()),
 
   // Users (Admin panel & Email/Password management)
-  getUsers: () => fetch(`${API_BASE}/auth/users`).then((r) => r.json()),
+  getUsers: (tenantId) => {
+    const url = tenantId ? `${API_BASE}/auth/users?tenant_id=${tenantId}` : `${API_BASE}/auth/users`;
+    return fetch(url).then((r) => r.json());
+  },
   createUser: (data) =>
     fetch(`${API_BASE}/auth/users`, {
       method: 'POST',

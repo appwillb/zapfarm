@@ -141,6 +141,14 @@ export default function App() {
     setCurrentTab('dashboard');
   };
 
+  const handleUpdateCurrentUser = (updatedUser) => {
+    setCurrentUser((prev) => {
+      const merged = { ...prev, ...updatedUser };
+      localStorage.setItem('zapfarm_user', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   // 1. Initial Load: Tenants
   const loadTenants = async () => {
     try {
@@ -316,6 +324,7 @@ export default function App() {
           onOpenSimulator={() => setSimulatorOpen(true)}
           onOpenChat={() => setCurrentTab('chat')}
           currentUser={currentUser}
+          onUpdateCurrentUser={handleUpdateCurrentUser}
           onLogout={handleLogout}
         />
 
@@ -400,6 +409,8 @@ export default function App() {
           {currentTab === 'settings' && (
             <SettingsTab
               tenant={selectedTenant}
+              currentUser={currentUser}
+              onUpdateCurrentUser={handleUpdateCurrentUser}
               onTenantUpdated={() => {
                 loadTenants();
                 loadTenantData();
