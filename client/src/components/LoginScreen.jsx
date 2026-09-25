@@ -38,7 +38,12 @@ export default function LoginScreen({ onLoginSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error(`Falha na resposta do servidor (${res.status}). Recarregue a página ou verifique o domínio.`);
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Credenciais inválidas');
