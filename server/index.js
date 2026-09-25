@@ -18,6 +18,7 @@ const whatsappRoutes = require('./routes/whatsapp');
 const chatRoutes = require('./routes/chat');
 const dashboardRoutes = require('./routes/dashboard');
 const simulationRoutes = require('./routes/simulation');
+const campaignsRoutes = require('./routes/campaigns');
 
 const app = express();
 const server = http.createServer(app);
@@ -71,6 +72,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/simulation', simulationRoutes);
+app.use('/api/campaigns', campaignsRoutes);
 
 // Serve static frontend in production (Coolify / Docker / Built assets)
 const clientDistPath = path.join(__dirname, '../client/dist');

@@ -173,10 +173,52 @@ function initDb() {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      image_url TEXT,
+      target_audience TEXT DEFAULT 'all',
+      delay_seconds INTEGER DEFAULT 25,
+      total_leads INTEGER DEFAULT 0,
+      sent_count INTEGER DEFAULT 0,
+      failed_count INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'draft',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      campaign_id INTEGER NOT NULL,
+      tenant_id INTEGER NOT NULL,
+      phone TEXT NOT NULL,
+      customer_name TEXT,
+      status TEXT DEFAULT 'pending',
+      error_message TEXT,
+      sent_at DATETIME,
+      FOREIGN KEY (campaign_id) REFERENCES marketing_campaigns(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS opt_out_leads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      phone TEXT NOT NULL,
+      reason TEXT DEFAULT 'PARAR',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tenant_id, phone),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_products_search ON products(tenant_id, name, active_ingredient, barcode);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(tenant_id, status);
     CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(tenant_id, customer_phone);
     CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(tenant_id, customer_phone);
+    CREATE INDEX IF NOT EXISTS idx_campaigns_tenant ON marketing_campaigns(tenant_id, status);
+    CREATE INDEX IF NOT EXISTS idx_campaign_logs_camp ON campaign_logs(campaign_id, status);
+    CREATE INDEX IF NOT EXISTS idx_opt_out_phone ON opt_out_leads(tenant_id, phone);
   `);
 
   // Safe schema migrations for existing production databases
@@ -184,6 +226,51 @@ function initDb() {
     db.exec(`ALTER TABLE tenants ADD COLUMN logo_url TEXT`);
   } catch (e) {
     // Column already exists
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS marketing_campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        image_url TEXT,
+        target_audience TEXT DEFAULT 'all',
+        delay_seconds INTEGER DEFAULT 25,
+        total_leads INTEGER DEFAULT 0,
+        sent_count INTEGER DEFAULT 0,
+        failed_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'draft',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS campaign_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campaign_id INTEGER NOT NULL,
+        tenant_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        customer_name TEXT,
+        status TEXT DEFAULT 'pending',
+        error_message TEXT,
+        sent_at DATETIME,
+        FOREIGN KEY (campaign_id) REFERENCES marketing_campaigns(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS opt_out_leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        reason TEXT DEFAULT 'PARAR',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(tenant_id, phone),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+    `);
+  } catch (e) {
+    // Tables already exist
   }
 
   seedData();

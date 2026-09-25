@@ -180,4 +180,27 @@ export const api = {
     fetch(`${API_BASE}/auth/users/${id}`, {
       method: 'DELETE',
     }).then((r) => r.json()),
+
+  // Marketing Campaigns & Broadcasts
+  getCampaigns: (tenantId) => fetch(`${API_BASE}/campaigns?tenant_id=${tenantId}`).then((r) => r.json()),
+  getCampaignLeads: (tenantId) => fetch(`${API_BASE}/campaigns/leads?tenant_id=${tenantId}`).then((r) => r.json()),
+  createCampaign: (data) =>
+    fetch(`${API_BASE}/campaigns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  testCampaignMessage: (data) =>
+    fetch(`${API_BASE}/campaigns/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  getCampaignDetails: (id) => fetch(`${API_BASE}/campaigns/${id}`).then((r) => r.json()),
+  pauseCampaign: (id) =>
+    fetch(`${API_BASE}/campaigns/${id}/pause`, { method: 'POST' }).then((r) => r.json()),
+  resumeCampaign: (id) =>
+    fetch(`${API_BASE}/campaigns/${id}/resume`, { method: 'POST' }).then((r) => r.json()),
+  cancelCampaign: (id) =>
+    fetch(`${API_BASE}/campaigns/${id}/cancel`, { method: 'POST' }).then((r) => r.json()),
 };

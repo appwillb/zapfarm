@@ -13,6 +13,7 @@ import {
   ChevronDown,
   X,
   ShieldCheck,
+  Megaphone,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -37,6 +38,7 @@ export default function Sidebar({
     { id: 'drivers', label: 'Entregadores', icon: Bike },
     { id: 'whatsapp', label: 'Conexão WhatsApp', icon: QrCode, highlight: true },
     { id: 'chat', label: 'Atendimento & Chat', icon: MessageSquare },
+    { id: 'campaigns', label: 'Disparos & Ofertas', icon: Megaphone, badge: 'Anti-Ban' },
     { id: 'settings', label: 'Configurações', icon: Settings },
     { id: 'saas_admin', label: 'Painel Dono SaaS', icon: Building2, adminOnly: true },
   ];

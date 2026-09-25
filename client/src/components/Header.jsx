@@ -82,6 +82,8 @@ export default function Header({
         return 'Conexão WhatsApp (Baileys QR Code)';
       case 'chat':
         return 'Atendimento Humanizado & Histórico';
+      case 'campaigns':
+        return 'Disparos de Ofertas & Promoções';
       case 'settings':
         return 'Configurações da Farmácia & Pix';
       case 'saas_admin':

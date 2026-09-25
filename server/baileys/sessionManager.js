@@ -246,7 +246,7 @@ class SessionManager {
     }
   }
 
-  async sendMessage(tenantId, phone, text) {
+  async sendMessage(tenantId, phone, text, media = null) {
     const tId = Number(tenantId);
     const session = this.sessions.get(tId);
 
@@ -255,11 +255,12 @@ class SessionManager {
       customerPhone: phone,
       fromMe: true,
       text,
+      hasMedia: Boolean(media),
       timestamp: new Date().toISOString(),
     });
 
     if (!session || session.status !== 'connected' || !session.socket) {
-      console.log(`[Tenant ${tId}] WhatsApp não está conectado. Mensagem registrada localmente para ${phone}: ${text.substring(0, 50)}...`);
+      console.log(`[Tenant ${tId}] WhatsApp não está conectado. Mensagem registrada localmente para ${phone}: ${text?.substring(0, 50)}...`);
       return false;
     }
 
@@ -282,8 +283,35 @@ class SessionManager {
         jid = `${clean}@s.whatsapp.net`;
       }
 
-      console.log(`[Tenant ${tId}] 📤 Enviando WhatsApp via Baileys para JID: ${jid}`);
-      const sendResult = await session.socket.sendMessage(jid, { text });
+      console.log(`[Tenant ${tId}] 📤 Enviando WhatsApp via Baileys para JID: ${jid}${media ? ' (com imagem)' : ''}`);
+
+      let messagePayload = { text: text || '' };
+
+      if (media) {
+        if (typeof media === 'string') {
+          if (media.startsWith('data:image/')) {
+            // Extract base64 buffer from data URL
+            const base64Data = media.split(',')[1];
+            const imageBuffer = Buffer.from(base64Data, 'base64');
+            messagePayload = {
+              image: imageBuffer,
+              caption: text || '',
+            };
+          } else if (media.startsWith('http://') || media.startsWith('https://')) {
+            messagePayload = {
+              image: { url: media },
+              caption: text || '',
+            };
+          }
+        } else if (Buffer.isBuffer(media)) {
+          messagePayload = {
+            image: media,
+            caption: text || '',
+          };
+        }
+      }
+
+      const sendResult = await session.socket.sendMessage(jid, messagePayload);
       console.log(`[Tenant ${tId}] ✅ Mensagem enviada com sucesso para ${jid}! (ID: ${sendResult?.key?.id})`);
       return true;
     } catch (err) {

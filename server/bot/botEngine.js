@@ -232,6 +232,33 @@ class BotEngine {
       return;
     }
 
+    // Command to opt-out from promotional campaigns (Anti-ban safety!)
+    if (
+      lowerText === 'parar' ||
+      lowerText === 'sair' ||
+      lowerText === 'descadastrar' ||
+      lowerText === 'cancelar promo' ||
+      lowerText === 'cancelar ofertas' ||
+      lowerText === 'nao quero mais' ||
+      lowerText === 'não quero mais'
+    ) {
+      try {
+        db.prepare(`
+          INSERT OR REPLACE INTO opt_out_leads (tenant_id, phone, reason)
+          VALUES (?, ?, 'PARAR')
+        `).run(tenantId, customerPhone);
+      } catch (err) {
+        console.error('Erro ao registrar opt-out:', err);
+      }
+
+      await this.sendReply(
+        tenantId,
+        customerPhone,
+        `✅ *Descadastro Realizado com Sucesso!*\n\nVocê não receberá mais notificações ou promoções da *${tenant.name}*.\n\nSempre que precisar de remédios ou quiser falar conosco, basta enviar qualquer mensagem normal aqui!`
+      );
+      return;
+    }
+
     // Reset command
     if (lowerText === 'inicio' || lowerText === 'início' || lowerText === 'menu' || lowerText === 'cancelar') {
       this.updateConversation(tenantId, customerPhone, 'idle', {});

@@ -10,6 +10,7 @@ import WhatsAppTab from './components/WhatsAppTab';
 import ChatTab from './components/ChatTab';
 import SaasAdminTab from './components/SaasAdminTab';
 import SettingsTab from './components/SettingsTab';
+import CampaignsTab from './components/CampaignsTab';
 import ProductModal from './components/ProductModal';
 import DriverModal from './components/DriverModal';
 import CsvImportModal from './components/CsvImportModal';
@@ -397,6 +398,14 @@ export default function App() {
               tenantId={selectedTenant?.id || 1}
               initialPhone={selectedChatPhone}
               onPhoneSelected={setSelectedChatPhone}
+              whatsappStatus={whatsappStatus}
+              onNavigateTab={(tab) => setCurrentTab(tab)}
+            />
+          )}
+
+          {currentTab === 'campaigns' && (
+            <CampaignsTab
+              tenant={selectedTenant}
               whatsappStatus={whatsappStatus}
               onNavigateTab={(tab) => setCurrentTab(tab)}
             />
