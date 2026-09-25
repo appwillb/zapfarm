@@ -153,9 +153,17 @@ class SessionManager {
         for (const msg of m.messages) {
           if (!msg.message || msg.key.fromMe) continue;
 
-          // Only process private chats (not group chats or status broadcast)
+          // Only process private 1-on-1 customer chats (never groups, status, broadcasts, newsletters or bot)
           const remoteJid = msg.key.remoteJid;
-          if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') continue;
+          if (
+            !remoteJid ||
+            remoteJid.endsWith('@g.us') ||
+            remoteJid.includes('broadcast') ||
+            remoteJid.endsWith('@newsletter') ||
+            remoteJid.endsWith('@bot')
+          ) {
+            continue;
+          }
 
           // Preserve exact remoteJid to ensure replies are routed correctly (whether @lid or @s.whatsapp.net)
           const customerPhone = remoteJid;

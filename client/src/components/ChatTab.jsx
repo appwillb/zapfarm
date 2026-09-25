@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api';
 
 function formatPhone(phone) {
@@ -83,6 +83,21 @@ export default function ChatTab({ tenantId }) {
       await loadConversations();
     } catch (err) {
       alert('Erro: ' + err.message);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedPhone) return;
+    if (!confirm('Deseja excluir esta conversa do painel?')) return;
+    try {
+      await fetch(`/api/chat/${tenantId}/conversations/${encodeURIComponent(selectedPhone)}`, {
+        method: 'DELETE',
+      });
+      setSelectedPhone(null);
+      setActiveChat({ conversation: null, messages: [] });
+      await loadConversations();
+    } catch (err) {
+      alert('Erro ao excluir conversa: ' + err.message);
     }
   };
 
@@ -171,27 +186,38 @@ export default function ChatTab({ tenantId }) {
                 </div>
               </div>
 
-              {/* Toggle Human Handover */}
-              <button
-                onClick={handleToggleHuman}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  isHuman
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                    : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
-                }`}
-              >
-                {isHuman ? (
-                  <>
-                    <Bot size={14} className="text-amber-700" />
-                    <span>Bot Pausado (Clique p/ Reativar)</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck size={14} className="text-indigo-600" />
-                    <span>Assumir Atendimento Humano</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteConversation}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200"
+                  title="Excluir esta conversa"
+                >
+                  <Trash2 size={16} />
+                </button>
+
+                {/* Toggle Human Handover */}
+                <button
+                  onClick={handleToggleHuman}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                    isHuman
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                      : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                  }`}
+                >
+                  {isHuman ? (
+                    <>
+                      <Bot size={14} className="text-amber-700" />
+                      <span>Bot Pausado (Clique p/ Reativar)</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck size={14} className="text-indigo-600" />
+                      <span>Assumir Atendimento Humano</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Messages Area */}

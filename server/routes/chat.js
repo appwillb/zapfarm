@@ -15,7 +15,10 @@ router.get('/:tenantId/conversations', (req, res) => {
       (SELECT text FROM messages m WHERE m.tenant_id = c.tenant_id AND m.customer_phone = c.customer_phone ORDER BY m.id DESC LIMIT 1) as last_message,
       (SELECT timestamp FROM messages m WHERE m.tenant_id = c.tenant_id AND m.customer_phone = c.customer_phone ORDER BY m.id DESC LIMIT 1) as last_message_time
     FROM conversations c
-    WHERE c.tenant_id = ?
+    WHERE c.tenant_id = ? 
+      AND c.customer_phone NOT LIKE '%broadcast%'
+      AND c.customer_phone NOT LIKE '%newsletter%'
+      AND c.customer_phone NOT LIKE '%@g.us%'
     ORDER BY c.last_message_at DESC
   `
     )
@@ -89,6 +92,16 @@ router.post('/:tenantId/toggle-human', (req, res) => {
   `).run(isHuman ? 1 : 0, tenantId, customerPhone);
 
   res.json({ success: true, is_human_agent: isHuman ? 1 : 0 });
+});
+
+// DELETE /api/chat/:tenantId/conversations/:customerPhone - Delete conversation & messages
+router.delete('/:tenantId/conversations/:customerPhone', (req, res) => {
+  const { tenantId, customerPhone } = req.params;
+
+  db.prepare('DELETE FROM messages WHERE tenant_id = ? AND customer_phone = ?').run(tenantId, customerPhone);
+  db.prepare('DELETE FROM conversations WHERE tenant_id = ? AND customer_phone = ?').run(tenantId, customerPhone);
+
+  res.json({ success: true });
 });
 
 module.exports = router;

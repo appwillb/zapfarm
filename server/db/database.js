@@ -529,7 +529,11 @@ function seedData() {
   `);
   insertAudit.run(tenantId, 'Sistema', 'INICIALIZACAO', 'Banco de dados criado e populado com sucesso.');
 
-  console.log('✅ Banco de dados populado com sucesso!');
+  // Purge any accidental status@broadcast, broadcast, or newsletter records
+  try {
+    db.prepare("DELETE FROM messages WHERE customer_phone LIKE '%broadcast%' OR customer_phone LIKE '%newsletter%' OR customer_phone = 'status@broadcast'").run();
+    db.prepare("DELETE FROM conversations WHERE customer_phone LIKE '%broadcast%' OR customer_phone LIKE '%newsletter%' OR customer_phone = 'status@broadcast'").run();
+  } catch (e) {}
 }
 
 initDb();
