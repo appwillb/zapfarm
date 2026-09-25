@@ -327,6 +327,7 @@ export default function App() {
               onOpenOrder={(order) => setOrderModal({ open: true, order })}
               onConfirmPayment={handleConfirmPayment}
               onReleaseDelivery={(id) => handleReleaseDelivery(id, null)}
+              onRefresh={loadTenantData}
             />
           )}
 
@@ -350,6 +351,7 @@ export default function App() {
               onOpenEditProduct={(product) => setProductModal({ open: true, product })}
               onOpenImportCsv={() => setCsvModalOpen(true)}
               onDeleteProduct={handleDeleteProduct}
+              onRefresh={loadTenantData}
             />
           )}
 
@@ -362,6 +364,7 @@ export default function App() {
               onOpenEditDriver={(driver) => setDriverModal({ open: true, driver })}
               onUpdateDriverStatus={handleUpdateDriverStatus}
               onTestDriverMessage={handleTestDriverMessage}
+              onRefresh={loadTenantData}
               onDeleteDriver={async (id) => {
                 if (confirm('Deseja realmente excluir este entregador?')) {
                   await api.deleteDriver(id);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   Clock,
@@ -9,6 +9,7 @@ import {
   ArrowRight,
   CheckCircle,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function DashboardTab({
@@ -17,7 +18,20 @@ export default function DashboardTab({
   onOpenOrder,
   onConfirmPayment,
   onReleaseDelivery,
+  onRefresh,
 }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
   const metrics = dashboardData?.metrics || {};
   const lowStock = dashboardData?.lowStockProducts || [];
   const recentOrders = dashboardData?.recentOrders || [];
@@ -92,13 +106,27 @@ export default function DashboardTab({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => onNavigateTab('whatsapp')}
-          className="w-full md:w-auto px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-sm"
-        >
-          {whatsapp.status === 'connected' ? 'Ver Status da Conexão' : 'Escanear QR Code'}
-          <ArrowRight size={14} />
-        </button>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="w-full md:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center justify-center gap-1.5 transition-all shadow-xs"
+              title="Atualizar métricas e indicadores do painel"
+            >
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-400' : 'text-slate-300'} />
+              <span>{isRefreshing ? 'Atualizando...' : 'Atualizar Painel'}</span>
+            </button>
+          )}
+          <button
+            onClick={() => onNavigateTab('whatsapp')}
+            className="w-full md:w-auto px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-sm shrink-0"
+          >
+            {whatsapp.status === 'connected' ? 'Ver Status da Conexão' : 'Escanear QR Code'}
+            <ArrowRight size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Metric Cards Grid */}

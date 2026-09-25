@@ -30,6 +30,18 @@ export default function OrdersTab({
   const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const filteredOrders = orders.filter((o) => {
     const term = searchTerm.toLowerCase();
@@ -105,12 +117,13 @@ export default function OrdersTab({
           {onRefresh && (
             <button
               type="button"
-              onClick={onRefresh}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
               title="Atualizar lista de pedidos"
             >
-              <RefreshCw size={13} className="text-slate-500" />
-              <span>Atualizar</span>
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
+              <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
             </button>
           )}
 

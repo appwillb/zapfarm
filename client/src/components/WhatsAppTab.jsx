@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QrCode, RefreshCw, CheckCircle, PowerOff, ShieldCheck, Smartphone, Info } from 'lucide-react';
 
 export default function WhatsAppTab({
@@ -7,6 +7,19 @@ export default function WhatsAppTab({
   onDisconnect,
   onRefresh,
 }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
   const isConnected = whatsappStatus?.status === 'connected';
   const isQrCode = whatsappStatus?.status === 'qrcode';
   const isConnecting = whatsappStatus?.status === 'connecting';
@@ -56,6 +69,19 @@ export default function WhatsAppTab({
           </div>
 
           <div className="flex items-center gap-2">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 flex items-center gap-1.5 transition-colors shadow-xs"
+                title="Atualizar status da conexão WhatsApp"
+              >
+                <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
+                <span>{isRefreshing ? 'Verificando...' : 'Atualizar Status'}</span>
+              </button>
+            )}
+
             {isConnected ? (
               <button
                 onClick={onDisconnect}
@@ -112,11 +138,13 @@ export default function WhatsAppTab({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={onConnect}
+                disabled={isConnecting}
                 className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1.5"
               >
-                <RefreshCw size={13} />
-                Gerar Novo Código
+                <RefreshCw size={13} className={isConnecting ? 'animate-spin' : ''} />
+                {isConnecting ? 'Gerando...' : 'Gerar Novo Código'}
               </button>
             </div>
           ) : (

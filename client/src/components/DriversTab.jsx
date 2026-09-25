@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, Bike, Phone, MessageSquare, Check, X, Send, Trash2, Edit2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Bike, Phone, MessageSquare, Check, X, Send, Trash2, Edit2, RefreshCw } from 'lucide-react';
 
 export default function DriversTab({
   drivers,
@@ -8,7 +8,21 @@ export default function DriversTab({
   onUpdateDriverStatus,
   onTestDriverMessage,
   onDeleteDriver,
+  onRefresh,
 }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -18,13 +32,27 @@ export default function DriversTab({
             Gerencie os motoboys cadastrados. O sistema envia a rota e detalhes de entrega via WhatsApp automaticamente após o pagamento e liberação.
           </p>
         </div>
-        <button
-          onClick={onOpenAddDriver}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-xs shrink-0"
-        >
-          <Plus size={14} />
-          Cadastrar Entregador
-        </button>
+        <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs"
+              title="Atualizar lista de entregadores"
+            >
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
+              <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
+            </button>
+          )}
+          <button
+            onClick={onOpenAddDriver}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-xs shrink-0"
+          >
+            <Plus size={14} />
+            Cadastrar Entregador
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

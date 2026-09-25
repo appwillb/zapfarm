@@ -94,14 +94,61 @@ router.post('/:tenantId/toggle-human', (req, res) => {
   res.json({ success: true, is_human_agent: isHuman ? 1 : 0 });
 });
 
+function deleteChatConversation(tenantId, rawPhone) {
+  let customerPhone = rawPhone || '';
+  try {
+    customerPhone = decodeURIComponent(customerPhone);
+  } catch (e) {}
+
+  const cleanPhone = customerPhone.replace(/@.*$/, '');
+
+  // Delete messages matching full phone, clean number, or JID suffix
+  const msgResult = db
+    .prepare(
+      `
+    DELETE FROM messages 
+    WHERE tenant_id = ? 
+      AND (customer_phone = ? OR customer_phone = ? OR customer_phone LIKE ?)
+  `
+    )
+    .run(tenantId, customerPhone, cleanPhone, `${cleanPhone}@%`);
+
+  // Delete conversation matching full phone, clean number, or JID suffix
+  const convResult = db
+    .prepare(
+      `
+    DELETE FROM conversations 
+    WHERE tenant_id = ? 
+      AND (customer_phone = ? OR customer_phone = ? OR customer_phone LIKE ?)
+  `
+    )
+    .run(tenantId, customerPhone, cleanPhone, `${cleanPhone}@%`);
+
+  return {
+    success: true,
+    deletedMessages: msgResult.changes,
+    deletedConversations: convResult.changes,
+  };
+}
+
+// POST /api/chat/:tenantId/delete-conversation - Delete conversation & messages via POST (robust against URL encoding)
+router.post('/:tenantId/delete-conversation', (req, res) => {
+  const { tenantId } = req.params;
+  const customerPhone = req.body.customerPhone || req.body.phone;
+
+  if (!customerPhone) {
+    return res.status(400).json({ error: 'customerPhone é obrigatório.' });
+  }
+
+  const result = deleteChatConversation(tenantId, customerPhone);
+  res.json(result);
+});
+
 // DELETE /api/chat/:tenantId/conversations/:customerPhone - Delete conversation & messages
 router.delete('/:tenantId/conversations/:customerPhone', (req, res) => {
   const { tenantId, customerPhone } = req.params;
-
-  db.prepare('DELETE FROM messages WHERE tenant_id = ? AND customer_phone = ?').run(tenantId, customerPhone);
-  db.prepare('DELETE FROM conversations WHERE tenant_id = ? AND customer_phone = ?').run(tenantId, customerPhone);
-
-  res.json({ success: true });
+  const result = deleteChatConversation(tenantId, customerPhone);
+  res.json(result);
 });
 
 module.exports = router;

@@ -24,6 +24,8 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
   const [loading, setLoading] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState(null);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   useEffect(() => {
     if (initialPhone) {
       setSelectedPhone(initialPhone);
@@ -51,6 +53,20 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
       setActiveChat(data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        loadConversations(),
+        selectedPhone ? loadMessages(selectedPhone) : Promise.resolve(),
+      ]);
+    } catch (e) {
+      console.error('Error refreshing chat:', e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
@@ -107,18 +123,30 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
     }
   };
 
-  const handleDeleteConversation = async () => {
-    if (!selectedPhone) return;
-    if (!confirm('Deseja excluir esta conversa do painel?')) return;
-    try {
-      await fetch(`/api/chat/${tenantId}/conversations/${encodeURIComponent(selectedPhone)}`, {
-        method: 'DELETE',
-      });
+  const handleDeleteConversation = async (phoneToDelete, customerName) => {
+    const targetPhone = phoneToDelete || selectedPhone;
+    if (!targetPhone) return;
+
+    const displayName = customerName || formatPhone(targetPhone);
+    const confirmed = window.confirm(
+      `Deseja realmente excluir o contato ${displayName} do chat?\nTodas as mensagens deste cliente serão removidas do painel.`
+    );
+    if (!confirmed) return;
+
+    // Optimistic UI update: remove immediately
+    setConversations((prev) => prev.filter((c) => c.customer_phone !== targetPhone));
+    if (selectedPhone === targetPhone) {
       setSelectedPhone(null);
       setActiveChat({ conversation: null, messages: [] });
+    }
+
+    try {
+      await api.deleteConversation(tenantId, targetPhone);
       await loadConversations();
     } catch (err) {
+      console.error('Erro ao excluir conversa:', err);
       alert('Erro ao excluir conversa: ' + err.message);
+      await loadConversations();
     }
   };
 
@@ -134,11 +162,14 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
             <p className="text-[11px] text-slate-500">{conversations.length} conversas ativas</p>
           </div>
           <button
-            onClick={loadConversations}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60"
-            title="Atualizar"
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-600 hover:text-emerald-700 bg-white hover:bg-emerald-50 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold transition-all shadow-xs"
+            title="Atualizar conversas e mensagens"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-400'} />
+            <span className="hidden sm:inline">{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
           </button>
         </div>
 
@@ -151,20 +182,20 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
             conversations.map((c) => {
               const isSelected = selectedPhone === c.customer_phone;
               return (
-                <button
-                  key={c.id}
+                <div
+                  key={c.id || c.customer_phone}
                   onClick={() => {
                     setSelectedPhone(c.customer_phone);
                     if (onPhoneSelected) onPhoneSelected(c.customer_phone);
                   }}
-                  className={`w-full p-3.5 text-left transition-colors flex items-start gap-3 ${
+                  className={`group relative w-full p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                     isSelected ? 'bg-white shadow-xs border-l-4 border-emerald-500' : 'hover:bg-slate-100/60'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
                     <User size={16} />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pr-7">
                     <div className="flex items-center justify-between">
                       <p className="font-bold text-xs text-slate-800 truncate">
                         {c.customer_name || 'Cliente WhatsApp'}
@@ -180,7 +211,19 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
                       {c.last_message || 'Iniciando conversa...'}
                     </p>
                   </div>
-                </button>
+                  {/* Quick Delete Contact Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteConversation(c.customer_phone, c.customer_name);
+                    }}
+                    className="absolute right-2 top-3 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+                    title={`Excluir contato ${c.customer_name || c.customer_phone}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               );
             })
           )}
@@ -213,17 +256,28 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleDeleteConversation}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200"
-                  title="Excluir esta conversa"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors border border-slate-200 hover:border-emerald-200 shadow-xs"
+                  title="Atualizar mensagens desta conversa"
                 >
-                  <Trash2 size={16} />
+                  <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-emerald-600' : ''} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteConversation(selectedPhone, activeChat.conversation?.customer_name)}
+                  className="px-3 py-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-slate-200 hover:border-rose-200 text-xs font-semibold flex items-center gap-1.5 shadow-xs"
+                  title="Excluir este contato e mensagens"
+                >
+                  <Trash2 size={14} className="text-rose-500" />
+                  <span className="hidden sm:inline">Excluir Contato</span>
                 </button>
 
                 {/* Toggle Human Handover */}
                 <button
                   onClick={handleToggleHuman}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
                     isHuman
                       ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
                       : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'

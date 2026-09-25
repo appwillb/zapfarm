@@ -136,6 +136,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ customerPhone, isHuman }),
     }).then((r) => r.json()),
+  deleteConversation: (tenantId, customerPhone) =>
+    fetch(`${API_BASE}/chat/${tenantId}/delete-conversation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerPhone }),
+    }).then((r) => r.json()),
 
   // Simulator
   simulateMessage: (tenantId, phone, name, text) =>
