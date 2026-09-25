@@ -1,9 +1,10 @@
 import React from 'react';
-import { Plus, Bike, Phone, MessageSquare, Check, X, Send } from 'lucide-react';
+import { Plus, Bike, Phone, MessageSquare, Check, X, Send, Trash2, Edit2 } from 'lucide-react';
 
 export default function DriversTab({
   drivers,
   onOpenAddDriver,
+  onOpenEditDriver,
   onUpdateDriverStatus,
   onTestDriverMessage,
   onDeleteDriver,
@@ -52,11 +53,29 @@ export default function DriversTab({
                       </p>
                     </div>
                   </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusMap.color}`}
-                  >
-                    {statusMap.label}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusMap.color}`}
+                    >
+                      {statusMap.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onOpenEditDriver && onOpenEditDriver(driver)}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Editar entregador"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteDriver && onDeleteDriver(driver.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Excluir entregador"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 p-3 bg-slate-50 rounded-xl text-xs space-y-1.5 border border-slate-100">

@@ -70,10 +70,13 @@ router.put('/:id', (req, res) => {
 // DELETE /api/drivers/:id
 router.delete('/:id', (req, res) => {
   try {
-    db.prepare('UPDATE delivery_drivers SET active = 0 WHERE id = ?').run(req.params.id);
-    res.json({ success: true, message: 'Entregador desativado.' });
+    const id = req.params.id;
+    db.prepare('UPDATE orders SET driver_id = NULL WHERE driver_id = ?').run(id);
+    db.prepare('DELETE FROM delivery_drivers WHERE id = ?').run(id);
+    res.json({ success: true, message: 'Entregador excluído com sucesso.' });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao desativar entregador.' });
+    console.error('Erro ao excluir entregador:', err);
+    res.status(500).json({ error: 'Erro ao excluir entregador: ' + err.message });
   }
 });
 

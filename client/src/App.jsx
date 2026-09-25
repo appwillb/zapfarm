@@ -261,6 +261,7 @@ export default function App() {
               onMarkDelivered={handleMarkDelivered}
               onCancelOrder={handleCancelOrder}
               onOpenOrder={(order) => setOrderModal({ open: true, order })}
+              onRefresh={loadTenantData}
             />
           )}
 
@@ -280,10 +281,11 @@ export default function App() {
             <DriversTab
               drivers={drivers}
               onOpenAddDriver={() => setDriverModal({ open: true, driver: null })}
+              onOpenEditDriver={(driver) => setDriverModal({ open: true, driver })}
               onUpdateDriverStatus={handleUpdateDriverStatus}
               onTestDriverMessage={handleTestDriverMessage}
               onDeleteDriver={async (id) => {
-                if (confirm('Deseja desativar este entregador?')) {
+                if (confirm('Deseja realmente excluir este entregador?')) {
                   await api.deleteDriver(id);
                   await loadTenantData();
                 }

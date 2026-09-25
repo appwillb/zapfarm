@@ -10,6 +10,7 @@ import {
   XCircle,
   DollarSign,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function OrdersTab({
@@ -20,6 +21,7 @@ export default function OrdersTab({
   onMarkDelivered,
   onCancelOrder,
   onOpenOrder,
+  onRefresh,
 }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,6 +99,18 @@ export default function OrdersTab({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+              title="Atualizar lista de pedidos"
+            >
+              <RefreshCw size={13} className="text-slate-500" />
+              <span>Atualizar</span>
+            </button>
+          )}
+
           <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               onClick={() => setViewMode('kanban')}
