@@ -12,6 +12,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
     email: '',
     plan: 'pro',
     pix_key: '',
+    logo_url: '',
     delivery_fee_default: '7.00',
     address: '',
     admin_name: '',
@@ -33,6 +34,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
         email: '',
         plan: 'pro',
         pix_key: '',
+        logo_url: '',
         delivery_fee_default: '7.00',
         address: '',
         admin_name: '',
@@ -120,9 +122,13 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
               {tenants.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-50/70">
                   <td className="py-3.5 px-4 font-bold text-slate-800">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                        ⚕️
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+                        {t.logo_url ? (
+                          <img src={t.logo_url} alt="" className="w-full h-full object-contain p-0.5 bg-white" />
+                        ) : (
+                          '⚕️'
+                        )}
                       </div>
                       <div>
                         <p>{t.name}</p>
@@ -237,6 +243,37 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
                   onChange={(e) => setFormData({ ...formData, pix_key: e.target.value })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                 />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Logotipo da Farmácia (URL ou Imagem)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="https://exemplo.com/logo.png"
+                    value={formData.logo_url?.startsWith('data:') ? 'Imagem carregada via upload' : formData.logo_url}
+                    onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                    className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                  />
+                  <label className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer flex items-center shrink-0 border border-slate-200">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            if (ev.target?.result) setFormData({ ...formData, logo_url: ev.target.result });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div className="p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-3">

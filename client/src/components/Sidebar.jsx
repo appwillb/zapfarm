@@ -108,18 +108,41 @@ export default function Sidebar({
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
               </div>
+              {selectedTenant?.logo_url && (
+                <div className="mt-2 flex items-center gap-2 px-1">
+                  <img
+                    src={selectedTenant.logo_url}
+                    alt={selectedTenant.name}
+                    className="w-6 h-6 rounded-md object-contain bg-white p-0.5 shrink-0"
+                  />
+                  <span className="text-[11px] text-slate-300 truncate">{selectedTenant.name}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="px-2 py-1">
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
                 Sua Farmácia
               </label>
-              <div className="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60">
-                <p className="text-xs font-bold text-white truncate">{selectedTenant?.name}</p>
-                <p className="text-[10px] text-emerald-400 font-medium mt-0.5 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                  Plano {selectedTenant?.plan?.toUpperCase()} &bull; Ativa
-                </p>
+              <div className="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex items-center gap-2.5">
+                {selectedTenant?.logo_url ? (
+                  <img
+                    src={selectedTenant.logo_url}
+                    alt={selectedTenant.name}
+                    className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-sm">
+                    💊
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white truncate">{selectedTenant?.name}</p>
+                  <p className="text-[10px] text-emerald-400 font-medium mt-0.5 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                    Plano {selectedTenant?.plan?.toUpperCase()} &bull; Ativa
+                  </p>
+                </div>
               </div>
             </div>
           )}

@@ -1,36 +1,87 @@
 const db = require('../db/database');
 const qrcode = require('qrcode');
 
-// Helper to generate Brazilian PIX Copia e Cola (standard EMV payload)
+// Helper to clean and format Pix Keys according to Banco Central do Brasil rules
+function formatPixKey(rawKey, pixType) {
+  if (!rawKey) return '12345678000190';
+  const trimmed = String(rawKey).trim();
+  const digitsOnly = trimmed.replace(/\D/g, '');
+
+  if (pixType === 'cpf' || (!pixType && digitsOnly.length === 11 && !trimmed.includes('@'))) {
+    return digitsOnly;
+  }
+  if (pixType === 'cnpj' || (!pixType && digitsOnly.length === 14 && !trimmed.includes('@'))) {
+    return digitsOnly;
+  }
+  if (pixType === 'phone' || (!pixType && (trimmed.startsWith('+') || (digitsOnly.length >= 10 && digitsOnly.length <= 13 && !trimmed.includes('@'))))) {
+    let phoneDigits = digitsOnly;
+    if (phoneDigits.startsWith('55') && phoneDigits.length > 11) {
+      phoneDigits = phoneDigits.substring(2);
+    }
+    return '+55' + phoneDigits;
+  }
+  if (pixType === 'email' || trimmed.includes('@')) {
+    return trimmed.toLowerCase();
+  }
+  return trimmed.toLowerCase();
+}
+
+// Helper to generate Brazilian PIX Copia e Cola (standard EMV BR Code)
 function generatePixCode({ pixKey, pixType, merchantName, merchantCity, amount, txid }) {
-  // Clean formatting
-  const cleanKey = pixKey ? pixKey.replace(/[^\w@.-]/g, '') : '12345678000190';
-  const cleanName = (merchantName || 'FARMACIA').normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 25).toUpperCase();
-  const cleanCity = (merchantCity || 'SAO PAULO').normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 15).toUpperCase();
+  const cleanKey = formatPixKey(pixKey, pixType);
+  const cleanName = (merchantName || 'FARMACIA')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .substring(0, 25)
+    .toUpperCase();
+  const cleanCity = (merchantCity || 'SAO PAULO')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .substring(0, 15)
+    .toUpperCase();
   const formattedAmount = Number(amount || 0).toFixed(2);
-  const cleanTxid = (txid || 'ZAP' + Date.now()).substring(0, 25);
+  const cleanTxid = (txid || '***')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .substring(0, 25) || '***';
 
   function formatField(id, value) {
     const len = value.length.toString().padStart(2, '0');
     return `${id}${len}${value}`;
   }
 
+  // 00: Payload Format Indicator (01)
+  const formatInd = formatField('00', '01');
+  // 01: Point of Initiation Method (12 = Static / multi-use with fixed amount)
+  const initMethod = formatField('01', '12');
+
+  // 26: Merchant Account Information
   const gui = formatField('00', 'br.gov.bcb.pix');
   const keyField = formatField('01', cleanKey);
   const accountInfo = formatField('26', `${gui}${keyField}`);
 
+  // 52: Merchant Category Code (0000 = ISO 18245 general merchant)
   const catCode = formatField('52', '0000');
+  // 53: Transaction Currency (986 = Real brasileiro)
   const currency = formatField('53', '986');
+  // 54: Transaction Amount
   const amountField = formatField('54', formattedAmount);
+  // 58: Country Code (BR)
   const country = formatField('58', 'BR');
-  const nameField = formatField('59', cleanName);
-  const cityField = formatField('60', cleanCity);
-  const txidField = formatField('05', cleanTxid);
-  const additionalData = formatField('62', txidField);
+  // 59: Merchant Name
+  const nameField = formatField('59', cleanName || 'FARMACIA');
+  // 60: Merchant City
+  const cityField = formatField('60', cleanCity || 'SAO PAULO');
+  // 62: Additional Data Field Template (TxID)
+  const txidSubfield = formatField('05', cleanTxid);
+  const additionalData = formatField('62', txidSubfield);
 
-  let payload = `000201${accountInfo}${catCode}${currency}${amountField}${country}${nameField}${cityField}${additionalData}6304`;
+  let payload = `${formatInd}${initMethod}${accountInfo}${catCode}${currency}${amountField}${country}${nameField}${cityField}${additionalData}6304`;
 
-  // CRC16-CCITT calculation
+  // CRC-16/CCITT-FALSE calculation
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
@@ -377,6 +428,28 @@ class BotEngine {
       }
 
       case 'awaiting_payment': {
+        const orderId = conv.context.active_order_id;
+        const wantsPixAgain = lowerText.includes('pix') ||
+          lowerText.includes('codigo') ||
+          lowerText.includes('código') ||
+          lowerText.includes('copia') ||
+          lowerText.includes('chave') ||
+          lowerText.includes('pagar') ||
+          lowerText.includes('reenvia') ||
+          lowerText.includes('manda');
+
+        if (wantsPixAgain && orderId) {
+          const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+          if (order && order.pix_code) {
+            await this.sendReply(tenantId, customerPhone, `Aqui está novamente o seu código Pix Copia e Cola do Pedido #${orderId} (Total: *R$ ${Number(order.total).toFixed(2)}*):`);
+            await new Promise((r) => setTimeout(r, 400));
+            await this.sendReply(tenantId, customerPhone, order.pix_code);
+            await new Promise((r) => setTimeout(r, 400));
+            await this.sendReply(tenantId, customerPhone, `📱 *Basta tocar/segurar na mensagem acima para copiar o código Pix e colar no aplicativo do seu banco!*\n\nAssim que conferirmos o recebimento, liberamos seu pedido. 💚`);
+            return;
+          }
+        }
+
         // Customer says "já paguei" or sends proof
         // STRICT RULE: "O entregador só será acionado depois da confirmação real do pagamento e da liberação do pedido pela farmácia. Foto de comprovante ou mensagem dizendo 'já paguei' não poderá liberar a entrega."
         await this.sendReply(
@@ -548,7 +621,12 @@ class BotEngine {
       txid: `ZP${orderId}`
     });
 
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
+    let qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
+    try {
+      qrCodeUrl = await qrcode.toDataURL(pixCode, { margin: 1, width: 300 });
+    } catch (e) {
+      console.error('Error generating QR code data URL:', e);
+    }
 
     db.prepare('UPDATE orders SET pix_code = ?, pix_qrcode_url = ? WHERE id = ?').run(pixCode, qrCodeUrl, orderId);
 
@@ -558,7 +636,7 @@ class BotEngine {
       active_order_id: orderId
     });
 
-    // Format WhatsApp confirmation message
+    // 1. Mensagem de Resumo do Pedido
     let orderMsg = `📋 *PEDIDO #${orderId} GERADO COM SUCESSO!*\n` +
       `-----------------------------------------\n` +
       `🏪 *Farmácia:* ${tenant.name}\n` +
@@ -573,15 +651,32 @@ class BotEngine {
     orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
       `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
       `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
-      `💠 *PAGAMENTO VIA PIX (Copia e Cola):*\n` +
-      `Copie o código abaixo e cole no seu aplicativo do banco:\n\n` +
-      `\`${pixCode}\`\n\n` +
-      `⏱️ *O que acontece agora?*\n` +
-      `1. Assim que seu banco confirmar a transferência Pix e nossa equipe conferir no sistema, seu pedido entrará em separação.\n` +
-      `2. ${context.delivery_type === 'delivery' ? 'Nosso sistema acionará automaticamente o motoboy para levar até seu endereço!' : 'Avisaremos para você vir retirar no balcão!'}\n\n` +
-      `Obrigado por escolher a ${tenant.name}! 💚`;
+      `💠 *PAGAMENTO VIA PIX:*\n` +
+      `O código Pix Copia e Cola foi gerado e está sendo enviado na mensagem abaixo para você copiar facilmente. 👇`;
 
     await this.sendReply(tenantId, customerPhone, orderMsg);
+
+    // Intervalo para garantir a sequência exata no WhatsApp
+    await new Promise((r) => setTimeout(r, 400));
+
+    // 2. MENSAGEM ISOLADA APENAS COM O CÓDIGO PIX (1 TOQUE PARA COPIAR NO WHATSAPP)
+    await this.sendReply(tenantId, customerPhone, pixCode);
+
+    await new Promise((r) => setTimeout(r, 400));
+
+    // 3. MENSAGEM COM INSTRUÇÕES DE PAGAMENTO E SEGURANÇA
+    let instructionsMsg = `👆 *CÓDIGO PIX COPIA E COLA ENVIADO ACIMA!*\n\n` +
+      `📱 *Como pagar no seu banco:*\n` +
+      `1. Toque e segure a mensagem acima para *COPIAR* o código Pix.\n` +
+      `2. Abra o aplicativo do seu banco (Nubank, Inter, Caixa, Itaú, BB, etc.).\n` +
+      `3. Escolha a opção *Pix > Copia e Cola*.\n` +
+      `4. Cole o código e confirme o valor de *R$ ${total.toFixed(2)}*.\n\n` +
+      `⏱️ *Liberação do Pedido:*\n` +
+      `Assim que o banco confirmar a transferência e nossa equipe conferir no sistema, seu pedido entrará em separação e ` +
+      (context.delivery_type === 'delivery' ? 'o motoboy será acionado para a entrega! 🛵' : 'avisaremos para você retirar no balcão! 🏪') +
+      `\n\nMuito obrigado pela confiança! 💚`;
+
+    await this.sendReply(tenantId, customerPhone, instructionsMsg);
   }
 
   // --- ACTIONS EXECUTED FROM THE PHARMACY DASHBOARD ---
@@ -749,4 +844,8 @@ class BotEngine {
   }
 }
 
-module.exports = new BotEngine();
+const botEngineInstance = new BotEngine();
+botEngineInstance.generatePixCode = generatePixCode;
+botEngineInstance.formatPixKey = formatPixKey;
+
+module.exports = botEngineInstance;

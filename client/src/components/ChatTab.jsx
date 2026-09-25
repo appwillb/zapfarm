@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2 } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check } from 'lucide-react';
 import { api } from '../api';
 
 function formatPhone(phone) {
@@ -21,6 +21,7 @@ export default function ChatTab({ tenantId }) {
   const [activeChat, setActiveChat] = useState({ conversation: null, messages: [] });
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState(null);
 
   const loadConversations = async () => {
     try {
@@ -224,19 +225,47 @@ export default function ChatTab({ tenantId }) {
             <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/40">
               {activeChat.messages?.map((m) => {
                 const isMe = m.from_me === 1;
+                const isPixCode = m.text && m.text.startsWith('000201');
                 return (
                   <div
                     key={m.id}
                     className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] sm:max-w-[70%] p-3 rounded-2xl text-xs whitespace-pre-wrap leading-relaxed shadow-xs ${
+                      className={`max-w-[85%] sm:max-w-[75%] p-3 rounded-2xl text-xs whitespace-pre-wrap leading-relaxed shadow-xs ${
                         isMe
-                          ? 'bg-emerald-600 text-white rounded-tr-xs'
+                          ? isPixCode
+                            ? 'bg-slate-900 text-white rounded-tr-xs border border-emerald-500/40'
+                            : 'bg-emerald-600 text-white rounded-tr-xs'
                           : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
                       }`}
                     >
-                      <p>{m.text}</p>
+                      {isPixCode ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-1.5">
+                            <span className="font-bold text-emerald-400 text-xs flex items-center gap-1.5">
+                              💠 Pix Copia e Cola
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(m.text);
+                                setCopiedMsgId(m.id);
+                                setTimeout(() => setCopiedMsgId(null), 2500);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition-colors shadow-xs"
+                            >
+                              {copiedMsgId === m.id ? <Check size={12} /> : <Copy size={12} />}
+                              {copiedMsgId === m.id ? 'Copiado! ✅' : 'Copiar Pix'}
+                            </button>
+                          </div>
+                          <p className="font-mono text-[10px] break-all select-all text-slate-200 bg-black/30 p-2 rounded-xl border border-white/10 leading-tight">
+                            {m.text}
+                          </p>
+                        </div>
+                      ) : (
+                        <p>{m.text}</p>
+                      )}
                       <span
                         className={`text-[9px] block text-right mt-1 ${
                           isMe ? 'text-emerald-100' : 'text-slate-400'

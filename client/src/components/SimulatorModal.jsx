@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot, RotateCcw, Sparkles } from 'lucide-react';
+import { X, Send, Bot, RotateCcw, Sparkles, Copy, Check } from 'lucide-react';
 import { api } from '../api';
 
-export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, onOrderCreated }) {
+export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, tenantLogo, onOrderCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
   const messagesEndRef = useRef(null);
   const testPhone = '5511999990001';
 
@@ -38,7 +39,7 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
     setLoading(true);
 
     try {
-      const res = await api.simulateMessage(tenantId, testPhone, 'Mauricio (Simulador)', text);
+      const res = await api.simulateMessage(tenantId, testPhone, 'Cliente Teste', text);
       setMessages(res.messages || []);
       if (onOrderCreated) onOrderCreated();
     } catch (err) {
@@ -57,6 +58,12 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
     } catch (err) {
       alert('Erro ao reiniciar: ' + err.message);
     }
+  };
+
+  const handleCopyPix = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
   };
 
   const quickChips = [
@@ -84,8 +91,12 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
         {/* WhatsApp Chat Header */}
         <div className="bg-emerald-700 text-white px-4 py-2.5 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-800 border border-emerald-500/40 flex items-center justify-center text-xs font-bold">
-              ⚕️
+            <div className="w-8 h-8 rounded-full bg-emerald-800 border border-emerald-500/40 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+              {tenantLogo ? (
+                <img src={tenantLogo} alt="" className="w-full h-full object-contain p-0.5 bg-white" />
+              ) : (
+                '⚕️'
+              )}
             </div>
             <div>
               <h4 className="text-xs font-bold leading-tight truncate max-w-[170px]">
@@ -139,16 +150,40 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
           ) : (
             messages.map((m) => {
               const isCustomer = m.from_me === 0;
+              const isPixCode = m.text && m.text.startsWith('000201');
               return (
                 <div key={m.id} className={`flex ${isCustomer ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[85%] p-2.5 rounded-xl text-[11px] leading-relaxed whitespace-pre-wrap ${
                       isCustomer
                         ? 'bg-[#005c4b] text-slate-100 rounded-tr-xs'
+                        : isPixCode
+                        ? 'bg-[#182229] border border-emerald-500/60 text-emerald-200 rounded-tl-xs shadow-md'
                         : 'bg-[#202c33] text-slate-100 rounded-tl-xs'
                     }`}
                   >
-                    <p>{m.text}</p>
+                    {isPixCode ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 border-b border-emerald-500/30 pb-1">
+                          <span className="font-bold text-emerald-400 text-[10px] flex items-center gap-1">
+                            💠 Pix Copia e Cola
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPix(m.text, m.id)}
+                            className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[10px] flex items-center gap-1 transition-colors shadow-xs"
+                          >
+                            {copiedId === m.id ? <Check size={11} /> : <Copy size={11} />}
+                            {copiedId === m.id ? 'Copiado! ✅' : 'Copiar Pix'}
+                          </button>
+                        </div>
+                        <p className="font-mono text-[9px] break-all select-all text-slate-200 leading-tight">
+                          {m.text}
+                        </p>
+                      </div>
+                    ) : (
+                      <p>{m.text}</p>
+                    )}
                     <span className="text-[8px] block text-right mt-1 text-slate-400">
                       {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>

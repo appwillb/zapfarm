@@ -34,6 +34,7 @@ function initDb() {
       address TEXT,
       business_hours TEXT DEFAULT '08:00 às 22:00',
       welcome_message TEXT DEFAULT 'Olá! Bem-vindo(a) à {nome}. Qual medicamento ou produto você procura hoje?',
+      logo_url TEXT,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -177,6 +178,13 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(tenant_id, customer_phone);
     CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(tenant_id, customer_phone);
   `);
+
+  // Safe schema migrations for existing production databases
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN logo_url TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
 
   seedData();
 }

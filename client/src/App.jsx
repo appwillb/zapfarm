@@ -358,6 +358,7 @@ export default function App() {
         onClose={() => setSimulatorOpen(false)}
         tenantId={selectedTenant?.id || 1}
         tenantName={selectedTenant?.name}
+        tenantLogo={selectedTenant?.logo_url}
         onOrderCreated={loadTenantData}
       />
     </div>

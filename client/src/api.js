@@ -16,6 +16,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }).then((r) => r.json()),
+  previewPix: (id, data) =>
+    fetch(`${API_BASE}/tenants/${id}/preview-pix`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
 
   // Dashboard
   getDashboard: (tenantId) => fetch(`${API_BASE}/dashboard/${tenantId}`).then((r) => r.json()),

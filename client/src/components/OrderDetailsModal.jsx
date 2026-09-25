@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck, Copy, Check } from 'lucide-react';
 
 export default function OrderDetailsModal({
   isOpen,
@@ -9,6 +9,9 @@ export default function OrderDetailsModal({
   onReleaseDelivery,
   onMarkDelivered,
 }) {
+  const [copiedPix, setCopiedPix] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+
   if (!isOpen || !order) return null;
 
   const statusMap = {
@@ -135,9 +138,45 @@ export default function OrderDetailsModal({
 
         {/* Pix Copia e Cola Code Display */}
         {order.pix_code && (
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-600">Código Pix Copia e Cola:</label>
-            <div className="p-2 bg-slate-100 rounded-lg text-[10px] font-mono break-all text-slate-700 select-all border border-slate-200">
+          <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                <QrCode size={13} className="text-emerald-600" />
+                Código Pix Copia e Cola
+              </label>
+              <div className="flex items-center gap-2">
+                {order.pix_qrcode_url && (
+                  <button
+                    type="button"
+                    onClick={() => setShowQrCode(!showQrCode)}
+                    className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded-lg border border-slate-200 transition-colors"
+                  >
+                    {showQrCode ? 'Ocultar QR Code' : 'Ver QR Code'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(order.pix_code);
+                    setCopiedPix(true);
+                    setTimeout(() => setCopiedPix(false), 2500);
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                >
+                  {copiedPix ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedPix ? 'Copiado! ✅' : 'Copiar Pix'}
+                </button>
+              </div>
+            </div>
+
+            {showQrCode && order.pix_qrcode_url && (
+              <div className="p-3 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center">
+                <img src={order.pix_qrcode_url} alt="QR Code Pix" className="w-48 h-48 object-contain" />
+                <span className="text-[10px] text-slate-400 mt-1">Escaneie pelo aplicativo do seu banco</span>
+              </div>
+            )}
+
+            <div className="p-2.5 bg-white rounded-xl text-[10px] font-mono break-all text-slate-700 select-all border border-slate-200 leading-tight">
               {order.pix_code}
             </div>
           </div>

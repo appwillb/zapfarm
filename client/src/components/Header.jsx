@@ -45,6 +45,13 @@ export default function Header({
         >
           <Menu size={22} />
         </button>
+        {tenant?.logo_url && (
+          <img
+            src={tenant.logo_url}
+            alt={tenant.name}
+            className="w-9 h-9 rounded-xl object-contain border border-slate-200 bg-white p-1 shadow-xs shrink-0"
+          />
+        )}
         <div>
           <h1 className="text-lg lg:text-xl font-bold text-slate-800 leading-tight flex items-center gap-2">
             {getTabTitle()}

@@ -17,6 +17,8 @@ router.get('/:id', (req, res) => {
   res.json(tenant);
 });
 
+const botEngine = require('../bot/botEngine');
+
 // POST /api/tenants - create new pharmacy (SaaS platform owner)
 router.post('/', (req, res) => {
   const {
@@ -32,6 +34,7 @@ router.post('/', (req, res) => {
     address,
     business_hours = '08:00 às 22:00',
     welcome_message,
+    logo_url,
   } = req.body;
 
   if (!name || !slug) {
@@ -42,8 +45,8 @@ router.post('/', (req, res) => {
     const insert = db.prepare(`
       INSERT INTO tenants (
         name, slug, cnpj, phone, email, plan, pix_key, pix_type,
-        delivery_fee_default, address, business_hours, welcome_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        delivery_fee_default, address, business_hours, welcome_message, logo_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
@@ -58,7 +61,8 @@ router.post('/', (req, res) => {
       Number(delivery_fee_default) || 7.00,
       address || '',
       business_hours,
-      welcome_message || `Olá! Bem-vindo(a) à ${name}. Qual remédio ou produto você procura hoje?`
+      welcome_message || `Olá! Bem-vindo(a) à ${name}. Qual remédio ou produto você procura hoje?`,
+      logo_url || null
     );
 
     const newTenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(result.lastInsertRowid);
@@ -100,6 +104,7 @@ router.put('/:id', (req, res) => {
     welcome_message,
     status,
     plan,
+    logo_url,
   } = req.body;
 
   try {
@@ -117,7 +122,8 @@ router.put('/:id', (req, res) => {
         business_hours = COALESCE(?, business_hours),
         welcome_message = COALESCE(?, welcome_message),
         status = COALESCE(?, status),
-        plan = COALESCE(?, plan)
+        plan = COALESCE(?, plan),
+        logo_url = CASE WHEN ? IS NOT NULL THEN ? ELSE logo_url END
       WHERE id = ?
     `).run(
       name,
@@ -133,6 +139,8 @@ router.put('/:id', (req, res) => {
       welcome_message,
       status,
       plan,
+      logo_url !== undefined ? logo_url : null,
+      logo_url !== undefined ? logo_url : null,
       tenantId
     );
 
@@ -141,6 +149,25 @@ router.put('/:id', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Erro ao atualizar configurações: ' + err.message });
   }
+});
+
+// POST /api/tenants/:id/preview-pix - test/preview generated Pix code
+router.post('/:id/preview-pix', (req, res) => {
+  const { pix_key, pix_type, amount = 10.00 } = req.body;
+  const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id) || {};
+  const effectiveKey = pix_key !== undefined ? pix_key : tenant.pix_key;
+  const effectiveType = pix_type !== undefined ? pix_type : tenant.pix_type;
+
+  const code = botEngine.generatePixCode({
+    pixKey: effectiveKey || '12345678000190',
+    pixType: effectiveType || 'cnpj',
+    merchantName: tenant.name || 'FARMACIA',
+    merchantCity: 'SAO PAULO',
+    amount: Number(amount) || 10.00,
+    txid: 'TESTEPIX'
+  });
+  const formattedKey = botEngine.formatPixKey(effectiveKey, effectiveType);
+  res.json({ pix_code: code, formatted_key: formattedKey });
 });
 
 module.exports = router;

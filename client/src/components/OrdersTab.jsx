@@ -11,6 +11,8 @@ import {
   DollarSign,
   AlertCircle,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export default function OrdersTab({
@@ -25,6 +27,7 @@ export default function OrdersTab({
 }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [searchTerm, setSearchTerm] = useState('');
+  const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
 
@@ -209,13 +212,35 @@ export default function OrdersTab({
                         {/* Action Buttons strictly controlled by state */}
                         <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
                           {order.status === 'pending_payment' && (
-                            <button
-                              onClick={() => onConfirmPayment(order.id)}
-                              className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                            >
-                              <DollarSign size={13} />
-                              Confirmar Pix Real
-                            </button>
+                            <>
+                              <button
+                                onClick={() => onConfirmPayment(order.id)}
+                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                              >
+                                <DollarSign size={13} />
+                                Confirmar Pix Real
+                              </button>
+                              {order.pix_code && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(order.pix_code);
+                                    setCopiedOrderId(order.id);
+                                    setTimeout(() => setCopiedOrderId(null), 2500);
+                                  }}
+                                  className="w-full py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
+                                  title="Copiar código Pix Copia e Cola"
+                                >
+                                  {copiedOrderId === order.id ? (
+                                    <Check size={11} className="text-emerald-600" />
+                                  ) : (
+                                    <Copy size={11} className="text-slate-500" />
+                                  )}
+                                  <span>{copiedOrderId === order.id ? 'Pix Copiado! ✅' : 'Copiar Pix Copia e Cola'}</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {order.status === 'paid' && (
