@@ -406,7 +406,15 @@ router.post('/test', async (req, res) => {
 
 // POST /api/campaigns - Create and start campaign
 router.post('/', async (req, res) => {
-  const { tenant_id, title, message, image_url, target_audience = 'all', delay_seconds = 25 } = req.body;
+  const {
+    tenant_id,
+    title,
+    message,
+    image_url,
+    target_audience = 'all',
+    delay_seconds = 25,
+    selected_phones = [],
+  } = req.body;
 
   if (!tenant_id || !title || !message) {
     return res.status(400).json({ error: 'tenant_id, title e message são obrigatórios.' });
@@ -418,10 +426,22 @@ router.post('/', async (req, res) => {
   const optOutRows = db.prepare('SELECT phone FROM opt_out_leads WHERE tenant_id = ?').all(tId);
   const optOutSet = new Set(optOutRows.map((r) => r.phone.replace(/\D/g, '')));
 
+  // Fetch manual leads
+  const manualLeads = db
+    .prepare(
+      `
+    SELECT phone, name, created_at as last_message_at, source
+    FROM marketing_leads
+    WHERE tenant_id = ?
+    ORDER BY id DESC
+  `
+    )
+    .all(tId);
+
   const conversations = db
     .prepare(
       `
-    SELECT customer_phone as phone, customer_name as name, last_message_at
+    SELECT customer_phone as phone, customer_name as name, last_message_at, 'chat' as source
     FROM conversations
     WHERE tenant_id = ? AND customer_phone IS NOT NULL AND customer_phone != ''
   `
@@ -431,7 +451,7 @@ router.post('/', async (req, res) => {
   const orders = db
     .prepare(
       `
-    SELECT customer_phone as phone, customer_name as name, created_at as last_message_at
+    SELECT customer_phone as phone, customer_name as name, created_at as last_message_at, 'order' as source
     FROM orders
     WHERE tenant_id = ? AND customer_phone IS NOT NULL AND customer_phone != ''
   `
@@ -439,27 +459,46 @@ router.post('/', async (req, res) => {
     .all(tId);
 
   const leadMap = new Map();
-  for (const item of [...conversations, ...orders]) {
+  for (const item of [...manualLeads, ...conversations, ...orders]) {
     const raw = String(item.phone || '').trim();
     const digits = raw.replace(/\D/g, '');
     if (!digits || digits.length < 8) continue;
     if (optOutSet.has(digits)) continue;
 
+    const source = item.source || 'chat';
+
+    // Filter by target audience category if specified
+    if (target_audience === 'chat' && source !== 'chat') continue;
+    if (target_audience === 'order' && source !== 'order') continue;
+    if (target_audience === 'manual' && source !== 'manual' && source !== 'import') continue;
+
     if (!leadMap.has(digits)) {
       leadMap.set(digits, {
         phone: raw,
+        clean_phone: digits,
         name: item.name && item.name !== 'Cliente' ? item.name : 'Cliente',
+        source,
       });
     } else if (item.name && item.name !== 'Cliente' && leadMap.get(digits).name === 'Cliente') {
       leadMap.get(digits).name = item.name;
     }
   }
 
-  const qualifiedLeads = Array.from(leadMap.values());
+  let qualifiedLeads = Array.from(leadMap.values());
+
+  // Filter specifically selected phones if target_audience is 'selected' or list provided
+  if (
+    (target_audience === 'selected' || (Array.isArray(selected_phones) && selected_phones.length > 0)) &&
+    Array.isArray(selected_phones) &&
+    selected_phones.length > 0
+  ) {
+    const selectedCleanSet = new Set(selected_phones.map((p) => String(p).replace(/\D/g, '')));
+    qualifiedLeads = qualifiedLeads.filter((l) => selectedCleanSet.has(l.clean_phone));
+  }
 
   if (qualifiedLeads.length === 0) {
     return res.status(400).json({
-      error: 'Nenhum lead qualificado encontrado para disparo nesta farmácia. É necessário ter clientes no chat ou pedidos.',
+      error: 'Nenhum lead qualificado encontrado para o público selecionado nesta farmácia.',
     });
   }
 

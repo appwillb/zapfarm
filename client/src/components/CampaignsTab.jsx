@@ -27,6 +27,9 @@ import {
   ChevronRight,
   ArrowRight,
   RotateCcw,
+  CheckSquare,
+  Square,
+  Target,
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -113,7 +116,11 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
     initialDraft?.includeOptOut !== undefined ? initialDraft.includeOptOut : true
   );
   const [delaySeconds, setDelaySeconds] = useState(initialDraft?.delaySeconds || 25);
+  const [targetAudience, setTargetAudience] = useState(initialDraft?.targetAudience || 'all');
   const [draftSavedAt, setDraftSavedAt] = useState(null);
+
+  // Selected phone numbers set for targeted broadcasting
+  const [selectedPhones, setSelectedPhones] = useState(new Set());
 
   const [testPhone, setTestPhone] = useState(tenant?.phone || '');
   const [testingSend, setTestingSend] = useState(false);
@@ -140,7 +147,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
 
   const fileInputRef = useRef(null);
 
-  // Auto-save draft on every change
+  // Auto-save draft on changes
   useEffect(() => {
     if (!draftKey) return;
     const timer = setTimeout(() => {
@@ -151,6 +158,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
           imagePreview,
           includeOptOut,
           delaySeconds,
+          targetAudience,
         };
         localStorage.setItem(draftKey, JSON.stringify(draft));
         setDraftSavedAt(new Date());
@@ -160,15 +168,17 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [draftKey, title, message, imagePreview, includeOptOut, delaySeconds]);
+  }, [draftKey, title, message, imagePreview, includeOptOut, delaySeconds, targetAudience]);
 
   // Clear draft function
   const handleClearDraft = () => {
     if (!title && !message && !imagePreview) return;
-    if (confirm('Deseja limpar todo o rascunho da campanha (título, texto e foto)?')) {
+    if (confirm('Deseja limpar o rascunho da campanha (título, texto e imagem)?')) {
       setTitle('');
       setMessage('');
       setImagePreview(null);
+      setTargetAudience('all');
+      setSelectedPhones(new Set());
       if (draftKey) {
         localStorage.removeItem(draftKey);
       }
@@ -246,6 +256,55 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
       setTestPhone(tenant.phone);
     }
   }, [tenant?.id]);
+
+  // Lead Audience Counts
+  const totalAvailable = leadsData.total_available || 0;
+  const chatCount = (leadsData.leads || []).filter((l) => l.source === 'chat').length;
+  const orderCount = (leadsData.leads || []).filter((l) => l.source === 'order').length;
+  const manualCount = (leadsData.leads || []).filter(
+    (l) => l.source === 'manual' || l.source === 'import'
+  ).length;
+
+  // Selected recipient count based on active targetAudience
+  const getRecipientCount = () => {
+    if (targetAudience === 'all') return totalAvailable;
+    if (targetAudience === 'chat') return chatCount;
+    if (targetAudience === 'order') return orderCount;
+    if (targetAudience === 'manual') return manualCount;
+    if (targetAudience === 'selected') return selectedPhones.size;
+    return totalAvailable;
+  };
+
+  // Toggle phone selection
+  const toggleSelectPhone = (phone) => {
+    const clean = String(phone).replace(/\D/g, '');
+    setSelectedPhones((prev) => {
+      const next = new Set(prev);
+      if (next.has(clean)) {
+        next.delete(clean);
+      } else {
+        next.add(clean);
+      }
+      return next;
+    });
+  };
+
+  // Select all filtered leads
+  const handleSelectAllFiltered = () => {
+    setSelectedPhones((prev) => {
+      const next = new Set(prev);
+      filteredLeads.forEach((l) => {
+        const clean = l.clean_phone || l.phone.replace(/\D/g, '');
+        if (clean) next.add(clean);
+      });
+      return next;
+    });
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedPhones(new Set());
+  };
 
   // Handle Image Selection from PC or Mobile Camera
   const handleImageChange = async (e) => {
@@ -327,12 +386,26 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
       alert('Escreva o texto da promoção.');
       return;
     }
-    if (leadsData.total_available === 0) {
-      alert('Nenhum cliente disponível na base desta farmácia para disparo. Adicione contatos na aba "Gerenciar Leads".');
+
+    const recipientCount = getRecipientCount();
+    if (recipientCount === 0) {
+      if (targetAudience === 'selected') {
+        alert(
+          'Você escolheu a opção "Contatos Selecionados", mas não marcou nenhum cliente na lista. Vá na aba "Gerenciar Leads" e marque as caixas de seleção dos clientes desejados.'
+        );
+      } else {
+        alert('Nenhum contato encontrado para o público-alvo selecionado.');
+      }
       return;
     }
 
-    const confirmMsg = `Deseja realmente iniciar o disparo seguro para ${leadsData.total_available} clientes?\n\n- Intervalo: ~${delaySeconds} segundos entre mensagens\n- Imagem anexada: ${imagePreview ? 'SIM' : 'NÃO'}\n- Proteção anti-ban ativa: SIM`;
+    let audienceLabel = 'todos os clientes da base';
+    if (targetAudience === 'chat') audienceLabel = 'os clientes do Chat';
+    if (targetAudience === 'order') audienceLabel = 'os clientes que já fizeram Pedidos';
+    if (targetAudience === 'manual') audienceLabel = 'os contatos adicionados/importados';
+    if (targetAudience === 'selected') audienceLabel = `os ${selectedPhones.size} contatos selecionados manualmente`;
+
+    const confirmMsg = `Deseja realmente iniciar o disparo seguro para ${recipientCount} clientes (${audienceLabel})?\n\n- Intervalo: ~${delaySeconds} segundos entre mensagens\n- Imagem anexada: ${imagePreview ? 'SIM' : 'NÃO'}\n- Proteção anti-ban ativa: SIM`;
     if (!confirm(confirmMsg)) return;
 
     setStartingCampaign(true);
@@ -343,6 +416,8 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
         message: getFullMessage(),
         image_url: imagePreview,
         delay_seconds: Number(delaySeconds) || 25,
+        target_audience: targetAudience,
+        selected_phones: targetAudience === 'selected' ? Array.from(selectedPhones) : [],
       });
 
       if (res.error) throw new Error(res.error);
@@ -583,7 +658,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
               <span>Clientes na Base</span>
             </div>
             <p className="text-xl font-extrabold text-white">
-              {loadingLeads ? '...' : leadsData.total_available}
+              {loadingLeads ? '...' : totalAvailable}
             </p>
             <span className="text-[10px] text-emerald-300 flex items-center gap-1 mt-0.5">
               Ver ou Adicionar Contatos →
@@ -675,8 +750,13 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
           <Users size={15} className={activeSection === 'leads' ? 'text-emerald-600' : 'text-slate-400'} />
           <span>Gerenciar Leads & Contatos</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
-            {leadsData.total_available}
+            {totalAvailable}
           </span>
+          {selectedPhones.size > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-600 text-white font-bold animate-pulse">
+              {selectedPhones.size} selecionados
+            </span>
+          )}
         </button>
 
         <button
@@ -975,7 +1055,150 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                 </div>
               </div>
 
-              {/* Step 5: Configuração Anti-Ban (Delay) */}
+              {/* Step 5: PÚBLICO-ALVO / PARA QUEM ENVIAR? */}
+              <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Target size={15} className="text-emerald-600" />
+                    <span>5. Para Quem Enviar? (Escolha o Público-Alvo)</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    {getRecipientCount()} destinatários
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {/* Option 1: Todos */}
+                  <div
+                    onClick={() => setTargetAudience('all')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      targetAudience === 'all'
+                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="audience"
+                      checked={targetAudience === 'all'}
+                      onChange={() => setTargetAudience('all')}
+                      className="mt-0.5 text-emerald-600"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800">🎯 Todos os Contatos ({totalAvailable})</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Envia para toda a base qualificada da farmácia</p>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Apenas Chat */}
+                  <div
+                    onClick={() => setTargetAudience('chat')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      targetAudience === 'chat'
+                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="audience"
+                      checked={targetAudience === 'chat'}
+                      onChange={() => setTargetAudience('chat')}
+                      className="mt-0.5 text-emerald-600"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800">💬 Apenas Clientes do Chat ({chatCount})</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Quem já conversou pelo WhatsApp</p>
+                    </div>
+                  </div>
+
+                  {/* Option 3: Apenas Pedidos */}
+                  <div
+                    onClick={() => setTargetAudience('order')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      targetAudience === 'order'
+                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="audience"
+                      checked={targetAudience === 'order'}
+                      onChange={() => setTargetAudience('order')}
+                      className="mt-0.5 text-emerald-600"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800">🛍️ Apenas Quem Já Comprou ({orderCount})</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Clientes que já fizeram pedidos de entrega</p>
+                    </div>
+                  </div>
+
+                  {/* Option 4: Apenas Importados/Manuais */}
+                  <div
+                    onClick={() => setTargetAudience('manual')}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      targetAudience === 'manual'
+                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="audience"
+                      checked={targetAudience === 'manual'}
+                      onChange={() => setTargetAudience('manual')}
+                      className="mt-0.5 text-emerald-600"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800">📥 Importados & Manuais ({manualCount})</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Contatos que você cadastrou ou colou na lista</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option 5: Contatos Marcados Manualmente */}
+                <div
+                  onClick={() => setTargetAudience('selected')}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                    targetAudience === 'selected'
+                      ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                      : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="radio"
+                      name="audience"
+                      checked={targetAudience === 'selected'}
+                      onChange={() => setTargetAudience('selected')}
+                      className="text-emerald-600"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800">
+                        ☑️ Escolher Contatos Específicos ({selectedPhones.size} selecionados)
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Marque exatamente os clientes que deseja na lista de contatos
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTargetAudience('selected');
+                      setActiveSection('leads');
+                    }}
+                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 transition-colors whitespace-nowrap"
+                  >
+                    Marcar na Lista →
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 6: Configuração Anti-Ban (Delay) */}
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-700 flex items-center gap-1.5">
@@ -1039,14 +1262,22 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                 {/* Botão de Disparo Geral */}
                 <button
                   type="submit"
-                  disabled={startingCampaign || !isConnected || leadsData.total_available === 0}
+                  disabled={startingCampaign || !isConnected || getRecipientCount() === 0}
                   className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   <Play size={14} />
                   <span>
                     {startingCampaign
                       ? 'Iniciando Campanha...'
-                      : `Disparar para ${leadsData.total_available} Clientes`}
+                      : targetAudience === 'all'
+                      ? `Disparar para Todos (${totalAvailable} Clientes)`
+                      : targetAudience === 'chat'
+                      ? `Disparar para ${chatCount} Clientes do Chat`
+                      : targetAudience === 'order'
+                      ? `Disparar para ${orderCount} Clientes de Pedidos`
+                      : targetAudience === 'manual'
+                      ? `Disparar para ${manualCount} Contatos da Lista`
+                      : `Disparar para ${selectedPhones.size} Clientes Selecionados`}
                   </span>
                 </button>
               </div>
@@ -1066,12 +1297,9 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
 
               {/* Mockup Frame */}
               <div className="w-full max-w-sm mx-auto bg-slate-900 rounded-[36px] p-3.5 shadow-2xl border-4 border-slate-800">
-                {/* Phone Speaker Notch */}
                 <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
 
-                {/* WhatsApp Chat Window */}
                 <div className="bg-[#EFEAE2] rounded-[24px] overflow-hidden flex flex-col h-[520px] shadow-inner relative">
-                  {/* WhatsApp Chat Header */}
                   <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5 shrink-0 shadow-xs">
                     <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">
                       💊
@@ -1084,18 +1312,14 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     </div>
                   </div>
 
-                  {/* WhatsApp Chat Body */}
                   <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[radial-gradient(#d1d7db_1px,transparent_1px)] [background-size:16px_16px]">
-                    {/* Date badge */}
                     <div className="text-center">
                       <span className="text-[9px] bg-white/80 text-slate-600 px-2 py-0.5 rounded-full shadow-2xs font-semibold">
                         HOJE
                       </span>
                     </div>
 
-                    {/* Message Balloon */}
                     <div className="max-w-[92%] bg-[#D9FDD3] text-slate-800 rounded-2xl rounded-tr-xs p-2.5 shadow-xs space-y-2 ml-auto text-xs">
-                      {/* Image Preview inside balloon */}
                       {imagePreview ? (
                         <div className="rounded-xl overflow-hidden bg-black/5">
                           <img
@@ -1113,12 +1337,10 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                         </div>
                       )}
 
-                      {/* Caption / Text */}
                       <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-sans break-words">
                         {getPreviewText()}
                       </div>
 
-                      {/* Time & Double Blue Checks */}
                       <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 pt-0.5">
                         <span>14:32</span>
                         <span className="text-[#53BDEB] font-bold">✓✓</span>
@@ -1126,7 +1348,6 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     </div>
                   </div>
 
-                  {/* WhatsApp Chat Footer Bar */}
                   <div className="bg-[#F0F2F5] p-2 flex items-center gap-2 border-t border-slate-200 shrink-0">
                     <div className="flex-1 bg-white rounded-full px-3 py-1.5 text-[11px] text-slate-400">
                       Mensagem
@@ -1251,11 +1472,11 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-800">Base de Leads & Contatos da Farmácia</h2>
                 <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
-                  {leadsData.total_available} prontos para receber ofertas
+                  {totalAvailable} contatos disponíveis
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Contatos que já interagiram com o WhatsApp, fizeram pedidos ou foram adicionados manualmente.
+                Marque clientes individualmente ou use os botões para adicionar e importar listas.
               </p>
             </div>
 
@@ -1289,7 +1510,39 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
             </div>
           </div>
 
-          {/* Search & Origin Filter Bar */}
+          {/* Selection Banner if any leads are checked */}
+          {selectedPhones.size > 0 && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-2 text-xs text-emerald-900">
+                <CheckSquare size={16} className="text-emerald-600 shrink-0" />
+                <span className="font-bold">
+                  {selectedPhones.size} contato{selectedPhones.size > 1 ? 's' : ''} selecionado{selectedPhones.size > 1 ? 's' : ''} para disparo específico.
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors"
+                >
+                  Desmarcar Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetAudience('selected');
+                    setActiveSection('builder');
+                  }}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <span>Enviar Campanha para os {selectedPhones.size} →</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search, Filter & Bulk Selection Actions Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
             <div className="relative w-full sm:w-72">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1302,7 +1555,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
               />
             </div>
 
-            <div className="flex items-center gap-1 text-xs w-full sm:w-auto overflow-x-auto">
+            <div className="flex items-center gap-1.5 text-xs w-full sm:w-auto overflow-x-auto">
               <span className="text-slate-400 text-[11px] font-semibold mr-1">Origem:</span>
               <button
                 type="button"
@@ -1313,7 +1566,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                Todos ({leadsData.leads?.length || 0})
+                Todos ({totalAvailable})
               </button>
               <button
                 type="button"
@@ -1324,7 +1577,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                💬 Chat
+                💬 Chat ({chatCount})
               </button>
               <button
                 type="button"
@@ -1335,7 +1588,7 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                🛍️ Pedidos
+                🛍️ Pedidos ({orderCount})
               </button>
               <button
                 type="button"
@@ -1346,12 +1599,37 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                ✍️ Adicionados / Importados
+                ✍️ Importados ({manualCount})
               </button>
             </div>
           </div>
 
-          {/* Leads Table / List */}
+          {/* Quick Selection Buttons */}
+          <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="text-emerald-700 hover:text-emerald-800 font-bold hover:underline"
+              >
+                Selecionar todos visíveis ({filteredLeads.length})
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-slate-500 hover:text-slate-700 hover:underline"
+              >
+                Limpar seleção
+              </button>
+            </div>
+
+            <span className="text-[11px] text-slate-400">
+              Total de leads na lista: {filteredLeads.length}
+            </span>
+          </div>
+
+          {/* Leads Table / List with Checkboxes */}
           {loadingLeads ? (
             <div className="py-12 text-center text-xs text-slate-400">Carregando contatos e leads...</div>
           ) : filteredLeads.length === 0 ? (
@@ -1369,6 +1647,26 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                   <tr>
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredLeads.length > 0 &&
+                          filteredLeads.every((l) =>
+                            selectedPhones.has(l.clean_phone || l.phone.replace(/\D/g, ''))
+                          )
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            handleSelectAllFiltered();
+                          } else {
+                            handleClearSelection();
+                          }
+                        }}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                        title="Marcar / Desmarcar todos visíveis"
+                      />
+                    </th>
                     <th className="p-3">Nome / Cliente</th>
                     <th className="p-3">WhatsApp</th>
                     <th className="p-3">Origem</th>
@@ -1377,57 +1675,82 @@ export default function CampaignsTab({ tenant, whatsappStatus, onNavigateTab }) 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredLeads.map((lead, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="p-3 font-semibold text-slate-800">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center justify-center shrink-0">
-                            {(lead.name || 'C')[0].toUpperCase()}
+                  {filteredLeads.map((lead, idx) => {
+                    const clean = lead.clean_phone || lead.phone.replace(/\D/g, '');
+                    const isSelected = selectedPhones.has(clean);
+
+                    return (
+                      <tr
+                        key={idx}
+                        className={`transition-colors cursor-pointer ${
+                          isSelected ? 'bg-emerald-50/70 hover:bg-emerald-50' : 'hover:bg-slate-50/60'
+                        }`}
+                        onClick={() => toggleSelectPhone(lead.phone)}
+                      >
+                        <td
+                          className="p-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectPhone(lead.phone)}
+                            className="rounded text-emerald-600 focus:ring-emerald-500"
+                          />
+                        </td>
+                        <td className="p-3 font-semibold text-slate-800">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center justify-center shrink-0">
+                              {(lead.name || 'C')[0].toUpperCase()}
+                            </div>
+                            <span className="truncate max-w-[180px]">{lead.name || 'Cliente'}</span>
                           </div>
-                          <span className="truncate max-w-[180px]">{lead.name || 'Cliente'}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 font-mono text-[11px] text-slate-700">
-                        {formatPhone(lead.clean_phone || lead.phone)}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            lead.source === 'chat'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-700">
+                          {formatPhone(lead.clean_phone || lead.phone)}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              lead.source === 'chat'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : lead.source === 'order'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : lead.source === 'import'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                          >
+                            {lead.source === 'chat'
+                              ? '💬 Chat'
                               : lead.source === 'order'
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              ? '🛍️ Pedido'
                               : lead.source === 'import'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
+                              ? '📥 Importado'
+                              : '✍️ Manual'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-[11px] text-slate-500">
+                          {lead.last_interaction
+                            ? new Date(lead.last_interaction).toLocaleDateString('pt-BR')
+                            : '—'}
+                        </td>
+                        <td
+                          className="p-3 text-right"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {lead.source === 'chat'
-                            ? '💬 Chat'
-                            : lead.source === 'order'
-                            ? '🛍️ Pedido'
-                            : lead.source === 'import'
-                            ? '📥 Importado'
-                            : '✍️ Manual'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-[11px] text-slate-500">
-                        {lead.last_interaction
-                          ? new Date(lead.last_interaction).toLocaleDateString('pt-BR')
-                          : '—'}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteLead(lead)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Remover contato das listas de disparo"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLead(lead)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Remover contato das listas de disparo"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
