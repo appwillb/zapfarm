@@ -2,6 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw } from 'lucide-react';
 import { api } from '../api';
 
+function formatPhone(phone) {
+  if (!phone) return '';
+  if (phone.includes('@lid')) return 'WhatsApp (Dispositivo Conectado)';
+  const clean = phone.replace(/[^\d]/g, '');
+  if (clean.length === 13 && clean.startsWith('55')) {
+    return `+55 (${clean.slice(2, 4)}) ${clean.slice(4, 9)}-${clean.slice(9)}`;
+  }
+  if (clean.length === 12 && clean.startsWith('55')) {
+    return `+55 (${clean.slice(2, 4)}) ${clean.slice(4, 8)}-${clean.slice(8)}`;
+  }
+  return phone;
+}
+
 export default function ChatTab({ tenantId }) {
   const [conversations, setConversations] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(null);
@@ -123,7 +136,7 @@ export default function ChatTab({ tenantId }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400">{c.customer_phone}</p>
+                    <p className="text-[10px] text-slate-400">{formatPhone(c.customer_phone)}</p>
                     <p className="text-[11px] text-slate-600 truncate mt-1">
                       {c.last_message || 'Iniciando conversa...'}
                     </p>
@@ -150,7 +163,7 @@ export default function ChatTab({ tenantId }) {
                     {activeChat.conversation.customer_name || 'Cliente'}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    📱 {selectedPhone} &bull; Estado do Bot:{' '}
+                    📱 {formatPhone(selectedPhone)} &bull; Estado do Bot:{' '}
                     <strong className="text-emerald-600 uppercase font-mono text-[10px]">
                       {activeChat.conversation.state}
                     </strong>

@@ -153,19 +153,23 @@ class SessionManager {
         for (const msg of m.messages) {
           if (!msg.message || msg.key.fromMe) continue;
 
-          // Only process private chats (not group chats)
+          // Only process private chats (not group chats or status broadcast)
           const remoteJid = msg.key.remoteJid;
-          if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
+          if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') continue;
 
-          const customerPhone = remoteJid.replace('@s.whatsapp.net', '');
+          // Preserve exact remoteJid to ensure replies are routed correctly (whether @lid or @s.whatsapp.net)
+          const customerPhone = remoteJid;
           const pushName = msg.pushName || 'Cliente';
 
-          // Extract text
+          // Extract text (including support for images without caption, e.g. prescriptions)
           const text =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||
             msg.message.imageMessage?.caption ||
+            (msg.message.imageMessage ? 'Receita médica enviada em foto' : '') ||
             '';
+
+          if (!text) continue;
 
           console.log(`[Tenant ${tId}] Mensagem recebida de ${customerPhone} (${pushName}): ${text}`);
 
@@ -218,12 +222,30 @@ class SessionManager {
     }
 
     try {
-      const cleanPhone = phone.replace(/[^\d]/g, '');
-      const jid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
-      await session.socket.sendMessage(jid, { text });
+      let jid = String(phone || '').trim();
+
+      // If already a WhatsApp JID (@lid, @s.whatsapp.net, etc.)
+      if (jid.includes('@')) {
+        // Strip any device index e.g. ":0@lid" or ":1@s.whatsapp.net"
+        const [userPart, serverPart] = jid.split('@');
+        const userClean = userPart.split(':')[0];
+        jid = `${userClean}@${serverPart}`;
+      } else {
+        // Plain phone digits (e.g. motoboy or manual phone numbers)
+        let clean = jid.replace(/[^\d]/g, '');
+        // If Brazilian number without country code (10 or 11 digits: DDD + Phone)
+        if (clean.length === 10 || clean.length === 11) {
+          clean = '55' + clean;
+        }
+        jid = `${clean}@s.whatsapp.net`;
+      }
+
+      console.log(`[Tenant ${tId}] 📤 Enviando WhatsApp via Baileys para JID: ${jid}`);
+      const sendResult = await session.socket.sendMessage(jid, { text });
+      console.log(`[Tenant ${tId}] ✅ Mensagem enviada com sucesso para ${jid}! (ID: ${sendResult?.key?.id})`);
       return true;
     } catch (err) {
-      console.error(`[Tenant ${tId}] Erro ao enviar mensagem WhatsApp para ${phone}:`, err);
+      console.error(`[Tenant ${tId}] ❌ Erro ao enviar mensagem WhatsApp para ${phone}:`, err);
       return false;
     }
   }
