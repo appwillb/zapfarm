@@ -158,4 +158,23 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tenant_id: tenantId, phone }),
     }).then((r) => r.json()),
+
+  // Users (Admin panel & Email/Password management)
+  getUsers: () => fetch(`${API_BASE}/auth/users`).then((r) => r.json()),
+  createUser: (data) =>
+    fetch(`${API_BASE}/auth/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  updateUser: (id, data) =>
+    fetch(`${API_BASE}/auth/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  deleteUser: (id) =>
+    fetch(`${API_BASE}/auth/users/${id}`, {
+      method: 'DELETE',
+    }).then((r) => r.json()),
 };
