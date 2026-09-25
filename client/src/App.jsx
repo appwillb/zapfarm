@@ -314,6 +314,7 @@ export default function App() {
           whatsappStatus={whatsappStatus}
           onOpenWhatsApp={() => setCurrentTab('whatsapp')}
           onOpenSimulator={() => setSimulatorOpen(true)}
+          onOpenChat={() => setCurrentTab('chat')}
           currentUser={currentUser}
           onLogout={handleLogout}
         />

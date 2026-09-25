@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, QrCode, Bot, User, Bell, LogOut } from 'lucide-react';
 import AudioAlertsControl from './AudioAlertsControl';
+import PharmacistBadge from './PharmacistBadge';
 
 export default function Header({
   setMobileOpen,
@@ -9,6 +10,7 @@ export default function Header({
   whatsappStatus,
   onOpenWhatsApp,
   onOpenSimulator,
+  onOpenChat,
   currentUser,
   onLogout,
 }) {
@@ -81,14 +83,11 @@ export default function Header({
         {/* Voice and Sound Alerts Control */}
         <AudioAlertsControl />
 
-        {/* Bot Simulator Trigger */}
-        <button
-          onClick={onOpenSimulator}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs shadow-emerald-600/20 transition-all"
-        >
-          <Bot size={14} />
-          <span className="hidden sm:inline">Simular Conversa</span>
-        </button>
+        {/* Animated Moving Pharmacist Mascot & Plantão Badge */}
+        <PharmacistBadge
+          onOpenChat={onOpenChat}
+          onOpenSimulator={onOpenSimulator}
+        />
 
         {/* User Profile & Logout */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
