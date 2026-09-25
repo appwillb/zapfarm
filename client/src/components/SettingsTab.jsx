@@ -14,8 +14,20 @@ import {
   QrCode,
   Info,
   Sparkles,
+  Volume2,
+  VolumeX,
+  Bell,
+  Play,
 } from 'lucide-react';
 import { api } from '../api';
+import {
+  getAudioConfig,
+  saveAudioConfig,
+  testAudioAlert,
+  testHumanRequestAlert,
+  unlockAudio,
+  requestNotificationPermission,
+} from '../services/soundAlerts';
 
 export default function SettingsTab({ tenant, onTenantUpdated }) {
   const [formData, setFormData] = useState({
@@ -38,6 +50,28 @@ export default function SettingsTab({ tenant, onTenantUpdated }) {
   const [pixPreview, setPixPreview] = useState(null);
   const [testingPix, setTestingPix] = useState(false);
   const [copiedPix, setCopiedPix] = useState(false);
+  const [audioConfig, setAudioConfig] = useState(getAudioConfig());
+  const [testName, setTestName] = useState('Rozana');
+  const [testingVoice, setTestingVoice] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(
+    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+  );
+
+  const handleUpdateAudioConfig = (patch) => {
+    const updated = saveAudioConfig(patch);
+    setAudioConfig(updated);
+  };
+
+  const handleTestVoice = (type = 'incoming') => {
+    unlockAudio();
+    setTestingVoice(true);
+    if (type === 'human') {
+      testHumanRequestAlert(testName || 'Rozana');
+    } else {
+      testAudioAlert(testName || 'Rozana');
+    }
+    setTimeout(() => setTestingVoice(false), 3000);
+  };
 
   useEffect(() => {
     if (tenant) {
@@ -431,6 +465,174 @@ export default function SettingsTab({ tenant, onTenantUpdated }) {
             <p className="text-[11px] text-slate-400 mt-1">
               Dica: Utilize <code>{'{nome}'}</code> para inserir o nome da farmácia automaticamente.
             </p>
+          </div>
+        </div>
+
+        {/* Section 4: Alertas Sonoros e Chamada de Voz do Balcão */}
+        <div className="space-y-4 pt-6 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Volume2 size={15} className="text-emerald-600" />
+              Alerta Sonoro & Voz do Balcão (Atendimento WhatsApp)
+            </h3>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              ⚡ Exclusivo ZapFarm
+            </span>
+          </div>
+
+          <div className="bg-gradient-to-r from-emerald-50/70 via-teal-50/50 to-slate-50 p-4 sm:p-5 rounded-2xl border border-emerald-200/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span>Anúncio Falado ao Receber Mensagens</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5 max-w-xl">
+                  Quando um cliente mandar mensagem no WhatsApp, o computador do balcão emitirá uma campainha chamativa e <strong>falará o nome do cliente em voz alta</strong> (ex: <em>"Atenção! Cliente Rozana está chamando no WhatsApp"</em>). Isso permite que o atendente escute mesmo longe da tela.
+                </p>
+              </div>
+
+              {/* Master Toggle */}
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={audioConfig.enabled}
+                  onChange={(e) => handleUpdateAudioConfig({ enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {audioConfig.enabled && (
+              <div className="pt-3 border-t border-emerald-200/60 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Notification Mode */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Tipo de Alerta Sonoro
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateAudioConfig({ mode: 'voice_and_chime' })}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                          audioConfig.mode === 'voice_and_chime'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        🗣️ Voz + Toque
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateAudioConfig({ mode: 'chime_only' })}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                          audioConfig.mode === 'chime_only'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        🔔 Apenas Toque
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateAudioConfig({ mode: 'voice_only' })}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                          audioConfig.mode === 'voice_only'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        🗣️ Apenas Voz
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Volume Slider */}
+                  <div>
+                    <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1.5">
+                      <span>Volume do Alto-falante</span>
+                      <span className="text-emerald-700 font-extrabold">{Math.round(audioConfig.volume * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.05"
+                      value={audioConfig.volume}
+                      onChange={(e) => handleUpdateAudioConfig({ volume: parseFloat(e.target.value) })}
+                      className="w-full accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg mt-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Interactive Voice Test Bar */}
+                <div className="p-3.5 bg-white rounded-xl border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-amber-500" />
+                      Testar Voz Sintetizada com Nome do Cliente
+                    </span>
+                    <span className="text-[11px] text-slate-500">pt-BR Voz Nativa</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <div className="relative flex-1 w-full">
+                      <input
+                        type="text"
+                        value={testName}
+                        onChange={(e) => setTestName(e.target.value)}
+                        placeholder="Nome do cliente (ex: Rozana, Carlos, Dona Maria)"
+                        className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={testingVoice}
+                      onClick={() => handleTestVoice('incoming')}
+                      className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-50 shrink-0"
+                    >
+                      <Play size={13} className={testingVoice ? 'animate-spin' : ''} />
+                      <span>{testingVoice ? 'Reproduzindo...' : 'Testar Chamado Normal'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={testingVoice}
+                      onClick={() => handleTestVoice('human')}
+                      className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-50 shrink-0"
+                      title="Testa o alerta urgente quando o cliente digita 'humano' ou 'atendente'"
+                    >
+                      <span>👨‍⚕️ Testar Pedido Atendente</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Windows Desktop Notifications */}
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-slate-600 flex items-center gap-1.5">
+                    <Bell size={13} className="text-slate-400" />
+                    <span>Notificações na Área de Trabalho (Windows/Mac):</span>
+                  </span>
+                  {notifGranted ? (
+                    <span className="text-emerald-700 font-bold bg-emerald-100/70 px-2.5 py-0.5 rounded-full text-[11px]">
+                      ✅ Notificações Ativadas
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await requestNotificationPermission();
+                        setNotifGranted(ok);
+                      }}
+                      className="text-emerald-700 font-bold hover:underline"
+                    >
+                      🔔 Clique aqui para Ativar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

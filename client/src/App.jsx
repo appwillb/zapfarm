@@ -16,7 +16,10 @@ import CsvImportModal from './components/CsvImportModal';
 import OrderDetailsModal from './components/OrderDetailsModal';
 import SimulatorModal from './components/SimulatorModal';
 import LoginScreen from './components/LoginScreen';
+import IncomingCallToast from './components/IncomingCallToast';
 import { api } from './api';
+import { wsClient } from './services/websocket';
+import { playIncomingMessageAlert, unlockAudio } from './services/soundAlerts';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -46,6 +49,80 @@ export default function App() {
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [orderModal, setOrderModal] = useState({ open: false, order: null });
   const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [activeAlert, setActiveAlert] = useState(null);
+  const [selectedChatPhone, setSelectedChatPhone] = useState(null);
+
+  // 3. Real-Time WebSocket Connection & Balcão Audio/Voice Notifications
+  useEffect(() => {
+    if (!selectedTenant?.id) return;
+
+    wsClient.connect(selectedTenant.id);
+
+    const unsubChat = wsClient.subscribe('new_chat_message', (payload) => {
+      if (!payload.fromMe) {
+        unlockAudio();
+        // Play voice & chime
+        playIncomingMessageAlert({
+          customerName: payload.pushName,
+          customerPhone: payload.customerPhone,
+          text: payload.text,
+          isHumanRequest: false,
+        });
+
+        // Trigger floating banner
+        setActiveAlert({
+          id: Date.now(),
+          customerName: payload.pushName,
+          customerPhone: payload.customerPhone,
+          text: payload.text,
+          type: 'incoming_chat',
+        });
+      }
+    });
+
+    const unsubHuman = wsClient.subscribe('human_support_requested', (payload) => {
+      unlockAudio();
+      playIncomingMessageAlert({
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        text: payload.text,
+        isHumanRequest: true,
+        force: true,
+      });
+
+      setActiveAlert({
+        id: Date.now(),
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        text: payload.text || 'Solicitou atendimento humano',
+        type: 'human_support',
+      });
+    });
+
+    const unsubOrder = wsClient.subscribe('new_order_placed', (payload) => {
+      unlockAudio();
+      playIncomingMessageAlert({
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        text: `Pedido #${payload.orderId}`,
+        isNewOrder: true,
+        force: true,
+      });
+      loadTenantData();
+    });
+
+    const unsubWs = wsClient.subscribe('whatsapp_status', (payload) => {
+      setWhatsappStatus(payload);
+    });
+
+    return () => {
+      unsubChat();
+      unsubHuman();
+      unsubOrder();
+      unsubWs();
+      wsClient.disconnect();
+    };
+  }, [selectedTenant?.id]);
 
   // Handle Authentication
   const handleLoginSuccess = (data) => {
@@ -302,7 +379,13 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'chat' && <ChatTab tenantId={selectedTenant?.id || 1} />}
+          {currentTab === 'chat' && (
+            <ChatTab
+              tenantId={selectedTenant?.id || 1}
+              initialPhone={selectedChatPhone}
+              onPhoneSelected={setSelectedChatPhone}
+            />
+          )}
 
           {currentTab === 'saas_admin' && (
             <SaasAdminTab tenants={tenants} onTenantCreated={loadTenants} />
@@ -360,6 +443,17 @@ export default function App() {
         tenantName={selectedTenant?.name}
         tenantLogo={selectedTenant?.logo_url}
         onOrderCreated={loadTenantData}
+      />
+
+      {/* Floating Real-Time Balcão WhatsApp Audio Alert & Toast */}
+      <IncomingCallToast
+        alert={activeAlert}
+        onOpenChat={(phone) => {
+          setActiveAlert(null);
+          setSelectedChatPhone(phone);
+          setCurrentTab('chat');
+        }}
+        onDismiss={() => setActiveAlert(null)}
       />
     </div>
   );

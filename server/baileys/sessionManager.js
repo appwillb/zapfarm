@@ -16,8 +16,9 @@ class SessionManager {
     this.sessions = new Map(); // tenantId -> { socket, qrCodeDataUrl, qrCodeRaw, status, userPhone }
     this.wsBroadcaster = null;
 
-    // Connect bot engine to outbound whatsapp sender
+    // Connect bot engine to outbound whatsapp sender and broadcaster
     botEngine.setSendFunction(this.sendMessage.bind(this));
+    botEngine.setBroadcastFunction(this.broadcast.bind(this));
   }
 
   setWsBroadcaster(fn) {
@@ -167,7 +168,19 @@ class SessionManager {
 
           // Preserve exact remoteJid to ensure replies are routed correctly (whether @lid or @s.whatsapp.net)
           const customerPhone = remoteJid;
-          const pushName = msg.pushName || 'Cliente';
+          let pushName = msg.pushName || 'Cliente';
+
+          // If pushName is missing or generic, check if we already have the customer's real name saved
+          if (!pushName || pushName === 'Cliente') {
+            try {
+              const existingConv = db
+                .prepare('SELECT customer_name FROM conversations WHERE tenant_id = ? AND customer_phone = ?')
+                .get(tId, customerPhone);
+              if (existingConv && existingConv.customer_name && existingConv.customer_name !== 'Cliente') {
+                pushName = existingConv.customer_name;
+              }
+            } catch (e) {}
+          }
 
           // Extract text (including support for images without caption, e.g. prescriptions)
           const text =

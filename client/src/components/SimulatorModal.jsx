@@ -5,6 +5,7 @@ import { api } from '../api';
 export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, tenantLogo, onOrderCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [customerName, setCustomerName] = useState('Rozana');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const messagesEndRef = useRef(null);
@@ -39,7 +40,7 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
     setLoading(true);
 
     try {
-      const res = await api.simulateMessage(tenantId, testPhone, 'Cliente Teste', text);
+      const res = await api.simulateMessage(tenantId, testPhone, customerName || 'Rozana', text);
       setMessages(res.messages || []);
       if (onOrderCreated) onOrderCreated();
     } catch (err) {
@@ -120,6 +121,23 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
             >
               <X size={16} />
             </button>
+          </div>
+        </div>
+
+        {/* Client Name Config for Balcão Voice Announcement */}
+        <div className="bg-emerald-900/90 text-emerald-100 px-3 py-1 flex items-center justify-between text-[11px] border-b border-emerald-800 shrink-0">
+          <span className="flex items-center gap-1 font-medium">
+            <span>Cliente Simulada:</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-emerald-950 text-white px-2 py-0.5 rounded text-[11px] font-bold border border-emerald-600 focus:outline-none w-28 text-right"
+              placeholder="Nome"
+              title="A voz do balcão anunciará este nome ao receber as mensagens"
+            />
           </div>
         </div>
 

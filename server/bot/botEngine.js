@@ -100,10 +100,25 @@ function generatePixCode({ pixKey, pixType, merchantName, merchantCity, amount, 
 class BotEngine {
   constructor() {
     this.sendWhatsAppMessageFn = null;
+    this.broadcastFn = null;
   }
 
   setSendFunction(fn) {
     this.sendWhatsAppMessageFn = fn;
+  }
+
+  setBroadcastFunction(fn) {
+    this.broadcastFn = fn;
+  }
+
+  broadcast(tenantId, type, payload) {
+    if (this.broadcastFn) {
+      try {
+        this.broadcastFn(tenantId, type, payload);
+      } catch (e) {
+        console.error('Error in botEngine broadcast:', e);
+      }
+    }
   }
 
   async sendReply(tenantId, phone, text) {
@@ -183,6 +198,12 @@ class BotEngine {
     // Command to ask for human assistance
     if (lowerText === 'humano' || lowerText === 'atendente' || lowerText === 'farmaceutico' || lowerText === 'farmacêutico') {
       this.updateConversation(tenantId, customerPhone, 'human_support', conv.context, 1);
+      this.broadcast(tenantId, 'human_support_requested', {
+        customerPhone,
+        customerName,
+        text: rawText,
+        timestamp: new Date().toISOString(),
+      });
       await this.sendReply(
         tenantId,
         customerPhone,
@@ -610,6 +631,16 @@ class BotEngine {
         item.total_price
       );
     }
+
+    // Broadcast new order to connected web dashboard
+    this.broadcast(tenantId, 'new_order_placed', {
+      orderId,
+      customerPhone,
+      customerName,
+      total,
+      deliveryType: context.delivery_type,
+      timestamp: new Date().toISOString(),
+    });
 
     // Generate PIX
     const pixCode = generatePixCode({

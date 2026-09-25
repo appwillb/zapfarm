@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2 } from 'lucide-react';
 import { api } from '../api';
+import { wsClient } from '../services/websocket';
 
 function formatPhone(phone) {
   if (!phone) return '';
@@ -15,20 +16,28 @@ function formatPhone(phone) {
   return phone;
 }
 
-export default function ChatTab({ tenantId }) {
+export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
   const [conversations, setConversations] = useState([]);
-  const [selectedPhone, setSelectedPhone] = useState(null);
+  const [selectedPhone, setSelectedPhone] = useState(initialPhone || null);
   const [activeChat, setActiveChat] = useState({ conversation: null, messages: [] });
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState(null);
+
+  useEffect(() => {
+    if (initialPhone) {
+      setSelectedPhone(initialPhone);
+    }
+  }, [initialPhone]);
 
   const loadConversations = async () => {
     try {
       const data = await api.getConversations(tenantId);
       setConversations(data);
       if (!selectedPhone && data.length > 0) {
-        setSelectedPhone(data[0].customer_phone);
+        const first = initialPhone || data[0].customer_phone;
+        setSelectedPhone(first);
+        if (onPhoneSelected) onPhoneSelected(first);
       }
     } catch (e) {
       console.error(e);
@@ -54,9 +63,20 @@ export default function ChatTab({ tenantId }) {
   useEffect(() => {
     if (selectedPhone) {
       loadMessages(selectedPhone);
-      const interval = setInterval(() => loadMessages(selectedPhone), 3000);
+      const interval = setInterval(() => loadMessages(selectedPhone), 4000);
       return () => clearInterval(interval);
     }
+  }, [selectedPhone, tenantId]);
+
+  // Real-time instant updates via WebSocket
+  useEffect(() => {
+    const unsub = wsClient.subscribe('new_chat_message', (payload) => {
+      loadConversations();
+      if (selectedPhone && payload.customerPhone === selectedPhone) {
+        loadMessages(selectedPhone);
+      }
+    });
+    return unsub;
   }, [selectedPhone, tenantId]);
 
   const handleSendMessage = async (e) => {
@@ -133,7 +153,10 @@ export default function ChatTab({ tenantId }) {
               return (
                 <button
                   key={c.id}
-                  onClick={() => setSelectedPhone(c.customer_phone)}
+                  onClick={() => {
+                    setSelectedPhone(c.customer_phone);
+                    if (onPhoneSelected) onPhoneSelected(c.customer_phone);
+                  }}
                   className={`w-full p-3.5 text-left transition-colors flex items-start gap-3 ${
                     isSelected ? 'bg-white shadow-xs border-l-4 border-emerald-500' : 'hover:bg-slate-100/60'
                   }`}

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const botEngine = require('../bot/botEngine');
+const sessionManager = require('../baileys/sessionManager');
 const db = require('../db/database');
 
 // POST /api/simulation/message - simulate an incoming customer WhatsApp message
@@ -12,6 +13,15 @@ router.post('/message', async (req, res) => {
   }
 
   try {
+    // Broadcast live event to connected frontend
+    sessionManager.broadcast(Number(tenant_id), 'new_chat_message', {
+      customerPhone: phone,
+      fromMe: false,
+      text,
+      pushName: name,
+      timestamp: new Date().toISOString(),
+    });
+
     await botEngine.handleIncomingMessage({
       tenantId: Number(tenant_id),
       customerPhone: phone,

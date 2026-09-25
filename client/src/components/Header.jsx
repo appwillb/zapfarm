@@ -1,5 +1,6 @@
 import React from 'react';
 import { Menu, QrCode, Bot, User, Bell, LogOut } from 'lucide-react';
+import AudioAlertsControl from './AudioAlertsControl';
 
 export default function Header({
   setMobileOpen,
@@ -78,6 +79,9 @@ export default function Header({
             <span>WhatsApp Online</span>
           </div>
         )}
+
+        {/* Voice and Sound Alerts Control */}
+        <AudioAlertsControl />
 
         {/* Bot Simulator Trigger */}
         <button
