@@ -13,7 +13,7 @@ COPY client/ ./
 RUN npm run build
 
 # Estágio 2: Imagem de Produção do Servidor
-FROM node:22-bullseye-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 # Instalar dependências necessárias para compilação nativa de addons (better-sqlite3) e healthcheck
