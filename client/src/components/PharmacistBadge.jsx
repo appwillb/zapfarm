@@ -73,7 +73,7 @@ export default function PharmacistBadge({ onOpenChat, onOpenSimulator }) {
       {/* Main Interactive Button in Header */}
       <button
         onClick={() => setOpen(!open)}
-        className="group flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 shadow-xs hover:shadow-emerald-500/15 transition-all text-left"
+        className="group flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 shadow-xs hover:shadow-emerald-500/15 transition-all text-left"
         title="Farmacêutica de Plantão • Clique para ver detalhes"
       >
         {/* Animated Avatar Container */}
@@ -83,7 +83,7 @@ export default function PharmacistBadge({ onOpenChat, onOpenSimulator }) {
           <span className="absolute -inset-0.5 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 opacity-50 blur-xs" />
 
           {/* Floating Avatar with Movement */}
-          <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400 bg-white shadow-md animate-pharmacist-float group-hover:scale-105 transition-transform">
+          <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden border-2 border-emerald-400 bg-white shadow-md animate-pharmacist-float group-hover:scale-105 transition-transform">
             <img
               src="/pharmacist-avatar.png"
               alt="Farmacêutica de Plantão"
@@ -92,13 +92,13 @@ export default function PharmacistBadge({ onOpenChat, onOpenSimulator }) {
           </div>
 
           {/* Online Indicator Badge */}
-          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center">
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
           </span>
 
-          {/* Floating Particle */}
-          <span className="absolute -top-2 -right-1 text-[9px] text-emerald-500 font-bold pointer-events-none animate-sparkle-1">
-            ➕
+          {/* Floating Sparkle on desktop */}
+          <span className="hidden sm:inline absolute -top-1 -right-1 text-[8px] text-amber-500 pointer-events-none animate-sparkle-1">
+            ✨
           </span>
         </div>
 

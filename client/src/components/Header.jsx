@@ -124,11 +124,11 @@ export default function Header({
           {whatsappStatus?.status !== 'connected' ? (
             <button
               onClick={onOpenWhatsApp}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-all shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-all shrink-0"
               title="Conectar WhatsApp via QR Code"
             >
               <QrCode size={14} className="text-amber-600" />
-              <span className="hidden sm:inline">Conectar WhatsApp</span>
+              <span>Conectar WhatsApp</span>
             </button>
           ) : (
             <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">

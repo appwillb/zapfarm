@@ -75,16 +75,16 @@ export default function DashboardTab({
   return (
     <div className="space-y-6">
       {/* WhatsApp Connection Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-            <QrCode size={24} />
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 overflow-hidden">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5 sm:mt-0">
+            <QrCode size={22} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-white">Robô Baileys WhatsApp</h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-white">Robô Baileys WhatsApp</h2>
               <span
-                className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${
+                className={`text-[10px] sm:text-[11px] px-2.5 py-0.5 rounded-full font-semibold shrink-0 ${
                   whatsapp.status === 'connected'
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : whatsapp.status === 'qrcode'
@@ -99,20 +99,20 @@ export default function DashboardTab({
                   : 'Desconectado'}
               </span>
             </div>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-xs text-slate-300 mt-1 leading-snug">
               {whatsapp.status === 'connected'
                 ? `Conectado ao número +${whatsapp.phone || ''}. Clientes recebem respostas automáticas do estoque.`
                 : 'Escaneie o QR Code para ativar o robô de vendas e atendimento da farmácia.'}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0 mt-1 sm:mt-0">
           {onRefresh && (
             <button
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="w-full md:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center justify-center gap-1.5 transition-all shadow-xs"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center justify-center gap-1.5 transition-all shadow-xs"
               title="Atualizar métricas e indicadores do painel"
             >
               <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-400' : 'text-slate-300'} />
@@ -121,7 +121,7 @@ export default function DashboardTab({
           )}
           <button
             onClick={() => onNavigateTab('whatsapp')}
-            className="w-full md:w-auto px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-sm shrink-0"
+            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-sm"
           >
             {whatsapp.status === 'connected' ? 'Ver Status da Conexão' : 'Escanear QR Code'}
             <ArrowRight size={14} />
@@ -136,15 +136,15 @@ export default function DashboardTab({
           return (
             <div
               key={i}
-              className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">{card.title}</span>
+                <span className="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-2 leading-tight mr-1 h-7 sm:h-auto flex items-center">{card.title}</span>
                 <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${card.bg}`}>
                   <Icon size={16} />
                 </div>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-2 truncate">{card.value}</p>
+              <p className="text-lg sm:text-2xl font-bold text-slate-800 mt-2 truncate">{card.value}</p>
               <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">{card.subtitle}</p>
             </div>
           );
@@ -155,16 +155,17 @@ export default function DashboardTab({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Recent Orders (2 cols) */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Últimos Pedidos via WhatsApp</h2>
-              <p className="text-xs text-slate-500">Pedidos gerados pelo bot e balcão</p>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-800 truncate">Últimos Pedidos via WhatsApp</h2>
+              <p className="text-xs text-slate-500 hidden sm:block">Pedidos gerados pelo bot e balcão</p>
             </div>
             <button
               onClick={() => onNavigateTab('orders')}
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1"
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 shrink-0"
             >
-              Ver Kanban Completo
+              <span>Ver Kanban</span>
+              <span className="hidden sm:inline">Completo</span>
               <ArrowRight size={12} />
             </button>
           </div>
