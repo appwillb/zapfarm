@@ -121,7 +121,7 @@ export default function PharmacistBadge({ onOpenChat, onOpenSimulator }) {
 
       {/* Popover Card */}
       {open && (
-        <div className="absolute right-0 mt-2 w-84 bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-[340px] sm:w-84 bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
           <div className="flex items-start justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-emerald-400 bg-white shadow-md">

@@ -79,8 +79,8 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
   ];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 backdrop-blur-xs">
-      <div className="bg-slate-900 border-4 border-slate-700 rounded-[40px] max-w-sm w-full h-[680px] shadow-2xl flex flex-col overflow-hidden relative">
+    <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-2 sm:p-3 backdrop-blur-xs">
+      <div className="bg-slate-900 border-2 sm:border-4 border-slate-700 rounded-[28px] sm:rounded-[40px] max-w-sm w-full h-[90vh] max-h-[680px] shadow-2xl flex flex-col overflow-hidden relative">
         {/* Phone Notch */}
         <div className="h-6 bg-slate-950 flex items-center justify-center">
           <div className="w-24 h-4 bg-slate-800 rounded-b-xl flex items-center justify-center">

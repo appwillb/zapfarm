@@ -130,22 +130,22 @@ export default function DashboardTab({
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {cards.map((card, i) => {
           const Icon = card.icon;
           return (
             <div
               key={i}
-              className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">{card.title}</span>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${card.bg}`}>
-                  <Icon size={18} />
+                <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">{card.title}</span>
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${card.bg}`}>
+                  <Icon size={16} />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-slate-800 mt-2">{card.value}</p>
-              <p className="text-xs text-slate-400 mt-1">{card.subtitle}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-2 truncate">{card.value}</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">{card.subtitle}</p>
             </div>
           );
         })}
@@ -154,7 +154,7 @@ export default function DashboardTab({
       {/* Main Two Columns: Recent Orders & Stock Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Recent Orders (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-800">Últimos Pedidos via WhatsApp</h2>
@@ -169,7 +169,77 @@ export default function DashboardTab({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Recent Orders Cards (sm:hidden) */}
+          <div className="sm:hidden divide-y divide-slate-100">
+            {recentOrders.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Nenhum pedido recente registrado.
+              </div>
+            ) : (
+              recentOrders.map((order) => {
+                const statusConfig = {
+                  pending_payment: { label: 'Aguardando Pix', color: 'bg-amber-100 text-amber-800' },
+                  paid: { label: 'Pago / Em Separação', color: 'bg-blue-100 text-blue-800' },
+                  ready_for_delivery: { label: 'Pronto / Liberado', color: 'bg-indigo-100 text-indigo-800' },
+                  in_transit: { label: 'Em Rota (Motoboy)', color: 'bg-purple-100 text-purple-800' },
+                  delivered: { label: 'Entregue', color: 'bg-emerald-100 text-emerald-800' },
+                  cancelled: { label: 'Cancelado', color: 'bg-rose-100 text-rose-800' },
+                }[order.status] || { label: order.status, color: 'bg-slate-100 text-slate-700' };
+
+                return (
+                  <div key={order.id} className="py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-xs text-slate-800">#{order.id}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${statusConfig.color}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+                      <span className="font-bold text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        R$ {Number(order.total).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-semibold text-slate-800 text-[11px]">{order.customer_name || 'Cliente'}</p>
+                        <p className="text-[10px] text-slate-400">📱 {order.customer_phone}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {order.status === 'pending_payment' && (
+                          <button
+                            onClick={() => onConfirmPayment(order.id)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold"
+                          >
+                            Confirmar Pix
+                          </button>
+                        )}
+                        {order.status === 'paid' && (
+                          <button
+                            onClick={() => onReleaseDelivery(order.id)}
+                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-semibold flex items-center gap-1"
+                          >
+                            <Bike size={11} />
+                            Motoboy
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onOpenOrder(order)}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded-md"
+                          title="Ver detalhes do pedido"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View (hidden sm:block) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-y border-slate-200">
                 <tr>

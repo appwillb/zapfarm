@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
+  html, body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 

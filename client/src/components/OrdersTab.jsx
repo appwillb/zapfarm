@@ -26,6 +26,7 @@ export default function OrdersTab({
   onRefresh,
 }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
+  const [activeMobileStatus, setActiveMobileStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
@@ -154,13 +155,54 @@ export default function OrdersTab({
         </div>
       </div>
 
+      {/* Mobile Status Filter Tabs (Visible on mobile for both views) */}
+      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <button
+          type="button"
+          onClick={() => setActiveMobileStatus('all')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            activeMobileStatus === 'all'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 border border-slate-200'
+          }`}
+        >
+          Todos ({filteredOrders.length})
+        </button>
+        {columns.map((col) => {
+          const count = filteredOrders.filter((o) => o.status === col.id).length;
+          const isActive = activeMobileStatus === col.id;
+          return (
+            <button
+              key={col.id}
+              type="button"
+              onClick={() => setActiveMobileStatus(col.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200'
+              }`}
+            >
+              <span>{col.title.split('/')[0].split('&')[0].trim()}</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 font-semibold'}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Kanban View */}
       {viewMode === 'kanban' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
           {columns.map((col) => {
             const colOrders = filteredOrders.filter((o) => o.status === col.id);
             return (
-              <div key={col.id} className="bg-slate-100/80 rounded-2xl p-3 border border-slate-200/70 flex flex-col min-h-[500px]">
+              <div
+                key={col.id}
+                className={`bg-slate-100/80 rounded-2xl p-3 border border-slate-200/70 flex-col min-h-[300px] md:min-h-[500px] ${
+                  activeMobileStatus !== 'all' && activeMobileStatus !== col.id ? 'hidden md:flex' : 'flex'
+                }`}
+              >
                 {/* Column Header */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
                   <h3 className="text-xs font-bold text-slate-700">{col.title}</h3>
@@ -304,9 +346,96 @@ export default function OrdersTab({
           })}
         </div>
       ) : (
-        /* Detailed Table View */
+        /* Detailed Table & Mobile Card View */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile Order Cards View (sm:hidden) */}
+          <div className="sm:hidden divide-y divide-slate-100">
+            {filteredOrders
+              .filter((o) => activeMobileStatus === 'all' || o.status === activeMobileStatus)
+              .length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                Nenhum pedido encontrado.
+              </div>
+            ) : (
+              filteredOrders
+                .filter((o) => activeMobileStatus === 'all' || o.status === activeMobileStatus)
+                .map((order) => (
+                  <div key={order.id} className="p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-slate-800">#{order.id}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                          {order.status}
+                        </span>
+                      </div>
+                      <span className="font-bold text-sm text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                        R$ {Number(order.total).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold text-xs text-slate-800">{order.customer_name || 'Cliente'}</p>
+                      <p className="text-[10px] text-slate-400">📱 {order.customer_phone}</p>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600">
+                      📍 {order.delivery_type === 'pickup' ? '🏪 Retirada no Balcão' : order.delivery_address}
+                    </p>
+
+                    <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      {order.items?.map((i) => `${i.quantity}x ${i.product_name}`).join(', ') || 'Sem itens'}
+                    </div>
+
+                    {order.driver_name && (
+                      <div className="p-1.5 rounded-lg bg-purple-50 text-purple-700 text-[11px] flex items-center gap-1.5 font-medium">
+                        <Bike size={13} />
+                        <span>Entregador: {order.driver_name}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        onClick={() => onOpenOrder(order)}
+                        className="p-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1"
+                      >
+                        <Eye size={14} />
+                        Detalhes
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        {order.status === 'pending_payment' && (
+                          <button
+                            onClick={() => onConfirmPayment(order.id)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                          >
+                            Pix OK
+                          </button>
+                        )}
+                        {order.status === 'paid' && (
+                          <button
+                            onClick={() => handleOpenDispatch(order)}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                          >
+                            Liberar Motoboy
+                          </button>
+                        )}
+                        {order.status === 'in_transit' && (
+                          <button
+                            onClick={() => onMarkDelivered(order.id)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                          >
+                            Entregue
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          {/* Desktop Table View (hidden sm:block) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
@@ -388,7 +517,7 @@ export default function OrdersTab({
       {/* Dispatch to Driver Modal */}
       {dispatchModalOrder && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <Bike size={20} />

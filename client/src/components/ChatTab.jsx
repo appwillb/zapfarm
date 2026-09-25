@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2 } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft } from 'lucide-react';
 import { api } from '../api';
 import { wsClient } from '../services/websocket';
 
@@ -25,6 +25,7 @@ export default function ChatTab({
 }) {
   const [conversations, setConversations] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(initialPhone || null);
+  const [mobileView, setMobileView] = useState(initialPhone ? 'chat' : 'list'); // 'list' | 'chat'
   const [activeChat, setActiveChat] = useState({ conversation: null, messages: [] });
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,6 +36,7 @@ export default function ChatTab({
   useEffect(() => {
     if (initialPhone) {
       setSelectedPhone(initialPhone);
+      setMobileView('chat');
     }
   }, [initialPhone]);
 
@@ -162,10 +164,10 @@ export default function ChatTab({
   const isHuman = activeChat.conversation?.is_human_agent === 1;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden h-[calc(100vh-140px)] flex flex-col md:flex-row">
+    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden h-[calc(100vh-130px)] sm:h-[calc(100vh-140px)] flex flex-col md:flex-row">
       {/* Left Column: Conversations List */}
-      <div className="w-full md:w-80 border-r border-slate-200 flex flex-col bg-slate-50/50">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+      <div className={`w-full md:w-80 border-r border-slate-200 flex-col bg-slate-50/50 ${mobileView === 'chat' ? 'hidden md:flex' : 'flex flex-1 md:flex-initial'}`}>
+        <div className="p-3.5 sm:p-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800">Atendimentos WhatsApp</h3>
             <p className="text-[11px] text-slate-500">{conversations.length} conversas ativas</p>
@@ -196,6 +198,7 @@ export default function ChatTab({
                   onClick={() => {
                     setSelectedPhone(c.customer_phone);
                     if (onPhoneSelected) onPhoneSelected(c.customer_phone);
+                    setMobileView('chat');
                   }}
                   className={`group relative w-full p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                     isSelected ? 'bg-white shadow-xs border-l-4 border-emerald-500' : 'hover:bg-slate-100/60'
@@ -240,23 +243,23 @@ export default function ChatTab({
       </div>
 
       {/* Right Column: Chat Box */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className={`flex-1 flex-col bg-white ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
         {/* WhatsApp Offline Warning Banner */}
         {whatsappStatus?.status !== 'connected' && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between text-xs text-amber-900 shrink-0">
-            <div className="flex items-center gap-2">
+          <div className="bg-amber-50 border-b border-amber-200 px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between text-[11px] sm:text-xs text-amber-900 shrink-0 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-              <span>
-                <strong>WhatsApp Desconectado:</strong> Suas mensagens ficam registradas no painel, mas só chegarão ao celular do cliente quando o WhatsApp da farmácia for conectado.
+              <span className="truncate">
+                <strong>WhatsApp Desconectado:</strong> Mensagens salvas, mas requer conexão para entregar.
               </span>
             </div>
             {onNavigateTab && (
               <button
                 type="button"
                 onClick={() => onNavigateTab('whatsapp')}
-                className="ml-3 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition-colors shrink-0 shadow-xs"
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] sm:text-[11px] transition-colors shrink-0 shadow-xs"
               >
-                Conectar Agora
+                Conectar
               </button>
             )}
           </div>
@@ -265,71 +268,80 @@ export default function ChatTab({
         {selectedPhone && activeChat.conversation ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm">
+            <div className="p-3 sm:p-4 border-b border-slate-200 flex items-center justify-between bg-white gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileView('list')}
+                  className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+                  title="Voltar para a lista de conversas"
+                >
+                  <ArrowLeft size={19} />
+                </button>
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs sm:text-sm shrink-0">
                   {activeChat.conversation.customer_name?.[0] || 'C'}
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-800 text-xs sm:text-sm truncate">
                     {activeChat.conversation.customer_name || 'Cliente'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
                     <span>📱 {formatPhone(selectedPhone)}</span>
+                    <span className="hidden sm:inline">&bull;</span>
+                    <span className="hidden sm:inline">Estado: <strong className="text-emerald-600 uppercase font-mono text-[10px]">{activeChat.conversation.state}</strong></span>
                     <span>&bull;</span>
-                    <span>Estado: <strong className="text-emerald-600 uppercase font-mono text-[10px]">{activeChat.conversation.state}</strong></span>
-                    <span>&bull;</span>
-                    <span className={`inline-flex items-center gap-1 font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                    <span className={`inline-flex items-center gap-1 font-semibold text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded ${
                       whatsappStatus?.status === 'connected'
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-rose-100 text-rose-800'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${whatsappStatus?.status === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                      {whatsappStatus?.status === 'connected' ? 'WhatsApp Online' : 'WhatsApp Desconectado'}
+                      {whatsappStatus?.status === 'connected' ? 'Online' : 'Desconectado'}
                     </span>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors border border-slate-200 hover:border-emerald-200 shadow-xs"
+                  className="p-1.5 sm:p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors border border-slate-200 hover:border-emerald-200 shadow-xs"
                   title="Atualizar mensagens desta conversa"
                 >
-                  <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-emerald-600' : ''} />
+                  <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-emerald-600' : ''} />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleDeleteConversation(selectedPhone, activeChat.conversation?.customer_name)}
-                  className="px-3 py-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-slate-200 hover:border-rose-200 text-xs font-semibold flex items-center gap-1.5 shadow-xs"
+                  className="p-1.5 sm:px-3 sm:py-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-slate-200 hover:border-rose-200 text-xs font-semibold flex items-center gap-1.5 shadow-xs"
                   title="Excluir este contato e mensagens"
                 >
                   <Trash2 size={14} className="text-rose-500" />
-                  <span className="hidden sm:inline">Excluir Contato</span>
+                  <span className="hidden md:inline">Excluir</span>
                 </button>
 
                 {/* Toggle Human Handover */}
                 <button
                   onClick={handleToggleHuman}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
+                  className={`p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
                     isHuman
                       ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
                       : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
                   }`}
+                  title={isHuman ? 'Bot Pausado' : 'Assumir Atendimento'}
                 >
                   {isHuman ? (
                     <>
                       <Bot size={14} className="text-amber-700" />
-                      <span>Bot Pausado (Clique p/ Reativar)</span>
+                      <span className="hidden sm:inline">Bot Pausado (Reativar)</span>
                     </>
                   ) : (
                     <>
                       <UserCheck size={14} className="text-indigo-600" />
-                      <span>Assumir Atendimento Humano</span>
+                      <span className="hidden sm:inline">Assumir Humano</span>
                     </>
                   )}
                 </button>
@@ -337,7 +349,7 @@ export default function ChatTab({
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/40">
+            <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-slate-50/40">
               {activeChat.messages?.map((m) => {
                 const isMe = m.from_me === 1;
                 const isPixCode = m.text && m.text.startsWith('000201');
@@ -347,7 +359,7 @@ export default function ChatTab({
                     className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-[75%] p-3 rounded-2xl text-xs whitespace-pre-wrap leading-relaxed shadow-xs ${
+                      className={`max-w-[88%] sm:max-w-[75%] p-3 rounded-2xl text-xs whitespace-pre-wrap leading-relaxed shadow-xs ${
                         isMe
                           ? isPixCode
                             ? 'bg-slate-900 text-white rounded-tr-xs border border-emerald-500/40'
@@ -395,32 +407,40 @@ export default function ChatTab({
             </div>
 
             {/* Input Bar */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 bg-white flex gap-2">
+            <form onSubmit={handleSendMessage} className="p-2.5 sm:p-3 border-t border-slate-200 bg-white flex gap-2">
               <input
                 type="text"
                 placeholder={
                   isHuman
-                    ? 'Digite sua resposta como atendente/farmacêutico...'
-                    : 'Digite uma mensagem (o cliente receberá no WhatsApp)...'
+                    ? 'Digite sua resposta como atendente...'
+                    : 'Digite uma mensagem para o cliente...'
                 }
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
+                className="flex-1 px-3.5 sm:px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs focus:outline-none focus:border-emerald-500"
               />
               <button
                 type="submit"
                 disabled={!messageInput.trim()}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs shrink-0"
               >
                 <Send size={14} />
-                Enviar
+                <span className="hidden sm:inline">Enviar</span>
               </button>
             </form>
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
             <MessageSquare size={48} className="text-slate-300 mb-2" />
-            <p className="text-sm font-medium">Selecione uma conversa ao lado para visualizar as mensagens.</p>
+            <p className="text-sm font-medium">Selecione uma conversa para visualizar as mensagens.</p>
+            <button
+              type="button"
+              onClick={() => setMobileView('list')}
+              className="mt-4 md:hidden px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-2"
+            >
+              <ArrowLeft size={14} />
+              <span>Ver Lista de Conversas</span>
+            </button>
           </div>
         )}
       </div>

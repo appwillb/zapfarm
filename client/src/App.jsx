@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, ShoppingBag, MessageSquare, Megaphone, Menu as MenuIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardTab from './components/DashboardTab';
@@ -329,7 +330,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">
           {currentTab === 'dashboard' && (
             <DashboardTab
               dashboardData={dashboardData}
@@ -427,6 +428,65 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 flex items-center justify-around px-2 shadow-lg">
+          <button
+            type="button"
+            onClick={() => setCurrentTab('dashboard')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+              currentTab === 'dashboard' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <LayoutDashboard size={20} className={currentTab === 'dashboard' ? 'scale-110 transition-transform' : ''} />
+            <span className="text-[10px] mt-0.5 font-medium">Início</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('orders')}
+            className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+              currentTab === 'orders' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <ShoppingBag size={20} className={currentTab === 'orders' ? 'scale-110 transition-transform' : ''} />
+            <span className="text-[10px] mt-0.5 font-medium">Pedidos</span>
+            {orders.filter((o) => o.status === 'pending_payment' || o.status === 'paid').length > 0 && (
+              <span className="absolute top-1 right-3 sm:right-6 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('chat')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+              currentTab === 'chat' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <MessageSquare size={20} className={currentTab === 'chat' ? 'scale-110 transition-transform' : ''} />
+            <span className="text-[10px] mt-0.5 font-medium">Chat</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('campaigns')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+              currentTab === 'campaigns' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Megaphone size={20} className={currentTab === 'campaigns' ? 'scale-110 transition-transform' : ''} />
+            <span className="text-[10px] mt-0.5 font-medium">Ofertas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            <MenuIcon size={20} />
+            <span className="text-[10px] mt-0.5 font-medium">Mais</span>
+          </button>
+        </nav>
       </div>
 
       {/* Global Modals */}

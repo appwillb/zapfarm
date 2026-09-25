@@ -95,35 +95,37 @@ export default function Header({
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-4 lg:px-8 shadow-xs">
-        <div className="flex items-center gap-3">
+      <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-3 sm:px-4 lg:px-8 shadow-xs gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"
+            className="lg:hidden p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 shrink-0"
+            title="Abrir Menu"
           >
             <Menu size={22} />
           </button>
           <img
             src={tenant?.logo_url || '/zapfarm-logo.png'}
             alt={tenant?.name || 'ZapFarm'}
-            className="w-9 h-9 rounded-xl object-contain border border-slate-200 bg-white p-1 shadow-xs shrink-0"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain border border-slate-200 bg-white p-1 shadow-xs shrink-0"
           />
-          <div>
-            <h1 className="text-lg lg:text-xl font-bold text-slate-800 leading-tight flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-lg lg:text-xl font-bold text-slate-800 leading-tight truncate max-w-[130px] sm:max-w-xs md:max-w-none">
               {getTabTitle()}
             </h1>
-            <p className="text-xs text-slate-500 font-medium hidden sm:block">
+            <p className="text-[11px] text-slate-500 font-medium hidden sm:block truncate">
               {tenant?.name} &bull; CNPJ: {tenant?.cnpj || 'Sem CNPJ'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* WhatsApp Fast Connect Banner Button */}
           {whatsappStatus?.status !== 'connected' ? (
             <button
               onClick={onOpenWhatsApp}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-all shrink-0"
+              title="Conectar WhatsApp via QR Code"
             >
               <QrCode size={14} className="text-amber-600" />
               <span className="hidden sm:inline">Conectar WhatsApp</span>
@@ -145,13 +147,13 @@ export default function Header({
           />
 
           {/* User Profile & Logout */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200">
             <button
               onClick={handleOpenProfileModal}
-              className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors text-left group"
+              className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 transition-colors text-left group"
               title="Clique para editar seu nome, e-mail e senha de login"
             >
-              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
                 {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'US'}
               </div>
               <div className="hidden xl:block text-left">
