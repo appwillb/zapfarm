@@ -47,6 +47,27 @@ class SessionManager {
     };
   }
 
+  async initAllSavedSessions() {
+    try {
+      if (!fs.existsSync(sessionsDir)) return;
+      const entries = fs.readdirSync(sessionsDir);
+      for (const entry of entries) {
+        if (entry.startsWith('tenant_')) {
+          const tenantId = Number(entry.replace('tenant_', ''));
+          const credsPath = path.join(sessionsDir, entry, 'creds.json');
+          if (fs.existsSync(credsPath)) {
+            console.log(`[Auto-Restore] 🔄 Restaurando sessão Baileys salva para Tenant ${tenantId}...`);
+            this.initSession(tenantId).catch((err) => {
+              console.error(`Erro ao restaurar sessão Baileys para Tenant ${tenantId}:`, err);
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao restaurar sessões salvas do WhatsApp:', err);
+    }
+  }
+
   async initSession(tenantId) {
     const tId = Number(tenantId);
     if (this.sessions.has(tId)) {

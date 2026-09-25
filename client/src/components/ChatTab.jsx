@@ -16,7 +16,13 @@ function formatPhone(phone) {
   return phone;
 }
 
-export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
+export default function ChatTab({
+  tenantId,
+  initialPhone,
+  onPhoneSelected,
+  whatsappStatus,
+  onNavigateTab,
+}) {
   const [conversations, setConversations] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(initialPhone || null);
   const [activeChat, setActiveChat] = useState({ conversation: null, messages: [] });
@@ -103,9 +109,12 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
     setMessageInput('');
 
     try {
-      await api.sendChatMessage(tenantId, selectedPhone, text);
+      const res = await api.sendChatMessage(tenantId, selectedPhone, text);
       await loadMessages(selectedPhone);
       await loadConversations();
+      if (res && res.warning) {
+        alert(res.warning);
+      }
     } catch (err) {
       alert('Erro ao enviar mensagem: ' + err.message);
     }
@@ -232,6 +241,27 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
 
       {/* Right Column: Chat Box */}
       <div className="flex-1 flex flex-col bg-white">
+        {/* WhatsApp Offline Warning Banner */}
+        {whatsappStatus?.status !== 'connected' && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between text-xs text-amber-900 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span>
+                <strong>WhatsApp Desconectado:</strong> Suas mensagens ficam registradas no painel, mas só chegarão ao celular do cliente quando o WhatsApp da farmácia for conectado.
+              </span>
+            </div>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('whatsapp')}
+                className="ml-3 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition-colors shrink-0 shadow-xs"
+              >
+                Conectar Agora
+              </button>
+            )}
+          </div>
+        )}
+
         {selectedPhone && activeChat.conversation ? (
           <>
             {/* Chat Header */}
@@ -244,11 +274,19 @@ export default function ChatTab({ tenantId, initialPhone, onPhoneSelected }) {
                   <h3 className="font-bold text-slate-800 text-sm">
                     {activeChat.conversation.customer_name || 'Cliente'}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    📱 {formatPhone(selectedPhone)} &bull; Estado do Bot:{' '}
-                    <strong className="text-emerald-600 uppercase font-mono text-[10px]">
-                      {activeChat.conversation.state}
-                    </strong>
+                  <p className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                    <span>📱 {formatPhone(selectedPhone)}</span>
+                    <span>&bull;</span>
+                    <span>Estado: <strong className="text-emerald-600 uppercase font-mono text-[10px]">{activeChat.conversation.state}</strong></span>
+                    <span>&bull;</span>
+                    <span className={`inline-flex items-center gap-1 font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                      whatsappStatus?.status === 'connected'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${whatsappStatus?.status === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      {whatsappStatus?.status === 'connected' ? 'WhatsApp Online' : 'WhatsApp Desconectado'}
+                    </span>
                   </p>
                 </div>
               </div>

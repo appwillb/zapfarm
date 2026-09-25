@@ -106,6 +106,9 @@ server.listen(PORT, () => {
   console.log(`🌐 API Health Check: http://localhost:${PORT}/health`);
   console.log(`📡 WebSocket Path: ws://localhost:${PORT}/ws`);
   console.log(`=======================================================`);
+
+  // Auto-restore any saved WhatsApp Baileys sessions for tenants
+  sessionManager.initAllSavedSessions();
 });
 
 // Graceful shutdown

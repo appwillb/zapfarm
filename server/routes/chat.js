@@ -65,21 +65,38 @@ router.post('/:tenantId/send', async (req, res) => {
     return res.status(400).json({ error: 'Telefone e texto são obrigatórios.' });
   }
 
-  // Save in db
+  // 1. Mark as human agent so the automated bot does not interfere with attendant's chat
+  db.prepare(`
+    UPDATE conversations 
+    SET is_human_agent = 1, last_message_at = CURRENT_TIMESTAMP 
+    WHERE tenant_id = ? AND customer_phone = ?
+  `).run(tenantId, customerPhone);
+
+  // 2. Save in db
   db.prepare(`
     INSERT INTO messages (tenant_id, customer_phone, from_me, text)
     VALUES (?, ?, 1, ?)
   `).run(tenantId, customerPhone, text);
 
-  // Update last message time
-  db.prepare(`
-    UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE tenant_id = ? AND customer_phone = ?
-  `).run(tenantId, customerPhone);
+  // 3. Send via Baileys WhatsApp
+  const sent = await sessionManager.sendMessage(tenantId, customerPhone, text);
 
-  // Send via Baileys
-  await sessionManager.sendMessage(tenantId, customerPhone, text);
+  const wsStatus = sessionManager.getSessionState(tenantId);
+  const isConnected = wsStatus?.status === 'connected';
 
-  res.json({ success: true });
+  let warning = null;
+  if (!isConnected) {
+    warning = '⚠️ Atenção: O WhatsApp da farmácia está desconectado! A mensagem foi salva no painel, mas NÃO pôde ser entregue no WhatsApp do cliente. Vá até a aba "Conexão WhatsApp" para escanear o QR Code.';
+  } else if (!sent) {
+    warning = '⚠️ Aviso: Não foi possível entregar a mensagem no WhatsApp deste cliente. Verifique se o número do cliente possui WhatsApp ativo.';
+  }
+
+  res.json({
+    success: true,
+    sentToWhatsApp: sent,
+    whatsappConnected: isConnected,
+    warning,
+  });
 });
 
 // POST /api/chat/:tenantId/toggle-human - Take over chat or return to bot

@@ -195,8 +195,28 @@ class BotEngine {
       return;
     }
 
-    // Command to ask for human assistance
-    if (lowerText === 'humano' || lowerText === 'atendente' || lowerText === 'farmaceutico' || lowerText === 'farmacêutico') {
+    // Command to ask for human assistance (supports 0, 'atendente', 'falar com atendente', etc.)
+    const isHumanRequest =
+      lowerText === '0' ||
+      lowerText === 'humano' ||
+      lowerText === 'atendente' ||
+      lowerText === 'farmaceutico' ||
+      lowerText === 'farmacêutico' ||
+      lowerText === 'suporte' ||
+      lowerText === 'ajuda' ||
+      lowerText.includes('falar com atendente') ||
+      lowerText.includes('falar com humano') ||
+      lowerText.includes('falar com alguem') ||
+      lowerText.includes('falar com alguém') ||
+      lowerText.includes('falar com farmac') ||
+      lowerText.includes('quero atendente') ||
+      lowerText.includes('chamar atendente') ||
+      lowerText.includes('preciso de atendente') ||
+      lowerText.includes('passar para atendente') ||
+      lowerText.includes('falar com pessoa') ||
+      /^(quero |preciso )?(falar com |chamar )?(atendente|humano|farmac[eê]utico|balc[aã]o)/i.test(lowerText);
+
+    if (isHumanRequest) {
       this.updateConversation(tenantId, customerPhone, 'human_support', conv.context, 1);
       this.broadcast(tenantId, 'human_support_requested', {
         customerPhone,
@@ -207,7 +227,7 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `👨‍⚕️ Transferindo seu atendimento para a nossa equipe e farmacêutico(a) da *${tenant.name}*!\n\nAguarde um momento enquanto um membro da nossa equipe visualiza sua conversa no painel. (Caso queira voltar ao robô automático a qualquer momento, digite *#bot*).`
+        `👨‍⚕️ *ATENDIMENTO HUMANIZADO ACIONADO!*\n\nOlá, ${customerName}! Transferi sua conversa diretamente para nossa equipe e farmacêutico(a) no balcão da *${tenant.name}*.\n\nUm de nossos atendentes já recebeu o aviso no painel e responderá você aqui em instantes!\n\n_(Caso queira voltar ao robô automático a qualquer momento, digite *#bot* ou *MENU*)_`
       );
       return;
     }
@@ -218,7 +238,9 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `Olá, ${customerName}! 💊 Bem-vindo(a) à *${tenant.name}*.\n\nQual medicamento ou produto de saúde você procura hoje?`
+        `Olá, ${customerName}! 💊 Bem-vindo(a) à *${tenant.name}*.\n\n` +
+        `Qual medicamento ou produto de saúde você procura hoje?\n` +
+        `_(Digite o nome do remédio ou digite *0* para falar com o atendente)_`
       );
       return;
     }
@@ -230,9 +252,15 @@ class BotEngine {
         const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|opa)/i.test(lowerText);
         if (isGreeting && lowerText.split(' ').length <= 3) {
           this.updateConversation(tenantId, customerPhone, 'searching', {});
-          const welcomeMsg = tenant.welcome_message
+          const baseWelcome = tenant.welcome_message
             ? tenant.welcome_message.replace('{nome}', tenant.name)
-            : `Olá, ${customerName}! Bem-vindo(a) à *${tenant.name}*! 💊\nQual remédio você gostaria de consultar?`;
+            : `Olá, ${customerName}! Bem-vindo(a) à *${tenant.name}*! 💊`;
+          
+          const welcomeMsg = `${baseWelcome}\n\n` +
+            `📌 *Como posso te ajudar hoje?*\n` +
+            `• Digite o *nome do remédio ou produto* que procura (ex: *Dipirona*, *Dorflex*)\n` +
+            `• Ou digite *0* (ou *ATENDENTE*) para falar direto com nosso farmacêutico!`;
+
           await this.sendReply(tenantId, customerPhone, welcomeMsg);
           return;
         }
@@ -506,8 +534,8 @@ class BotEngine {
         tenantId,
         customerPhone,
         `Não encontrei nenhum produto para "*${queryText}*" no momento. 😕\n\n` +
-        `Tente buscar por outro termo ou pelo princípio ativo (ex: *Dipirona*, *Paracetamol*, *Ibuprofeno*).\n` +
-        `Se preferir, digite *HUMANO* para falar diretamente com o farmacêutico.`
+        `Tente buscar por outro termo ou pelo princípio ativo (ex: *Dipirona*, *Paracetamol*, *Ibuprofeno*).\n\n` +
+        `👉 Ou digite *0* (ou *ATENDENTE*) para falar diretamente com nosso farmacêutico no balcão.`
       );
       return;
     }
@@ -530,7 +558,8 @@ class BotEngine {
         `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}*\n` +
         `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
         (p.requires_prescription ? `⚠️ *Atenção:* Medicamento sob retenção de receita médica.\n\n` : '') +
-        `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*):`;
+        `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*)\n` +
+        `_(Ou digite *0* para falar com o atendente)_`;
 
       await this.sendReply(tenantId, customerPhone, msg);
       return;
@@ -552,7 +581,7 @@ class BotEngine {
         `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}* | Disp: ${available} un.\n\n`;
     });
 
-    listMsg += `Digite o número de 1 a ${products.length}:`;
+    listMsg += `Digite o número de 1 a ${products.length}, ou digite *0* para falar com atendente:`;
     await this.sendReply(tenantId, customerPhone, listMsg);
   }
 

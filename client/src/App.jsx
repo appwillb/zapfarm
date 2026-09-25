@@ -388,6 +388,8 @@ export default function App() {
               tenantId={selectedTenant?.id || 1}
               initialPhone={selectedChatPhone}
               onPhoneSelected={setSelectedChatPhone}
+              whatsappStatus={whatsappStatus}
+              onNavigateTab={(tab) => setCurrentTab(tab)}
             />
           )}
 
