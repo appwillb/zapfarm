@@ -74,14 +74,18 @@ export default function LoginScreen({ onLoginSuccess }) {
       <div className="max-w-md w-full relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-3xl shadow-xl mx-auto font-bold transition-all duration-300 ${
-              isAdminMode
-                ? 'bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-600/20'
-                : 'bg-gradient-to-tr from-emerald-600 to-teal-400 shadow-emerald-500/20'
-            }`}
-          >
-            {isAdminMode ? '👑' : '⚕️'}
+          <div className="mx-auto flex justify-center">
+            {isAdminMode ? (
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-3xl shadow-xl font-bold bg-gradient-to-tr from-indigo-700 to-purple-600 shadow-indigo-600/20">
+                👑
+              </div>
+            ) : (
+              <img
+                src="/zapfarm-logo.png"
+                alt="ZapFarm Logo"
+                className="w-18 h-18 object-contain drop-shadow-xl hover:scale-105 transition-transform"
+              />
+            )}
           </div>
 
           <div>

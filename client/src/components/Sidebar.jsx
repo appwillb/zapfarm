@@ -63,9 +63,11 @@ export default function Sidebar({
         {/* Brand Header */}
         <div className="h-16 px-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 font-bold text-xl">
-              ⚕️
-            </div>
+            <img
+              src="/zapfarm-logo.png"
+              alt="ZapFarm Logo"
+              className="w-10 h-10 object-contain drop-shadow-md hover:scale-105 transition-transform shrink-0"
+            />
             <div>
               <span className="font-bold text-lg text-white tracking-tight flex items-center gap-1.5">
                 ZapFarm <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded-full border border-emerald-500/30">SaaS</span>

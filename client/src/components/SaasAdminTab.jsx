@@ -127,7 +127,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
                         {t.logo_url ? (
                           <img src={t.logo_url} alt="" className="w-full h-full object-contain p-0.5 bg-white" />
                         ) : (
-                          '⚕️'
+                          <img src="/zapfarm-logo.png" alt="" className="w-full h-full object-contain p-0.5" />
                         )}
                       </div>
                       <div>

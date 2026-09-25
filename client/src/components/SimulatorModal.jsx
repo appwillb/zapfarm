@@ -92,12 +92,8 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
         {/* WhatsApp Chat Header */}
         <div className="bg-emerald-700 text-white px-4 py-2.5 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-800 border border-emerald-500/40 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
-              {tenantLogo ? (
-                <img src={tenantLogo} alt="" className="w-full h-full object-contain p-0.5 bg-white" />
-              ) : (
-                '⚕️'
-              )}
+            <div className="w-8 h-8 rounded-full bg-white border border-emerald-500/40 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+              <img src={tenantLogo || '/zapfarm-logo.png'} alt="" className="w-full h-full object-contain p-0.5" />
             </div>
             <div>
               <h4 className="text-xs font-bold leading-tight truncate max-w-[170px]">
