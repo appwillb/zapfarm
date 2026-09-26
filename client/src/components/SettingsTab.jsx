@@ -69,10 +69,6 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [pixPreview, setPixPreview] = useState(null);
-  const [testingPix, setTestingPix] = useState(false);
-  const [testPixAmount, setTestPixAmount] = useState('10.00');
-  const [copiedPix, setCopiedPix] = useState(false);
   const [audioConfig, setAudioConfig] = useState(getAudioConfig());
   const [testName, setTestName] = useState('Rozana');
   const [testingVoice, setTestingVoice] = useState(false);
@@ -288,37 +284,6 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleTestPix = async () => {
-    if (!formData.pix_key) {
-      alert('Informe uma chave Pix antes de testar a geração.');
-      return;
-    }
-    const parsedAmount = parseFloat(testPixAmount) > 0 ? parseFloat(testPixAmount) : 10.00;
-    setTestingPix(true);
-    try {
-      const res = await api.previewPix(tenant.id, {
-        pix_key: formData.pix_key,
-        pix_type: formData.pix_type,
-        amount: parsedAmount,
-      });
-      setPixPreview({
-        ...res,
-        tested_amount: parsedAmount,
-      });
-    } catch (err) {
-      alert('Erro ao testar Pix: ' + err.message);
-    } finally {
-      setTestingPix(false);
-    }
-  };
-
-  const handleCopyPix = () => {
-    if (!pixPreview?.pix_code) return;
-    navigator.clipboard.writeText(pixPreview.pix_code);
-    setCopiedPix(true);
-    setTimeout(() => setCopiedPix(false), 2500);
   };
 
   const handleSubmit = async (e) => {
@@ -574,83 +539,21 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
             </p>
           </div>
 
-          {/* Banner explicativo sobre o valor real nos pedidos */}
-          <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200/90 space-y-1.5 text-xs">
-            <div className="flex items-center gap-2 text-emerald-800 font-bold">
-              <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-              <span>Como o valor do Pix funciona nos pedidos reais:</span>
+          {/* Informação sobre a automação 100% dinâmica do Pix */}
+          <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200/90 space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
+              <ShieldCheck size={17} className="text-emerald-600 shrink-0" />
+              <span>Geração 100% Automática do Pix pelo Robô no WhatsApp</span>
             </div>
             <p className="text-emerald-900 leading-relaxed text-[11px]">
-              O ZapFarm gera o Pix no padrão <strong>BR Code (Bacen) dinâmico</strong>. Quando o cliente compra medicamentos pelo WhatsApp ou no balcão, o código Pix é gerado automaticamente com o <strong>VALOR EXATO daquele pedido</strong> (soma dos produtos + taxa de entrega).
+              Você só precisa salvar a chave Pix da farmácia aqui uma única vez. Quando qualquer cliente pedir medicamentos pelo WhatsApp (seja 1, 10 ou 100 clientes simultâneos), o robô <strong>calcula o valor exato de cada pedido automaticamente</strong> e gera o Pix Copia e Cola exclusivo com a soma dos remédios e da entrega.
             </p>
-            <div className="p-2 bg-white/80 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 font-medium">
-              💡 <strong>Exemplo:</strong> Se o cliente comprar <strong>R$ 80,00</strong> em remédios, ao colar o código no banco dele (Nubank, Itaú, BB, etc.) aparecerá automaticamente <strong>R$ 80,00</strong> para pagamento.
+            <div className="p-2.5 bg-white/90 rounded-xl border border-emerald-200 text-[11px] text-emerald-950 flex items-center gap-2">
+              <Sparkles size={14} className="text-emerald-600 shrink-0" />
+              <span>
+                <strong>Zero trabalho manual:</strong> Você e sua equipe não precisam digitar nem alterar nenhum valor de Pix. O cliente recebe o Pix com o valor correto pronto no WhatsApp dele!
+              </span>
             </div>
-          </div>
-
-          {/* Test Pix Generation Button & Result Box */}
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">Simulador de Teste da Chave Pix</h4>
-                <p className="text-[11px] text-slate-500">
-                  Digite qualquer valor abaixo para gerar um código Pix real e testar no app do seu banco agora mesmo.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs shadow-2xs">
-                  <span className="text-slate-400 font-bold text-[11px]">R$</span>
-                  <input
-                    type="number"
-                    step="1.00"
-                    min="1.00"
-                    value={testPixAmount}
-                    onChange={(e) => setTestPixAmount(e.target.value)}
-                    className="w-20 font-bold text-slate-800 focus:outline-none bg-transparent text-xs"
-                    placeholder="10.00"
-                    title="Digite um valor para simular (ex: 80.00, 10.00, 50.00)"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTestPix}
-                  disabled={testingPix || !formData.pix_key}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs shrink-0"
-                >
-                  <QrCode size={13} />
-                  {testingPix ? 'Gerando...' : `Gerar Pix (R$ ${Number(testPixAmount || 10).toFixed(2)})`}
-                </button>
-              </div>
-            </div>
-
-            {pixPreview && (
-              <div className="space-y-2 pt-2 border-t border-slate-200/70">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-600">
-                      Chave Bacen: <strong className="font-mono text-slate-900">{pixPreview.formatted_key}</strong>
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] border border-emerald-300">
-                      Valor embutido: R$ {Number(pixPreview.tested_amount || testPixAmount || 10).toFixed(2)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyPix}
-                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-1 text-[11px] shadow-xs transition-colors"
-                  >
-                    {copiedPix ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedPix ? 'Copiado! ✅' : 'Copiar Código Pix'}
-                  </button>
-                </div>
-                <div className="p-2.5 bg-white rounded-xl border border-slate-200 font-mono text-[10px] break-all text-slate-800 select-all leading-tight">
-                  {pixPreview.pix_code}
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  📱 Ao colar este código no aplicativo do seu banco, o valor exato de <strong>R$ {Number(pixPreview.tested_amount || testPixAmount || 10).toFixed(2)}</strong> será reconhecido automaticamente na tela de pagamento.
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
