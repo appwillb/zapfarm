@@ -14,6 +14,7 @@ import {
   X,
   ShieldCheck,
   Megaphone,
+  UserCheck,
 } from 'lucide-react';
 import { canUser } from '../utils/permissions';
 
@@ -36,6 +37,7 @@ export default function Sidebar({
     { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, badge: 'Fluxo', perm: 'orders_view' },
     { id: 'products', label: 'Produtos & Remédios', icon: Pill, perm: 'products_view' },
     { id: 'inventory', label: 'Estoque & Lotes', icon: Boxes, perm: 'inventory_manage' },
+    { id: 'suppliers', label: 'Vendedores & Reps', icon: UserCheck, badge: 'WhatsApp', perm: 'products_view' },
     { id: 'drivers', label: 'Entregadores', icon: Bike, perm: 'drivers_manage' },
     { id: 'whatsapp', label: 'Conexão WhatsApp', icon: QrCode, highlight: true, perm: 'whatsapp_manage' },
     { id: 'chat', label: 'Atendimento & Chat', icon: MessageSquare, perm: 'chat_access' },

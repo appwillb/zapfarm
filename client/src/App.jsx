@@ -15,9 +15,11 @@ import SettingsTab from './components/SettingsTab';
 import CampaignsTab from './components/CampaignsTab';
 import ProductModal from './components/ProductModal';
 import DriverModal from './components/DriverModal';
+import SupplierModal from './components/SupplierModal';
 import CsvImportModal from './components/CsvImportModal';
 import OrderDetailsModal from './components/OrderDetailsModal';
 import SimulatorModal from './components/SimulatorModal';
+import SuppliersTab from './components/SuppliersTab';
 import LoginScreen from './components/LoginScreen';
 import IncomingCallToast from './components/IncomingCallToast';
 import { api } from './api';
@@ -49,6 +51,7 @@ export default function App() {
   // Modals
   const [productModal, setProductModal] = useState({ open: false, product: null });
   const [driverModal, setDriverModal] = useState({ open: false, driver: null });
+  const [supplierModal, setSupplierModal] = useState({ open: false, supplier: null });
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [orderModal, setOrderModal] = useState({ open: false, order: null });
   const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -379,6 +382,16 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'suppliers' && (
+            <SuppliersTab
+              tenantId={selectedTenant?.id}
+              products={products}
+              onOpenAddSupplier={() => setSupplierModal({ open: true, supplier: null })}
+              onOpenEditSupplier={(supplier) => setSupplierModal({ open: true, supplier })}
+              onRefresh={loadTenantData}
+            />
+          )}
+
           {currentTab === 'drivers' && (
             <DriversTab
               drivers={drivers}
@@ -531,6 +544,14 @@ export default function App() {
         isOpen={driverModal.open}
         onClose={() => setDriverModal({ open: false, driver: null })}
         driver={driverModal.driver}
+        tenantId={selectedTenant?.id || 1}
+        onSaved={loadTenantData}
+      />
+
+      <SupplierModal
+        isOpen={supplierModal.open}
+        onClose={() => setSupplierModal({ open: false, supplier: null })}
+        supplier={supplierModal.supplier}
         tenantId={selectedTenant?.id || 1}
         onSaved={loadTenantData}
       />
