@@ -361,6 +361,7 @@ export default function App() {
           {currentTab === 'products' && (
             <ProductsTab
               products={products}
+              tenantId={selectedTenant?.id}
               currentUser={currentUser}
               onOpenAddProduct={() => setProductModal({ open: true, product: null })}
               onOpenEditProduct={(product) => setProductModal({ open: true, product })}
@@ -370,7 +371,13 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'inventory' && <InventoryTab products={products} />}
+          {currentTab === 'inventory' && (
+            <InventoryTab
+              products={products}
+              currentUser={currentUser}
+              onRefresh={loadTenantData}
+            />
+          )}
 
           {currentTab === 'drivers' && (
             <DriversTab

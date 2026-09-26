@@ -821,6 +821,8 @@ class BotEngine {
       for (const item of cart) {
         updateStock.run(item.quantity, item.product_id);
       }
+      const productIds = cart.map(i => i.product_id);
+      this.checkAndNotifyLowStock(tenantId, productIds).catch(err => console.error(err));
     }
 
     // Insert order
@@ -1020,6 +1022,9 @@ class BotEngine {
       updateStock.run(item.quantity, item.quantity, item.product_id);
     }
 
+    const productIds = items.map(i => i.product_id);
+    this.checkAndNotifyLowStock(order.tenant_id, productIds).catch(err => console.error(err));
+
     db.prepare(`
       UPDATE orders
       SET status = 'paid',
@@ -1182,10 +1187,77 @@ class BotEngine {
 
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   }
+
+  async checkAndNotifyLowStock(tenantId, productIds = []) {
+    if (!productIds || productIds.length === 0) return { checked: 0, notified: 0, skipped: 0 };
+    let notified = 0;
+    let skipped = 0;
+    try {
+      const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
+      if (!tenant) return { checked: 0, notified: 0, skipped: 0 };
+
+      const placeholders = productIds.map(() => '?').join(',');
+      const products = db.prepare(`
+        SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company
+        FROM products p
+        JOIN suppliers s ON p.supplier_id = s.id
+        WHERE p.tenant_id = ? AND p.id IN (${placeholders})
+          AND p.stock_quantity <= p.min_stock
+          AND p.active = 1 AND s.active = 1
+      `).all(tenantId, ...productIds);
+
+      for (const prod of products) {
+        if (!prod.supplier_phone) {
+          skipped++;
+          continue;
+        }
+
+        // Anti-spam cooldown: Only 1 automated alert every 12 hours per product
+        if (prod.last_stock_alert_at) {
+          const lastAlertTime = new Date(prod.last_stock_alert_at).getTime();
+          const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
+          if (lastAlertTime > twelveHoursAgo) {
+            skipped++;
+            continue;
+          }
+        }
+
+        const alertMsg = `📦 *ALERTA DE REPOSIÇÃO DE ESTOQUE* 🚨\n\n` +
+          `Olá, *${prod.supplier_name}*!\n\n` +
+          `O estoque do medicamento fornecido por você atingiu o limite mínimo de reposição na *${tenant.name}*:\n\n` +
+          `💊 *Medicamento:* ${prod.name} ${prod.dosage || ''}\n` +
+          `📦 *Apresentação:* ${prod.presentation || prod.form || 'Unidade'}\n` +
+          `🏭 *Laboratório / Fabricante:* ${prod.manufacturer || 'Não informado'}\n` +
+          `📊 *Estoque Atual:* ${prod.stock_quantity} unidades\n` +
+          `⚠️ *Estoque Mínimo:* ${prod.min_stock} unidades\n\n` +
+          `👉 Por favor, envie cotação e disponibilidade de lote para novo pedido de compra.\n\n` +
+          `Obrigado! 💚\n*${tenant.name}*\nWhatsApp: ${tenant.phone || ''}`;
+
+        await this.sendReply(tenantId, prod.supplier_phone, alertMsg);
+
+        db.prepare('UPDATE products SET last_stock_alert_at = CURRENT_TIMESTAMP WHERE id = ?').run(prod.id);
+
+        try {
+          db.prepare(`
+            INSERT INTO audit_logs (tenant_id, user_name, action, details)
+            VALUES (?, ?, 'ALERTA_REPOSICAO_AUTOMATICO', ?)
+          `).run(tenantId, 'Robô Estoque ZapFarm', `Alerta automático enviado para o vendedor ${prod.supplier_name} (${prod.supplier_phone}) sobre ${prod.name} (Restam: ${prod.stock_quantity}/${prod.min_stock}).`);
+        } catch (e) {}
+
+        notified++;
+      }
+      return { checked: products.length, notified, skipped };
+    } catch (err) {
+      console.error('Error in checkAndNotifyLowStock:', err);
+      return { checked: 0, notified, skipped, error: err.message };
+    }
+  }
 }
 
 const botEngineInstance = new BotEngine();
 botEngineInstance.generatePixCode = generatePixCode;
 botEngineInstance.formatPixKey = formatPixKey;
+botEngineInstance.checkAndNotifyLowStock = botEngineInstance.checkAndNotifyLowStock.bind(botEngineInstance);
+botEngineInstance.sendReply = botEngineInstance.sendReply.bind(botEngineInstance);
 
 module.exports = botEngineInstance;

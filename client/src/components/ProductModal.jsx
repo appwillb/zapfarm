@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Pill, Save } from 'lucide-react';
+import { X, Pill, Save, UserCheck, Plus, UserPlus } from 'lucide-react';
 import { api } from '../api';
 
 export default function ProductModal({ isOpen, onClose, product, tenantId, onSaved }) {
@@ -18,9 +18,31 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
     requires_prescription: false,
     prescription_type: 'livre',
     category: 'Medicamentos',
+    supplier_id: '',
   });
 
+  const [suppliers, setSuppliers] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [showQuickAddSupplier, setShowQuickAddSupplier] = useState(false);
+  const [newSuppName, setNewSuppName] = useState('');
+  const [newSuppPhone, setNewSuppPhone] = useState('');
+  const [newSuppCompany, setNewSuppCompany] = useState('');
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      loadSuppliers();
+    }
+  }, [isOpen, tenantId]);
+
+  const loadSuppliers = async () => {
+    try {
+      const list = await api.getSuppliers(tenantId);
+      setSuppliers(list || []);
+    } catch (err) {
+      console.error('Erro ao carregar vendedores:', err);
+    }
+  };
 
   useEffect(() => {
     if (product) {
@@ -39,6 +61,7 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
         requires_prescription: product.requires_prescription === 1,
         prescription_type: product.prescription_type || 'livre',
         category: product.category || 'Medicamentos',
+        supplier_id: product.supplier_id ? product.supplier_id.toString() : '',
       });
     } else {
       setFormData({
@@ -56,9 +79,40 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
         requires_prescription: false,
         prescription_type: 'livre',
         category: 'Medicamentos',
+        supplier_id: '',
       });
     }
   }, [product, isOpen]);
+
+  const handleQuickCreateSupplier = async (e) => {
+    e.preventDefault();
+    if (!newSuppName.trim() || !newSuppPhone.trim()) {
+      alert('Preencha pelo menos o nome e WhatsApp do vendedor.');
+      return;
+    }
+
+    setCreatingSupplier(true);
+    try {
+      const created = await api.createSupplier({
+        tenant_id: tenantId,
+        name: newSuppName.trim(),
+        phone: newSuppPhone.trim(),
+        company: newSuppCompany.trim(),
+      });
+
+      await loadSuppliers();
+      setFormData(prev => ({ ...prev, supplier_id: String(created.id) }));
+      setShowQuickAddSupplier(false);
+      setNewSuppName('');
+      setNewSuppPhone('');
+      setNewSuppCompany('');
+      alert(`Vendedor ${created.name} cadastrado e vinculado!`);
+    } catch (err) {
+      alert('Erro ao cadastrar vendedor: ' + err.message);
+    } finally {
+      setCreatingSupplier(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -66,22 +120,21 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        ...formData,
+        cost_price: Number(formData.cost_price),
+        sale_price: Number(formData.sale_price),
+        stock_quantity: Number(formData.stock_quantity),
+        min_stock: Number(formData.min_stock),
+        supplier_id: formData.supplier_id ? Number(formData.supplier_id) : null,
+      };
+
       if (product) {
-        await api.updateProduct(product.id, {
-          ...formData,
-          cost_price: Number(formData.cost_price),
-          sale_price: Number(formData.sale_price),
-          stock_quantity: Number(formData.stock_quantity),
-          min_stock: Number(formData.min_stock),
-        });
+        await api.updateProduct(product.id, payload);
       } else {
         await api.createProduct({
-          ...formData,
+          ...payload,
           tenant_id: tenantId,
-          cost_price: Number(formData.cost_price),
-          sale_price: Number(formData.sale_price),
-          stock_quantity: Number(formData.stock_quantity),
-          min_stock: Number(formData.min_stock),
         });
       }
       onSaved();
@@ -92,6 +145,8 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
       setSaving(false);
     }
   };
+
+  const selectedSupplier = suppliers.find(s => s.id === Number(formData.supplier_id));
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
@@ -106,7 +161,7 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
                 {product ? 'Editar Medicamento' : 'Cadastrar Novo Medicamento'}
               </h3>
               <p className="text-xs text-slate-500">
-                Preencha os dados da apresentação exata do produto
+                Preencha os dados da apresentação exata do produto e vincule o vendedor
               </p>
             </div>
           </div>
@@ -179,6 +234,95 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
             </div>
           </div>
 
+          {/* Supplier / Seller Association Section */}
+          <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                <UserCheck size={15} className="text-blue-600" />
+                <span>Vendedor / Representante Comercial Responsável:</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowQuickAddSupplier(!showQuickAddSupplier)}
+                className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs transition-colors"
+              >
+                <Plus size={12} />
+                <span>{showQuickAddSupplier ? 'Fechar Cadastro' : '+ Cadastrar Novo Vendedor'}</span>
+              </button>
+            </div>
+
+            {!showQuickAddSupplier ? (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <select
+                  value={formData.supplier_id}
+                  onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                  className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs"
+                >
+                  <option value="">Nenhum vendedor vinculado</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      👤 {s.name} {s.company ? `(${s.company})` : ''} - 📱 {s.phone}
+                    </option>
+                  ))}
+                </select>
+                {selectedSupplier && (
+                  <span className="text-[11px] font-semibold text-blue-800 bg-blue-100/80 px-3 py-1.5 rounded-xl border border-blue-200 shrink-0">
+                    🔔 Alerta via WhatsApp em: {selectedSupplier.phone}
+                  </span>
+                )}
+              </div>
+            ) : (
+              /* Inline Form to register new supplier */
+              <div className="p-3 bg-white rounded-xl border border-blue-200 space-y-2">
+                <p className="text-[11px] font-bold text-blue-900">Cadastrar Novo Vendedor / Representante:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nome (ex: João Representante)"
+                    value={newSuppName}
+                    onChange={(e) => setNewSuppName(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="WhatsApp (ex: 11999998888)"
+                    value={newSuppPhone}
+                    onChange={(e) => setNewSuppPhone(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Distribuidora / Laboratório"
+                    value={newSuppCompany}
+                    onChange={(e) => setNewSuppCompany(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddSupplier(false)}
+                    className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleQuickCreateSupplier}
+                    disabled={creatingSupplier}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors"
+                  >
+                    {creatingSupplier ? 'Salvando...' : 'Salvar e Vincular'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[10px] text-blue-700 leading-tight">
+              💡 Quando o estoque deste medicamento atingir ou ficar abaixo do <strong>Estoque Mínimo</strong>, o robô enviará um alerta automático para o WhatsApp do vendedor solicitando cotação de reposição.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="font-bold text-slate-700 block mb-1">Fabricante / Laboratório</label>
@@ -234,7 +378,7 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Estoque Mínimo</label>
+              <label className="font-bold text-slate-700 block mb-1">Estoque Mínimo (Gatilho)</label>
               <input
                 type="number"
                 value={formData.min_stock}

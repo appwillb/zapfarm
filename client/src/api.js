@@ -27,10 +27,11 @@ export const api = {
   getDashboard: (tenantId) => fetch(`${API_BASE}/dashboard/${tenantId}`).then((r) => r.json()),
 
   // Products
-  getProducts: (tenantId, search = '', category = '') => {
+  getProducts: (tenantId, search = '', category = '', supplierId = '') => {
     const params = new URLSearchParams({ tenant_id: tenantId });
     if (search) params.append('search', search);
     if (category) params.append('category', category);
+    if (supplierId) params.append('supplier_id', supplierId);
     return fetch(`${API_BASE}/products?${params}`).then((r) => r.json());
   },
   createProduct: (data) =>
@@ -46,11 +47,34 @@ export const api = {
       body: JSON.stringify(data),
     }).then((r) => r.json()),
   deleteProduct: (id) => fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' }).then((r) => r.json()),
-  importProducts: (tenantId, products) =>
+  importProducts: (tenantId, products, supplierId = null) =>
     fetch(`${API_BASE}/products/batch-import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenant_id: tenantId, products }),
+      body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId }),
+    }).then((r) => r.json()),
+
+  // Suppliers / Representantes
+  getSuppliers: (tenantId) => fetch(`${API_BASE}/suppliers?tenant_id=${tenantId}`).then((r) => r.json()),
+  getSupplier: (id) => fetch(`${API_BASE}/suppliers/${id}`).then((r) => r.json()),
+  createSupplier: (data) =>
+    fetch(`${API_BASE}/suppliers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  updateSupplier: (id, data) =>
+    fetch(`${API_BASE}/suppliers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  deleteSupplier: (id) => fetch(`${API_BASE}/suppliers/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+  notifySupplierLowStock: (productId, sentBy = 'Farmacêutico') =>
+    fetch(`${API_BASE}/suppliers/notify-low-stock/${productId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sent_by: sentBy }),
     }).then((r) => r.json()),
 
   // Orders

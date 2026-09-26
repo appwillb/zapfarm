@@ -224,6 +224,19 @@ function initDb() {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      company TEXT,
+      email TEXT,
+      notes TEXT,
+      active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_products_search ON products(tenant_id, name, active_ingredient, barcode);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(tenant_id, status);
     CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(tenant_id, customer_phone);
@@ -232,6 +245,7 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS idx_campaign_logs_camp ON campaign_logs(campaign_id, status);
     CREATE INDEX IF NOT EXISTS idx_opt_out_phone ON opt_out_leads(tenant_id, phone);
     CREATE INDEX IF NOT EXISTS idx_marketing_leads_phone ON marketing_leads(tenant_id, phone);
+    CREATE INDEX IF NOT EXISTS idx_suppliers_tenant ON suppliers(tenant_id, name);
   `);
 
   // Safe schema migrations for existing production databases
@@ -245,6 +259,50 @@ function initDb() {
     db.exec(`ALTER TABLE users ADD COLUMN permissions TEXT`);
   } catch (e) {
     // Column already exists
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        company TEXT,
+        email TEXT,
+        notes TEXT,
+        active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+    `);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE products ADD COLUMN last_stock_alert_at DATETIME`);
+  } catch (e) {}
+
+  // Seed default suppliers if none exist
+  try {
+    const suppCount = db.prepare('SELECT COUNT(*) as count FROM suppliers WHERE tenant_id = 1').get();
+    if (!suppCount || suppCount.count === 0) {
+      const insSupp = db.prepare(`
+        INSERT INTO suppliers (tenant_id, name, phone, company, email, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      insSupp.run(1, 'João Representante', '5511999887711', 'Distribuidora Panpharma', 'joao.vendas@panpharma.com.br', 'Atende pedidos segundas e quintas');
+      insSupp.run(1, 'Carlos Mendes', '5511999887722', 'Laboratório EMS', 'carlos.ems@laboratorioems.com.br', 'Representante direto da fábrica EMS');
+      insSupp.run(1, 'Fernanda Rocha', '5511999887733', 'Distribuidora SantaCruz', 'fernanda@santacruzdist.com.br', 'Entrega rápida em até 24 horas');
+
+      db.prepare(`UPDATE products SET supplier_id = 1 WHERE tenant_id = 1 AND (name LIKE '%Dipirona%' OR name LIKE '%Paracetamol%')`).run();
+      db.prepare(`UPDATE products SET supplier_id = 2 WHERE tenant_id = 1 AND (name LIKE '%Amoxicilina%' OR name LIKE '%Ibuprofeno%')`).run();
+    }
+  } catch (e) {
+    console.error('Error seeding demo suppliers:', e);
   }
 
   try {
