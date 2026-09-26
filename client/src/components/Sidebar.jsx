@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Megaphone,
 } from 'lucide-react';
+import { canUser } from '../utils/permissions';
 
 export default function Sidebar({
   currentTab,
@@ -31,21 +32,24 @@ export default function Sidebar({
   const isSuperAdmin = currentUser?.role === 'superadmin';
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, badge: 'Fluxo' },
-    { id: 'products', label: 'Produtos & Remédios', icon: Pill },
-    { id: 'inventory', label: 'Estoque & Lotes', icon: Boxes },
-    { id: 'drivers', label: 'Entregadores', icon: Bike },
-    { id: 'whatsapp', label: 'Conexão WhatsApp', icon: QrCode, highlight: true },
-    { id: 'chat', label: 'Atendimento & Chat', icon: MessageSquare },
-    { id: 'campaigns', label: 'Disparos & Ofertas', icon: Megaphone, badge: 'Anti-Ban' },
-    { id: 'settings', label: 'Configurações', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard_view' },
+    { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, badge: 'Fluxo', perm: 'orders_view' },
+    { id: 'products', label: 'Produtos & Remédios', icon: Pill, perm: 'products_view' },
+    { id: 'inventory', label: 'Estoque & Lotes', icon: Boxes, perm: 'inventory_manage' },
+    { id: 'drivers', label: 'Entregadores', icon: Bike, perm: 'drivers_manage' },
+    { id: 'whatsapp', label: 'Conexão WhatsApp', icon: QrCode, highlight: true, perm: 'whatsapp_manage' },
+    { id: 'chat', label: 'Atendimento & Chat', icon: MessageSquare, perm: 'chat_access' },
+    { id: 'campaigns', label: 'Disparos & Ofertas', icon: Megaphone, badge: 'Anti-Ban', perm: 'campaigns_access' },
+    { id: 'settings', label: 'Configurações', icon: Settings, perm: 'settings_manage' },
     { id: 'saas_admin', label: 'Painel Dono SaaS', icon: Building2, adminOnly: true },
   ];
 
-  const visibleMenuItems = menuItems.filter(
-    (item) => !item.adminOnly || isSuperAdmin
-  );
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (item.adminOnly) return isSuperAdmin;
+    if (isSuperAdmin) return true;
+    if (item.perm) return canUser(currentUser, item.perm);
+    return true;
+  });
 
   return (
     <>

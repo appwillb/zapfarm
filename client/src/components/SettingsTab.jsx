@@ -23,9 +23,15 @@ import {
   Key,
   Shield,
   Mail,
-  Edit2,
   Eye,
   EyeOff,
+  Sliders,
+  ShoppingBag,
+  Bike,
+  Pill,
+  Megaphone,
+  MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -36,6 +42,13 @@ import {
   unlockAudio,
   requestNotificationPermission,
 } from '../services/soundAlerts';
+
+import {
+  ROLE_DEFINITIONS,
+  PERMISSION_GROUPS,
+  getDefaultPermissions,
+  canUser,
+} from '../utils/permissions';
 
 export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, onTenantUpdated }) {
   const [formData, setFormData] = useState({
@@ -65,7 +78,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
   );
 
-  // Equipe & Acessos da Farmácia (Usuários)
+  // Equipe & Acessos da Farmácia (Usuários e Permissões)
   const [teamUsers, setTeamUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userModal, setUserModal] = useState({ open: false, user: null, isNew: false });
@@ -73,7 +86,8 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     name: '',
     email: '',
     password: '',
-    role: 'attendant',
+    role: 'cashier',
+    permissions: getDefaultPermissions('cashier'),
   });
   const [showPassword, setShowPassword] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
@@ -98,12 +112,16 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
   }, [tenant?.id]);
 
   const handleOpenEditUser = (user) => {
+    const role = user.role || 'attendant';
+    const basePerms = getDefaultPermissions(role);
+    const userPerms = user.permissions || basePerms;
     setUserModal({ open: true, user, isNew: false });
     setUserFormData({
-      name: user.name,
-      email: user.email,
+      name: user.name || '',
+      email: user.email || '',
       password: '',
-      role: user.role,
+      role: role,
+      permissions: { ...basePerms, ...userPerms },
     });
     setShowPassword(false);
   };
@@ -114,9 +132,48 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
       name: '',
       email: '',
       password: '',
-      role: 'attendant',
+      role: 'cashier',
+      permissions: getDefaultPermissions('cashier'),
     });
     setShowPassword(false);
+  };
+
+  const handleRolePresetChange = (newRole) => {
+    setUserFormData((prev) => ({
+      ...prev,
+      role: newRole,
+      permissions: getDefaultPermissions(newRole),
+    }));
+  };
+
+  const handleTogglePermission = (key) => {
+    setUserFormData((prev) => {
+      const nextPerms = {
+        ...prev.permissions,
+        [key]: !prev.permissions[key],
+      };
+      return {
+        ...prev,
+        role: 'custom',
+        permissions: nextPerms,
+      };
+    });
+  };
+
+  const handleSelectAllPermissions = (enable = true) => {
+    setUserFormData((prev) => {
+      const allPerms = {};
+      PERMISSION_GROUPS.forEach((group) => {
+        group.permissions.forEach((p) => {
+          allPerms[p.key] = enable;
+        });
+      });
+      return {
+        ...prev,
+        role: enable ? 'pharmacist' : 'custom',
+        permissions: allPerms,
+      };
+    });
   };
 
   const handleSaveTeamUser = async (e) => {
@@ -125,15 +182,20 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     try {
       if (userModal.isNew) {
         const res = await api.createUser({
-          ...userFormData,
+          name: userFormData.name.trim(),
+          email: userFormData.email.trim(),
+          password: userFormData.password.trim(),
+          role: userFormData.role,
+          permissions: userFormData.permissions,
           tenant_id: tenant.id,
         });
         if (res.error) throw new Error(res.error);
       } else {
         const payload = {
-          name: userFormData.name,
-          email: userFormData.email,
+          name: userFormData.name.trim(),
+          email: userFormData.email.trim(),
           role: userFormData.role,
+          permissions: userFormData.permissions,
           tenant_id: tenant.id,
         };
         if (userFormData.password?.trim()) payload.password = userFormData.password.trim();
@@ -145,7 +207,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
       }
       setUserModal({ open: false, user: null, isNew: false });
       await loadTeamUsers();
-      setUserSuccessMsg('Equipe atualizada com sucesso!');
+      setUserSuccessMsg('Equipe e permissões salvas com sucesso!');
       setTimeout(() => setUserSuccessMsg(''), 3000);
     } catch (err) {
       alert('Erro ao salvar usuário: ' + err.message);
@@ -772,7 +834,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
         </div>
       </form>
 
-      {/* CARD 2: Equipe & Acessos da Farmácia (Usuários, Farmacêuticos e Atendentes) */}
+      {/* CARD 2: Equipe & Acessos da Farmácia (Usuários, Farmacêuticos, Caixas e Atendentes) */}
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
@@ -785,7 +847,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Gerencie quem pode acessar o painel desta farmácia e altere e-mails e senhas de login da sua equipe.
+              Defina perfis e permissões para <strong>Caixa</strong> (confirmação de Pix e liberação para motoboy), <strong>Atendentes</strong> e <strong>Farmacêuticos</strong>.
             </p>
           </div>
 
@@ -813,7 +875,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
           </div>
         ) : teamUsers.length === 0 ? (
           <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
-            Nenhum membro cadastrado nesta farmácia ainda. Clique em "Novo Membro da Equipe" acima para adicionar atendentes ou farmacêuticos.
+            Nenhum membro cadastrado nesta farmácia ainda. Clique em "Novo Membro da Equipe" acima para adicionar operadores de caixa, atendentes ou farmacêuticos.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -823,6 +885,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
                   <th className="p-3">Nome / Usuário</th>
                   <th className="p-3">E-mail de Login</th>
                   <th className="p-3">Cargo / Função</th>
+                  <th className="p-3">Permissões Principais</th>
                   <th className="p-3">Status</th>
                   <th className="p-3 text-right">Ações</th>
                 </tr>
@@ -830,6 +893,14 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
               <tbody className="divide-y divide-slate-100">
                 {teamUsers.map((u) => {
                   const isCurrent = currentUser?.id === u.id;
+                  const roleDef = ROLE_DEFINITIONS[u.role] || {
+                    label: u.role || 'Atendente',
+                    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+                    icon: '👤',
+                  };
+                  const perms = u.permissions || getDefaultPermissions(u.role);
+                  const isFull = u.role === 'pharmacist' || u.role === 'superadmin' || u.role === 'admin';
+
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="p-3 font-semibold text-slate-800">
@@ -867,21 +938,53 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
                       </td>
                       <td className="p-3">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            u.role === 'superadmin'
-                              ? 'bg-purple-100 text-purple-700'
-                              : u.role === 'pharmacist'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${roleDef.badgeClass}`}
                         >
-                          <Shield size={10} />
-                          {u.role === 'superadmin'
-                            ? 'Super Admin'
-                            : u.role === 'pharmacist'
-                            ? 'Farmacêutica'
-                            : 'Atendente'}
+                          <span>{roleDef.icon}</span>
+                          <span>{roleDef.label}</span>
                         </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                          {isFull ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-md">
+                              ⭐ Acesso Total Irrestrito
+                            </span>
+                          ) : (
+                            <>
+                              {perms.orders_confirm_payment && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                  ✓ Confirma Pix
+                                </span>
+                              )}
+                              {perms.orders_dispatch_driver && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md">
+                                  ✓ Libera Motoboy
+                                </span>
+                              )}
+                              {perms.chat_access && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+                                  ✓ Chat WhatsApp
+                                </span>
+                              )}
+                              {perms.products_view && !perms.products_manage && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md">
+                                  ✓ Consulta Remédios
+                                </span>
+                              )}
+                              {perms.products_manage && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-md">
+                                  ✓ Edita Produtos
+                                </span>
+                              )}
+                              {perms.campaigns_access && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
+                                  ✓ Ofertas/Disparos
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3">
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
@@ -894,17 +997,17 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
                           <button
                             type="button"
                             onClick={() => handleOpenEditUser(u)}
-                            className="px-2.5 py-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
-                            title="Alterar e-mail e senha"
+                            className="px-2.5 py-1 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                            title="Editar credenciais e permissões"
                           >
-                            <Key size={12} />
-                            Alterar E-mail / Senha
+                            <Sliders size={12} />
+                            Permissões & Login
                           </button>
                           {!isCurrent && (
                             <button
                               type="button"
                               onClick={() => handleDeleteTeamUser(u.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                               title="Remover acesso"
                             >
                               <Trash2 size={14} />
@@ -921,97 +1024,276 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
         )}
       </div>
 
-      {/* Modal: Editar/Criar Usuário da Farmácia */}
+      {/* Modal: Editar/Criar Usuário com Permissões Granulares */}
       {userModal.open && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Key size={16} />
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl space-y-5 border border-slate-200 my-auto max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Shield size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800">
-                    {userModal.isNew ? 'Novo Membro da Equipe' : 'Alterar E-mail & Senha do Usuário'}
+                  <h3 className="font-bold text-base text-slate-800">
+                    {userModal.isNew ? 'Novo Membro da Equipe & Permissões' : 'Editar Membro & Permissões'}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     {userModal.isNew
-                      ? 'Defina o login e senha de acesso para o novo atendente ou farmacêutico'
-                      : `Editando credenciais de ${userModal.user?.name}`}
+                      ? 'Defina login, senha e selecione as permissões específicas do funcionário'
+                      : `Configurando acesso de ${userModal.user?.name}`}
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setUserModal({ open: false, user: null, isNew: false })}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleSaveTeamUser} className="space-y-3.5 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Nome Completo *</label>
-                <input
-                  type="text"
-                  required
-                  value={userFormData.name}
-                  onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
-                  placeholder="Ex: Carlos Silva"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  E-mail de Login no Painel *
-                </label>
-                <div className="relative">
+            <form onSubmit={handleSaveTeamUser} className="space-y-5 text-xs overflow-y-auto pr-1 flex-1">
+              {/* Basic Info: Name, Email, Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Nome Completo do Funcionário *</label>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={userFormData.email}
-                    onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-                    placeholder="carlos@farmacia.com.br"
-                    className="w-full p-2.5 pl-9 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
+                    value={userFormData.name}
+                    onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
+                    placeholder="Ex: Carlos Alberto (Caixa 01) ou Amanda Souza"
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-xs font-medium"
                   />
-                  <Mail size={15} className="absolute left-3 top-3 text-slate-400 pointer-events-none" />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Este é o e-mail que o atendente utilizará para fazer login no sistema.
-                </p>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    E-mail de Login no Painel *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={userFormData.email}
+                      onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                      placeholder="caixa@farmacia.com.br"
+                      className="w-full p-2.5 pl-8 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
+                    />
+                    <Mail size={14} className="absolute left-2.5 top-3 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    {userModal.isNew ? 'Senha de Acesso *' : 'Nova Senha (opcional)'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required={userModal.isNew}
+                      placeholder={userModal.isNew ? 'Mínimo 6 caracteres' : 'Deixe em branco p/ manter atual'}
+                      value={userFormData.password}
+                      onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                      className="w-full p-2.5 pr-8 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-[11px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
               </div>
 
+              {/* Role Preset Selector Cards */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  {userModal.isNew ? 'Senha Provisória *' : 'Nova Senha (opcional)'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required={userModal.isNew}
-                    placeholder={userModal.isNew ? 'Mínimo 6 caracteres' : 'Deixe em branco para manter a senha atual'}
-                    value={userFormData.password}
-                    onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
-                    className="w-full p-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-[11px]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <Sliders size={14} className="text-indigo-600" />
+                    Perfil Rápido de Cargo:
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    Clique para preencher as permissões automaticamente
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Card Caixa */}
+                  <div
+                    onClick={() => handleRolePresetChange('cashier')}
+                    className={`p-3 rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                      userFormData.role === 'cashier'
+                        ? 'border-indigo-600 bg-indigo-50/70 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
                   >
-                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-lg">💳</span>
+                        {userFormData.role === 'cashier' && (
+                          <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                        )}
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-xs">Operador(a) de Caixa</h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Confirma comprovantes Pix/dinheiro, libera para o motoboy e acompanha pedidos.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[9px] font-bold text-indigo-700 bg-indigo-100/70 px-1.5 py-0.5 rounded w-fit">
+                      ⭐ Recomendado p/ Caixa
+                    </span>
+                  </div>
+
+                  {/* Card Atendente */}
+                  <div
+                    onClick={() => handleRolePresetChange('attendant')}
+                    className={`p-3 rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                      userFormData.role === 'attendant'
+                        ? 'border-blue-600 bg-blue-50/70 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-lg">💬</span>
+                        {userFormData.role === 'attendant' && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600" />
+                        )}
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-xs">Atendente de Balcão</h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Focado em atendimento no Chat WhatsApp, montagem de pedidos e consulta de preços.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[9px] font-bold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded w-fit">
+                      Foco Atendimento
+                    </span>
+                  </div>
+
+                  {/* Card Farmacêutica */}
+                  <div
+                    onClick={() => handleRolePresetChange('pharmacist')}
+                    className={`p-3 rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                      userFormData.role === 'pharmacist'
+                        ? 'border-emerald-600 bg-emerald-50/70 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-lg">👩‍⚕️</span>
+                        {userFormData.role === 'pharmacist' && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                        )}
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-xs">Farmacêutica / Admin</h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Acesso total irrestrito: Chave Pix, faturamento, equipe, campanhas e configurações.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded w-fit">
+                      Acesso Total
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Função / Cargo</label>
-                <select
-                  value={userFormData.role}
-                  onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-xs"
-                >
-                  <option value="attendant">Atendente de Balcão</option>
-                  <option value="pharmacist">Farmacêutica / Gerente</option>
-                </select>
+              {/* Granular Permissions Matrix */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs">
+                      Permissões Detalhadas do Membro:
+                    </h4>
+                    <p className="text-[10px] text-slate-500">
+                      Personalize individualmente cada ação que este usuário pode executar no sistema
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectAllPermissions(true)}
+                      className="text-indigo-600 hover:underline font-semibold"
+                    >
+                      Marcar Todas
+                    </button>
+                    <span className="text-slate-300">&bull;</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRolePresetChange(userFormData.role === 'custom' ? 'cashier' : userFormData.role)}
+                      className="text-slate-500 hover:underline font-medium"
+                    >
+                      Padrão do Perfil
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {PERMISSION_GROUPS.map((group) => (
+                    <div
+                      key={group.groupId}
+                      className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
+                          {group.title}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {group.permissions.map((perm) => {
+                          const isChecked = Boolean(userFormData.permissions?.[perm.key]);
+                          return (
+                            <label
+                              key={perm.key}
+                              className={`flex items-start gap-2.5 p-2 rounded-xl transition-all cursor-pointer border ${
+                                isChecked
+                                  ? 'bg-white border-slate-200/90 shadow-2xs'
+                                  : 'bg-transparent border-transparent hover:bg-white/60'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleTogglePermission(perm.key)}
+                                className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-slate-800 text-[11px]">
+                                    {perm.label}
+                                  </span>
+                                  {perm.highlightBadge && (
+                                    <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.2 rounded-md">
+                                      {perm.highlightBadge}
+                                    </span>
+                                  )}
+                                  {perm.critical && (
+                                    <span className="text-[9px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 px-1.5 py-0.2 rounded-md">
+                                      Crítico
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                  {perm.desc}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setUserModal({ open: false, user: null, isNew: false })}
@@ -1022,9 +1304,10 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
                 <button
                   type="submit"
                   disabled={savingUser}
-                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {savingUser ? 'Salvando...' : 'Salvar Alterações'}
+                  <Save size={14} />
+                  {savingUser ? 'Salvando Permissões...' : 'Salvar Membro & Permissões'}
                 </button>
               </div>
             </form>

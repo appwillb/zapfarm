@@ -13,11 +13,14 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Lock,
 } from 'lucide-react';
+import { canUser } from '../utils/permissions';
 
 export default function OrdersTab({
   orders,
   drivers,
+  currentUser,
   onConfirmPayment,
   onReleaseDelivery,
   onMarkDelivered,
@@ -28,6 +31,11 @@ export default function OrdersTab({
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [activeMobileStatus, setActiveMobileStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Permission flags based on role & custom permissions
+  const canConfirmPayment = canUser(currentUser, 'orders_confirm_payment');
+  const canDispatchDriver = canUser(currentUser, 'orders_dispatch_driver');
+  const canCancelOrderPerm = canUser(currentUser, 'orders_cancel');
   const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
@@ -264,17 +272,28 @@ export default function OrdersTab({
                           </div>
                         )}
 
-                        {/* Action Buttons strictly controlled by state */}
+                        {/* Action Buttons strictly controlled by state & cashier permissions */}
                         <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
                           {order.status === 'pending_payment' && (
                             <>
-                              <button
-                                onClick={() => onConfirmPayment(order.id)}
-                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                              >
-                                <DollarSign size={13} />
-                                Confirmar Pix Real
-                              </button>
+                              {canConfirmPayment ? (
+                                <button
+                                  onClick={() => onConfirmPayment(order.id)}
+                                  className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                                  title="Confirmar que o Pix caiu na conta bancária da farmácia"
+                                >
+                                  <DollarSign size={13} />
+                                  Confirmar Pix Real
+                                </button>
+                              ) : (
+                                <div
+                                  className="w-full py-1.5 px-2 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 border border-slate-200"
+                                  title="Apenas o Operador de Caixa tem permissão para confirmar Pix"
+                                >
+                                  <Lock size={12} className="text-slate-400" />
+                                  <span>Aguardando Caixa Confirmar Pix</span>
+                                </div>
+                              )}
                               {order.pix_code && (
                                 <button
                                   type="button"
@@ -299,13 +318,23 @@ export default function OrdersTab({
                           )}
 
                           {order.status === 'paid' && (
-                            <button
-                              onClick={() => handleOpenDispatch(order)}
-                              className="w-full py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                            >
-                              <Bike size={13} />
-                              Liberar p/ Motoboy
-                            </button>
+                            canDispatchDriver ? (
+                              <button
+                                onClick={() => handleOpenDispatch(order)}
+                                className="w-full py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                              >
+                                <Bike size={13} />
+                                Liberar p/ Motoboy
+                              </button>
+                            ) : (
+                              <div
+                                className="w-full py-1.5 px-2 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 border border-slate-200"
+                                title="Apenas o Operador de Caixa tem permissão para liberar para o motoboy"
+                              >
+                                <Lock size={12} className="text-slate-400" />
+                                <span>Aguardando Caixa Despachar</span>
+                              </div>
+                            )
                           )}
 
                           {order.status === 'in_transit' && (
@@ -327,7 +356,7 @@ export default function OrdersTab({
                               Detalhes
                             </button>
 
-                            {order.status !== 'cancelled' && order.status !== 'delivered' && (
+                            {order.status !== 'cancelled' && order.status !== 'delivered' && canCancelOrderPerm && (
                               <button
                                 onClick={() => onCancelOrder(order.id)}
                                 className="text-[11px] text-rose-500 hover:text-rose-700"
@@ -404,20 +433,32 @@ export default function OrdersTab({
 
                       <div className="flex items-center gap-1.5">
                         {order.status === 'pending_payment' && (
-                          <button
-                            onClick={() => onConfirmPayment(order.id)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs"
-                          >
-                            Pix OK
-                          </button>
+                          canConfirmPayment ? (
+                            <button
+                              onClick={() => onConfirmPayment(order.id)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                            >
+                              Pix OK
+                            </button>
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[11px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas o Caixa pode confirmar Pix">
+                              <Lock size={11} className="text-slate-400" /> Pix Pendente
+                            </span>
+                          )
                         )}
                         {order.status === 'paid' && (
-                          <button
-                            onClick={() => handleOpenDispatch(order)}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
-                          >
-                            Liberar Motoboy
-                          </button>
+                          canDispatchDriver ? (
+                            <button
+                              onClick={() => handleOpenDispatch(order)}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                            >
+                              Liberar Motoboy
+                            </button>
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[11px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas o Caixa pode liberar motoboy">
+                              <Lock size={11} className="text-slate-400" /> Aguardando Caixa
+                            </span>
+                          )
                         )}
                         {order.status === 'in_transit' && (
                           <button
@@ -475,20 +516,32 @@ export default function OrdersTab({
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {order.status === 'pending_payment' && (
-                          <button
-                            onClick={() => onConfirmPayment(order.id)}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold"
-                          >
-                            Pix OK
-                          </button>
+                          canConfirmPayment ? (
+                            <button
+                              onClick={() => onConfirmPayment(order.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold"
+                            >
+                              Pix OK
+                            </button>
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas o Caixa pode confirmar Pix">
+                              <Lock size={10} className="text-slate-400" /> Caixa Pendente
+                            </span>
+                          )
                         )}
                         {order.status === 'paid' && (
-                          <button
-                            onClick={() => handleOpenDispatch(order)}
-                            className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold"
-                          >
-                            Liberar Motoboy
-                          </button>
+                          canDispatchDriver ? (
+                            <button
+                              onClick={() => handleOpenDispatch(order)}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold"
+                            >
+                              Liberar Motoboy
+                            </button>
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas o Caixa pode liberar motoboy">
+                              <Lock size={10} className="text-slate-400" /> Aguardando Caixa
+                            </span>
+                          )
                         )}
                         {order.status === 'in_transit' && (
                           <button

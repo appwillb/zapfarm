@@ -46,6 +46,7 @@ function initDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'admin',
+      permissions TEXT,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -236,6 +237,12 @@ function initDb() {
   // Safe schema migrations for existing production databases
   try {
     db.exec(`ALTER TABLE tenants ADD COLUMN logo_url TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN permissions TEXT`);
   } catch (e) {
     // Column already exists
   }

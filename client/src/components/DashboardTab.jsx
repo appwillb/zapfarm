@@ -10,10 +10,13 @@ import {
   CheckCircle,
   ExternalLink,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
+import { canUser } from '../utils/permissions';
 
 export default function DashboardTab({
   dashboardData,
+  currentUser,
   onNavigateTab,
   onOpenOrder,
   onConfirmPayment,
@@ -37,11 +40,15 @@ export default function DashboardTab({
   const recentOrders = dashboardData?.recentOrders || [];
   const whatsapp = dashboardData?.whatsapp || {};
 
+  const canSeeFinance = canUser(currentUser, 'financial_view');
+  const canConfirmPayment = canUser(currentUser, 'orders_confirm_payment');
+  const canDispatchDriver = canUser(currentUser, 'orders_dispatch_driver');
+
   const cards = [
     {
       title: 'Faturamento Hoje',
-      value: `R$ ${(metrics.todayRevenue || 0).toFixed(2)}`,
-      subtitle: `Total acumulado: R$ ${(metrics.totalRevenue || 0).toFixed(2)}`,
+      value: canSeeFinance ? `R$ ${(metrics.todayRevenue || 0).toFixed(2)}` : 'R$ ••••••',
+      subtitle: canSeeFinance ? `Total acumulado: R$ ${(metrics.totalRevenue || 0).toFixed(2)}` : 'Faturamento restrito ao Caixa/Admin',
       icon: TrendingUp,
       color: 'emerald',
       bg: 'bg-emerald-50 text-emerald-600',
@@ -208,21 +215,33 @@ export default function DashboardTab({
                       </div>
                       <div className="flex items-center gap-1.5">
                         {order.status === 'pending_payment' && (
-                          <button
-                            onClick={() => onConfirmPayment(order.id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold"
-                          >
-                            Confirmar Pix
-                          </button>
+                          canConfirmPayment ? (
+                            <button
+                              onClick={() => onConfirmPayment(order.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold"
+                            >
+                              Confirmar Pix
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium flex items-center gap-1 border border-slate-200">
+                              <Lock size={10} /> Aguardando Caixa
+                            </span>
+                          )
                         )}
                         {order.status === 'paid' && (
-                          <button
-                            onClick={() => onReleaseDelivery(order.id)}
-                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-semibold flex items-center gap-1"
-                          >
-                            <Bike size={11} />
-                            Motoboy
-                          </button>
+                          canDispatchDriver ? (
+                            <button
+                              onClick={() => onReleaseDelivery(order.id)}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-semibold flex items-center gap-1"
+                            >
+                              <Bike size={11} />
+                              Motoboy
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium flex items-center gap-1 border border-slate-200">
+                              <Lock size={10} /> Aguardando Caixa
+                            </span>
+                          )
                         )}
                         <button
                           onClick={() => onOpenOrder(order)}
@@ -293,23 +312,35 @@ export default function DashboardTab({
                         <td className="py-3 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {order.status === 'pending_payment' && (
-                              <button
-                                onClick={() => onConfirmPayment(order.id)}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors"
-                                title="Confirmar recebimento do Pix"
-                              >
-                                Confirmar Pix
-                              </button>
+                              canConfirmPayment ? (
+                                <button
+                                  onClick={() => onConfirmPayment(order.id)}
+                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors"
+                                  title="Confirmar recebimento do Pix"
+                                >
+                                  Confirmar Pix
+                                </button>
+                              ) : (
+                                <span className="px-2 py-1 bg-slate-100 text-slate-400 rounded-md text-[10px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas Operador de Caixa ou Admin pode confirmar recebimento">
+                                  <Lock size={10} /> Aguardando Caixa
+                                </span>
+                              )
                             )}
                             {order.status === 'paid' && (
-                              <button
-                                onClick={() => onReleaseDelivery(order.id)}
-                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1"
-                                title="Liberar e acionar motoboy no WhatsApp"
-                              >
-                                <Bike size={12} />
-                                Liberar Motoboy
-                              </button>
+                              canDispatchDriver ? (
+                                <button
+                                  onClick={() => onReleaseDelivery(order.id)}
+                                  className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1"
+                                  title="Liberar e acionar motoboy no WhatsApp"
+                                >
+                                  <Bike size={12} />
+                                  Liberar Motoboy
+                                </button>
+                              ) : (
+                                <span className="px-2 py-1 bg-slate-100 text-slate-400 rounded-md text-[10px] font-medium flex items-center gap-1 border border-slate-200" title="Apenas Operador de Caixa ou Admin pode liberar para motoboy">
+                                  <Lock size={10} /> Aguardando Caixa
+                                </span>
+                              )
                             )}
                             <button
                               onClick={() => onOpenOrder(order)}

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck, Copy, Check } from 'lucide-react';
+import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck, Copy, Check, Lock } from 'lucide-react';
+import { canUser } from '../utils/permissions';
 
 export default function OrderDetailsModal({
   isOpen,
   onClose,
   order,
+  currentUser,
   onConfirmPayment,
   onReleaseDelivery,
   onMarkDelivered,
@@ -185,29 +187,41 @@ export default function OrderDetailsModal({
         {/* Action Buttons */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
           {order.status === 'pending_payment' && (
-            <button
-              onClick={() => {
-                onConfirmPayment(order.id);
-                onClose();
-              }}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
-            >
-              <CheckCircle size={14} />
-              Confirmar Pix e Liberar Preparo
-            </button>
+            canUser(currentUser, 'orders_confirm_payment') ? (
+              <button
+                onClick={() => {
+                  onConfirmPayment(order.id);
+                  onClose();
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+              >
+                <CheckCircle size={14} />
+                Confirmar Pix e Liberar Preparo
+              </button>
+            ) : (
+              <span className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold border border-slate-200 flex items-center gap-1.5" title="Apenas o Operador de Caixa pode confirmar pagamentos">
+                <Lock size={13} className="text-slate-400" /> Aguardando Caixa Confirmar Pix
+              </span>
+            )
           )}
 
           {order.status === 'paid' && (
-            <button
-              onClick={() => {
-                onReleaseDelivery(order.id);
-                onClose();
-              }}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm flex items-center gap-1.5"
-            >
-              <Bike size={14} />
-              Liberar Pacote para Motoboy
-            </button>
+            canUser(currentUser, 'orders_dispatch_driver') ? (
+              <button
+                onClick={() => {
+                  onReleaseDelivery(order.id);
+                  onClose();
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm flex items-center gap-1.5"
+              >
+                <Bike size={14} />
+                Liberar Pacote para Motoboy
+              </button>
+            ) : (
+              <span className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold border border-slate-200 flex items-center gap-1.5" title="Apenas o Operador de Caixa pode liberar para motoboy">
+                <Lock size={13} className="text-slate-400" /> Aguardando Caixa Despachar
+              </span>
+            )
           )}
 
           {order.status === 'in_transit' && (

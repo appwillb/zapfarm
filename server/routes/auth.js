@@ -4,6 +4,84 @@ const bcrypt = require('bcryptjs');
 const db = require('../db/database');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 
+// Role presets and default permissions generator
+function getDefaultPermissions(role) {
+  if (role === 'superadmin' || role === 'admin' || role === 'pharmacist') {
+    return {
+      dashboard_view: true,
+      financial_view: true,
+      orders_view: true,
+      orders_confirm_payment: true,
+      orders_dispatch_driver: true,
+      orders_cancel: true,
+      chat_access: true,
+      products_view: true,
+      products_manage: true,
+      inventory_manage: true,
+      drivers_manage: true,
+      campaigns_access: true,
+      whatsapp_manage: true,
+      settings_manage: true,
+      team_manage: true,
+    };
+  }
+
+  if (role === 'cashier') {
+    return {
+      dashboard_view: true,
+      financial_view: true,
+      orders_view: true,
+      orders_confirm_payment: true, // Confirma comprovante Pix/Dinheiro
+      orders_dispatch_driver: true, // Libera motoboy
+      orders_cancel: true,
+      chat_access: false,
+      products_view: true, // Consulta remédios no balcão
+      products_manage: false,
+      inventory_manage: false,
+      drivers_manage: true,
+      campaigns_access: false,
+      whatsapp_manage: false,
+      settings_manage: false,
+      team_manage: false,
+    };
+  }
+
+  // attendant (default)
+  return {
+    dashboard_view: true,
+    financial_view: false,
+    orders_view: true,
+    orders_confirm_payment: false,
+    orders_dispatch_driver: false,
+    orders_cancel: false,
+    chat_access: true,
+    products_view: true,
+    products_manage: false,
+    inventory_manage: false,
+    drivers_manage: false,
+    campaigns_access: false,
+    whatsapp_manage: false,
+    settings_manage: false,
+    team_manage: false,
+  };
+}
+
+function parseUserPermissions(user) {
+  if (!user) return null;
+  let perms = null;
+  if (user.permissions) {
+    try {
+      perms = typeof user.permissions === 'string' ? JSON.parse(user.permissions) : user.permissions;
+    } catch (e) {
+      perms = null;
+    }
+  }
+  if (!perms || typeof perms !== 'object') {
+    perms = getDefaultPermissions(user.role);
+  }
+  return perms;
+}
+
 // POST /api/auth/login
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
@@ -28,6 +106,7 @@ router.post('/login', (req, res) => {
   }
 
   const token = generateToken(user);
+  const permissions = parseUserPermissions(user);
 
   res.json({
     token,
@@ -37,6 +116,7 @@ router.post('/login', (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      permissions,
     },
     tenant,
   });
@@ -44,10 +124,12 @@ router.post('/login', (req, res) => {
 
 // GET /api/auth/me
 router.get('/me', authenticateToken, (req, res) => {
-  const user = db.prepare('SELECT id, tenant_id, name, email, role FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, tenant_id, name, email, role, permissions FROM users WHERE id = ?').get(req.user.id);
   if (!user) {
     return res.status(404).json({ error: 'Usuário não encontrado.' });
   }
+
+  user.permissions = parseUserPermissions(user);
 
   let tenant = null;
   if (user.tenant_id) {
@@ -61,7 +143,7 @@ router.get('/me', authenticateToken, (req, res) => {
 router.get('/users', (req, res) => {
   const { tenant_id } = req.query;
   let query = `
-    SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.active, u.created_at, t.name as tenant_name
+    SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.permissions, u.active, u.created_at, t.name as tenant_name
     FROM users u
     LEFT JOIN tenants t ON t.id = u.tenant_id
   `;
@@ -71,13 +153,17 @@ router.get('/users', (req, res) => {
     params.push(Number(tenant_id));
   }
   query += ` ORDER BY u.id ASC `;
-  const users = db.prepare(query).all(...params);
+  const rawUsers = db.prepare(query).all(...params);
+  const users = rawUsers.map((u) => ({
+    ...u,
+    permissions: parseUserPermissions(u),
+  }));
   res.json(users);
 });
 
-// POST /api/auth/users - create new user
+// POST /api/auth/users - create new user with role & permissions
 router.post('/users', (req, res) => {
-  const { tenant_id, name, email, password, role = 'admin' } = req.body;
+  const { tenant_id, name, email, password, role = 'attendant', permissions } = req.body;
 
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
@@ -88,26 +174,33 @@ router.post('/users', (req, res) => {
     return res.status(409).json({ error: 'Já existe um usuário cadastrado com este e-mail.' });
   }
 
+  let permsToSave = permissions;
+  if (!permsToSave || (typeof permsToSave === 'object' && Object.keys(permsToSave).length === 0)) {
+    permsToSave = getDefaultPermissions(role);
+  }
+  const permsString = typeof permsToSave === 'string' ? permsToSave : JSON.stringify(permsToSave);
+
   const hash = bcrypt.hashSync(password, 10);
   const result = db
     .prepare(
       `
-    INSERT INTO users (tenant_id, name, email, password_hash, role, active)
-    VALUES (?, ?, ?, ?, ?, 1)
+    INSERT INTO users (tenant_id, name, email, password_hash, role, permissions, active)
+    VALUES (?, ?, ?, ?, ?, ?, 1)
   `
     )
-    .run(tenant_id ? Number(tenant_id) : null, name.trim(), email.trim().toLowerCase(), hash, role);
+    .run(tenant_id ? Number(tenant_id) : null, name.trim(), email.trim().toLowerCase(), hash, role, permsString);
 
   const newUser = db
-    .prepare('SELECT id, tenant_id, name, email, role, active, created_at FROM users WHERE id = ?')
+    .prepare('SELECT id, tenant_id, name, email, role, permissions, active, created_at FROM users WHERE id = ?')
     .get(result.lastInsertRowid);
+  newUser.permissions = parseUserPermissions(newUser);
   res.status(201).json(newUser);
 });
 
-// PUT /api/auth/users/:id - update user (email, name, password, role, tenant_id)
+// PUT /api/auth/users/:id - update user (email, name, password, role, permissions, tenant_id)
 router.put('/users/:id', (req, res) => {
   const userId = Number(req.params.id);
-  const { name, email, password, role, tenant_id, active } = req.body;
+  const { name, email, password, role, permissions, tenant_id, active } = req.body;
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) {
@@ -129,28 +222,38 @@ router.put('/users/:id', (req, res) => {
   const newTenantId = tenant_id !== undefined ? (tenant_id ? Number(tenant_id) : null) : user.tenant_id;
   const newActive = active !== undefined ? (active ? 1 : 0) : user.active;
 
+  let permsString = user.permissions;
+  if (permissions !== undefined) {
+    const permsObj = typeof permissions === 'string' ? JSON.parse(permissions) : permissions;
+    permsString = JSON.stringify(permsObj);
+  } else if (role !== undefined && role !== user.role) {
+    // If role changed without explicit permissions passed, update to role defaults
+    permsString = JSON.stringify(getDefaultPermissions(role));
+  }
+
   if (password && password.trim().length > 0) {
     const hash = bcrypt.hashSync(password.trim(), 10);
     db.prepare(
       `
       UPDATE users 
-      SET name = ?, email = ?, password_hash = ?, role = ?, tenant_id = ?, active = ?
+      SET name = ?, email = ?, password_hash = ?, role = ?, permissions = ?, tenant_id = ?, active = ?
       WHERE id = ?
     `
-    ).run(newName, newEmail, hash, newRole, newTenantId, newActive, userId);
+    ).run(newName, newEmail, hash, newRole, permsString, newTenantId, newActive, userId);
   } else {
     db.prepare(
       `
       UPDATE users 
-      SET name = ?, email = ?, role = ?, tenant_id = ?, active = ?
+      SET name = ?, email = ?, role = ?, permissions = ?, tenant_id = ?, active = ?
       WHERE id = ?
     `
-    ).run(newName, newEmail, newRole, newTenantId, newActive, userId);
+    ).run(newName, newEmail, newRole, permsString, newTenantId, newActive, userId);
   }
 
   const updated = db
-    .prepare('SELECT id, tenant_id, name, email, role, active, created_at FROM users WHERE id = ?')
+    .prepare('SELECT id, tenant_id, name, email, role, permissions, active, created_at FROM users WHERE id = ?')
     .get(userId);
+  updated.permissions = parseUserPermissions(updated);
   res.json({ success: true, user: updated });
 });
 

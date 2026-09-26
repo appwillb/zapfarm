@@ -162,7 +162,15 @@ export default function Header({
                   <Key size={11} className="text-slate-400 group-hover:text-emerald-600" />
                 </p>
                 <p className="text-[10px] text-slate-500 capitalize mt-0.5">
-                  {currentUser?.role === 'superadmin' ? '👑 Dono SaaS' : currentUser?.role === 'pharmacist' ? 'Farmacêutica' : 'Atendente'}
+                  {currentUser?.role === 'superadmin'
+                    ? '👑 Dono SaaS'
+                    : currentUser?.role === 'pharmacist'
+                    ? '👩‍⚕️ Farmacêutica'
+                    : currentUser?.role === 'cashier'
+                    ? '💳 Caixa'
+                    : currentUser?.role === 'custom'
+                    ? '⚙️ Personalizado'
+                    : '💬 Atendente'}
                 </p>
               </div>
             </button>
@@ -270,8 +278,12 @@ export default function Header({
                   {currentUser?.role === 'superadmin'
                     ? '👑 Super Administrador (Acesso global SaaS)'
                     : currentUser?.role === 'pharmacist'
-                    ? '💊 Farmacêutica / Gerente da Farmácia'
-                    : '👤 Atendente de Balcão'}
+                    ? '👩‍⚕️ Farmacêutica / Gerente da Farmácia'
+                    : currentUser?.role === 'cashier'
+                    ? '💳 Operador(a) de Caixa (Confirmação de Pagamento e Motoboy)'
+                    : currentUser?.role === 'custom'
+                    ? '⚙️ Perfil Personalizado da Equipe'
+                    : '💬 Atendente de Balcão (Atendimento & Vendas)'}
                 </span>
               </div>
 

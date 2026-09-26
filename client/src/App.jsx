@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingBag, MessageSquare, Megaphone, Menu as MenuIcon } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, MessageSquare, Megaphone, Pill, Menu as MenuIcon } from 'lucide-react';
+import { canUser } from './utils/permissions';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardTab from './components/DashboardTab';
@@ -334,6 +335,7 @@ export default function App() {
           {currentTab === 'dashboard' && (
             <DashboardTab
               dashboardData={dashboardData}
+              currentUser={currentUser}
               onNavigateTab={(tab) => setCurrentTab(tab)}
               onOpenOrder={(order) => setOrderModal({ open: true, order })}
               onConfirmPayment={handleConfirmPayment}
@@ -346,6 +348,7 @@ export default function App() {
             <OrdersTab
               orders={orders}
               drivers={drivers}
+              currentUser={currentUser}
               onConfirmPayment={handleConfirmPayment}
               onReleaseDelivery={handleReleaseDelivery}
               onMarkDelivered={handleMarkDelivered}
@@ -358,6 +361,7 @@ export default function App() {
           {currentTab === 'products' && (
             <ProductsTab
               products={products}
+              currentUser={currentUser}
               onOpenAddProduct={() => setProductModal({ open: true, product: null })}
               onOpenEditProduct={(product) => setProductModal({ open: true, product })}
               onOpenImportCsv={() => setCsvModalOpen(true)}
@@ -371,6 +375,7 @@ export default function App() {
           {currentTab === 'drivers' && (
             <DriversTab
               drivers={drivers}
+              currentUser={currentUser}
               onOpenAddDriver={() => setDriverModal({ open: true, driver: null })}
               onOpenEditDriver={(driver) => setDriverModal({ open: true, driver })}
               onUpdateDriverStatus={handleUpdateDriverStatus}
@@ -442,41 +447,58 @@ export default function App() {
             <span className="text-[10px] mt-0.5 font-medium">Início</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setCurrentTab('orders')}
-            className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-              currentTab === 'orders' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ShoppingBag size={20} className={currentTab === 'orders' ? 'scale-110 transition-transform' : ''} />
-            <span className="text-[10px] mt-0.5 font-medium">Pedidos</span>
-            {orders.filter((o) => o.status === 'pending_payment' || o.status === 'paid').length > 0 && (
-              <span className="absolute top-1 right-3 sm:right-6 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            )}
-          </button>
+          {canUser(currentUser, 'orders_view') && (
+            <button
+              type="button"
+              onClick={() => setCurrentTab('orders')}
+              className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                currentTab === 'orders' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <ShoppingBag size={20} className={currentTab === 'orders' ? 'scale-110 transition-transform' : ''} />
+              <span className="text-[10px] mt-0.5 font-medium">Pedidos</span>
+              {orders.filter((o) => o.status === 'pending_payment' || o.status === 'paid').length > 0 && (
+                <span className="absolute top-1 right-3 sm:right-6 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setCurrentTab('chat')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-              currentTab === 'chat' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <MessageSquare size={20} className={currentTab === 'chat' ? 'scale-110 transition-transform' : ''} />
-            <span className="text-[10px] mt-0.5 font-medium">Chat</span>
-          </button>
+          {canUser(currentUser, 'chat_access') ? (
+            <button
+              type="button"
+              onClick={() => setCurrentTab('chat')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                currentTab === 'chat' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <MessageSquare size={20} className={currentTab === 'chat' ? 'scale-110 transition-transform' : ''} />
+              <span className="text-[10px] mt-0.5 font-medium">Chat</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCurrentTab('products')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                currentTab === 'products' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Pill size={20} className={currentTab === 'products' ? 'scale-110 transition-transform' : ''} />
+              <span className="text-[10px] mt-0.5 font-medium">Remédios</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setCurrentTab('campaigns')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-              currentTab === 'campaigns' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Megaphone size={20} className={currentTab === 'campaigns' ? 'scale-110 transition-transform' : ''} />
-            <span className="text-[10px] mt-0.5 font-medium">Ofertas</span>
-          </button>
+          {canUser(currentUser, 'campaigns_access') && (
+            <button
+              type="button"
+              onClick={() => setCurrentTab('campaigns')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                currentTab === 'campaigns' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Megaphone size={20} className={currentTab === 'campaigns' ? 'scale-110 transition-transform' : ''} />
+              <span className="text-[10px] mt-0.5 font-medium">Ofertas</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -517,6 +539,7 @@ export default function App() {
         isOpen={orderModal.open}
         onClose={() => setOrderModal({ open: false, order: null })}
         order={orderModal.order}
+        currentUser={currentUser}
         onConfirmPayment={handleConfirmPayment}
         onReleaseDelivery={handleReleaseDelivery}
         onMarkDelivered={handleMarkDelivered}
