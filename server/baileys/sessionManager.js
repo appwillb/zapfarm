@@ -280,7 +280,21 @@ class SessionManager {
         if (clean.length === 10 || clean.length === 11) {
           clean = '55' + clean;
         }
-        jid = `${clean}@s.whatsapp.net`;
+
+        try {
+          if (typeof session.socket.onWhatsApp === 'function') {
+            const results = await session.socket.onWhatsApp(clean);
+            if (results && results.length > 0 && results[0]?.exists && results[0]?.jid) {
+              jid = results[0].jid;
+            } else {
+              jid = `${clean}@s.whatsapp.net`;
+            }
+          } else {
+            jid = `${clean}@s.whatsapp.net`;
+          }
+        } catch (e) {
+          jid = `${clean}@s.whatsapp.net`;
+        }
       }
 
       console.log(`[Tenant ${tId}] 📤 Enviando WhatsApp via Baileys para JID: ${jid}${media ? ' (com imagem)' : ''}`);

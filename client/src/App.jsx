@@ -386,6 +386,8 @@ export default function App() {
             <SuppliersTab
               tenantId={selectedTenant?.id}
               products={products}
+              whatsappStatus={whatsappStatus}
+              onNavigateTab={(tab) => setCurrentTab(tab)}
               onOpenAddSupplier={() => setSupplierModal({ open: true, supplier: null })}
               onOpenEditSupplier={(supplier) => setSupplierModal({ open: true, supplier })}
               onRefresh={loadTenantData}

@@ -20,6 +20,8 @@ import { api } from '../api';
 export default function SuppliersTab({
   tenantId,
   products = [],
+  whatsappStatus,
+  onNavigateTab,
   onOpenAddSupplier,
   onOpenEditSupplier,
   onFilterProductsBySupplier,
@@ -65,31 +67,35 @@ export default function SuppliersTab({
 
   const handleTestWhatsApp = async (supplier) => {
     if (!supplier.phone) {
-      alert('Este vendedor não possui telefone cadastrado.');
+      alert('Este vendedor não possui número de WhatsApp cadastrado.');
       return;
     }
 
-    // Find any product from this supplier or send a general test
-    const supplierProds = products.filter((p) => p.supplier_id === supplier.id);
-    const targetProd = supplierProds[0];
-
-    if (!targetProd) {
-      alert(
-        `Para testar o alerta automático, primeiro vincule pelo menos um medicamento a ${supplier.name} na aba de Produtos ou Importação CSV.`
-      );
-      return;
+    if (whatsappStatus && whatsappStatus.status !== 'connected') {
+      if (
+        window.confirm(
+          `⚠️ O WhatsApp da farmácia não está conectado no momento!\n\nPara que a mensagem chegue de verdade no celular de ${supplier.name}, é necessário ler o QR Code na aba "Conexão WhatsApp".\n\nDeseja ir para a tela de conexão agora?`
+        )
+      ) {
+        if (onNavigateTab) onNavigateTab('whatsapp');
+        return;
+      }
     }
 
     try {
       setTestingId(supplier.id);
-      const res = await api.notifySupplierLowStock(targetProd.id, 'Teste do Sistema ZapFarm');
+      const res = await api.testSupplierWhatsApp(supplier.id, 'Farmacêutico Responsável');
       if (res.success) {
-        alert(`✅ Notificação teste enviada com sucesso para o WhatsApp de ${supplier.name} (${supplier.phone})!`);
+        alert(
+          `✅ Mensagem teste entregue com sucesso no WhatsApp de ${supplier.name} (${supplier.phone})!\n\nVerifique a chegada da notificação no celular dele.`
+        );
       } else {
-        alert(res.error || 'Erro ao enviar notificação teste.');
+        alert(
+          `⚠️ ${res.error || 'Erro ao enviar notificação teste.'}`
+        );
       }
     } catch (err) {
-      alert('Erro ao enviar teste: ' + err.message);
+      alert('Erro ao disparar teste: ' + err.message);
     } finally {
       setTestingId(null);
     }
@@ -115,6 +121,34 @@ export default function SuppliersTab({
 
   return (
     <div className="space-y-5">
+      {/* WhatsApp Disconnected Alert Banner */}
+      {whatsappStatus?.status !== 'connected' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h4 className="font-bold text-amber-900 text-xs sm:text-sm">
+                WhatsApp da Farmácia Desconectado
+              </h4>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                Para que os alertas de estoque e testes cheguem ao celular dos vendedores, escaneie o QR Code com o WhatsApp da farmácia.
+              </p>
+            </div>
+          </div>
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('whatsapp')}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shrink-0 transition-colors shadow-xs"
+            >
+              Conectar WhatsApp Agora
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Banner & KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
@@ -254,7 +288,7 @@ export default function SuppliersTab({
                   )}
 
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    {count > 0 && (
+                    {s.phone && (
                       <button
                         type="button"
                         onClick={() => handleTestWhatsApp(s)}
@@ -377,7 +411,7 @@ export default function SuppliersTab({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {count > 0 && (
+                          {s.phone && (
                             <button
                               type="button"
                               onClick={() => handleTestWhatsApp(s)}

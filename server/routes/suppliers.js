@@ -161,7 +161,15 @@ router.post('/notify-low-stock/:productId', async (req, res) => {
       `👉 Por favor, envie cotação com lote atual e prazo de entrega para novo pedido.\n\n` +
       `Atenciosamente,\n*${tenant.name}*\nWhatsApp: ${tenant.phone || ''}`;
 
-    await botEngine.sendReply(prod.tenant_id, prod.supplier_phone, alertMsg);
+    const sent = await botEngine.sendReply(prod.tenant_id, prod.supplier_phone, alertMsg);
+
+    if (!sent) {
+      return res.json({
+        success: false,
+        whatsappConnected: false,
+        error: 'O WhatsApp da farmácia não está conectado no momento. Acesse a aba "Conexão WhatsApp" no menu lateral e leia o QR Code com o celular da farmácia para ativar o envio real das mensagens.',
+      });
+    }
 
     db.prepare('UPDATE products SET last_stock_alert_at = CURRENT_TIMESTAMP WHERE id = ?').run(productId);
 
@@ -174,10 +182,65 @@ router.post('/notify-low-stock/:productId', async (req, res) => {
 
     res.json({
       success: true,
+      whatsappConnected: true,
       message: `Mensagem enviada com sucesso para o representante ${prod.supplier_name} (${prod.supplier_phone})!`,
     });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao enviar mensagem para o vendedor: ' + err.message });
+  }
+});
+
+// POST /api/suppliers/:id/test-whatsapp
+// Direct action: Test WhatsApp delivery to this specific supplier (even without products)
+router.post('/:id/test-whatsapp', async (req, res) => {
+  const supplierId = req.params.id;
+  try {
+    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(supplierId);
+    if (!supplier) return res.status(404).json({ error: 'Vendedor não encontrado.' });
+    if (!supplier.phone) return res.status(400).json({ error: 'Este vendedor não possui número de WhatsApp cadastrado.' });
+
+    const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(supplier.tenant_id);
+
+    // Get any sample product from this supplier or default example
+    const sampleProd = db.prepare('SELECT * FROM products WHERE tenant_id = ? AND supplier_id = ? LIMIT 1').get(supplier.tenant_id, supplier.id);
+    const prodName = sampleProd ? `${sampleProd.name} ${sampleProd.dosage || ''}` : 'Dipirona Sódica 500mg Gotas (Exemplo)';
+    const prodStock = sampleProd ? sampleProd.stock_quantity : 2;
+    const prodMin = sampleProd ? sampleProd.min_stock : 10;
+
+    const testMsg = `📦 *TESTE DE INTEGRAÇÃO - ZAPFARM* 🚨\n\n` +
+      `Olá, *${supplier.name}*!\n\n` +
+      `Este é um teste do canal de alerta automático de estoque da *${tenant.name}*.\n\n` +
+      `Sempre que um medicamento fornecido por você (${supplier.company || 'sua distribuidora'}) atingir o nível mínimo de reposição, o robô enviará uma notificação automática como esta:\n\n` +
+      `💊 *Medicamento:* ${prodName}\n` +
+      `📊 *Estoque Atual:* ${prodStock} unidades\n` +
+      `⚠️ *Estoque Mínimo:* ${prodMin} unidades\n\n` +
+      `👉 Por favor, envie cotação atualizada e prazo de entrega para novo pedido.\n\n` +
+      `Atenciosamente,\n*${tenant.name}*\nWhatsApp: ${tenant.phone || ''}`;
+
+    const sent = await botEngine.sendReply(supplier.tenant_id, supplier.phone, testMsg);
+
+    if (!sent) {
+      return res.json({
+        success: false,
+        whatsappConnected: false,
+        error: 'O WhatsApp da farmácia não está conectado no momento. Acesse a aba "Conexão WhatsApp" no menu lateral e leia o QR Code com o celular da farmácia para ativar o envio real das mensagens.',
+      });
+    }
+
+    try {
+      db.prepare(`
+        INSERT INTO audit_logs (tenant_id, user_name, action, details)
+        VALUES (?, ?, 'TESTE_WHATSAPP_VENDEDOR', ?)
+      `).run(supplier.tenant_id, req.body.sent_by || 'Farmacêutico', `Teste de WhatsApp enviado para ${supplier.name} (${supplier.phone}).`);
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      whatsappConnected: true,
+      message: `Mensagem teste entregue com sucesso no WhatsApp de ${supplier.name} (${supplier.phone})!`,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao enviar teste de WhatsApp: ' + err.message });
   }
 });
 

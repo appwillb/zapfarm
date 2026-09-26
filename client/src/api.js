@@ -76,6 +76,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sent_by: sentBy }),
     }).then((r) => r.json()),
+  testSupplierWhatsApp: (supplierId, sentBy = 'Farmacêutico') =>
+    fetch(`${API_BASE}/suppliers/${supplierId}/test-whatsapp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sent_by: sentBy }),
+    }).then((r) => r.json()),
 
   // Orders
   getOrders: (tenantId, status = '') => {
