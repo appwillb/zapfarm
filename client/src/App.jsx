@@ -249,6 +249,17 @@ export default function App() {
     }
   };
 
+  const handleDeleteOrder = async (orderId) => {
+    if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente o Pedido #${orderId}? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const res = await api.deleteOrder(orderId, currentUser?.name || 'Administrador');
+      alert(res.message || 'Pedido excluído com sucesso.');
+      await loadTenantData();
+    } catch (err) {
+      alert('Erro ao excluir pedido: ' + err.message);
+    }
+  };
+
   const handleDeleteProduct = async (id) => {
     if (!confirm('Deseja desativar este medicamento do catálogo?')) return;
     try {
@@ -356,6 +367,7 @@ export default function App() {
               onReleaseDelivery={handleReleaseDelivery}
               onMarkDelivered={handleMarkDelivered}
               onCancelOrder={handleCancelOrder}
+              onDeleteOrder={handleDeleteOrder}
               onOpenOrder={(order) => setOrderModal({ open: true, order })}
               onRefresh={loadTenantData}
             />
@@ -573,6 +585,7 @@ export default function App() {
         onConfirmPayment={handleConfirmPayment}
         onReleaseDelivery={handleReleaseDelivery}
         onMarkDelivered={handleMarkDelivered}
+        onDeleteOrder={handleDeleteOrder}
       />
 
       <SimulatorModal

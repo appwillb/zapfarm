@@ -14,6 +14,7 @@ import {
   Copy,
   Check,
   Lock,
+  Trash2,
 } from 'lucide-react';
 import { canUser } from '../utils/permissions';
 
@@ -25,6 +26,7 @@ export default function OrdersTab({
   onReleaseDelivery,
   onMarkDelivered,
   onCancelOrder,
+  onDeleteOrder,
   onOpenOrder,
   onRefresh,
 }) {
@@ -36,6 +38,10 @@ export default function OrdersTab({
   const canConfirmPayment = canUser(currentUser, 'orders_confirm_payment');
   const canDispatchDriver = canUser(currentUser, 'orders_dispatch_driver');
   const canCancelOrderPerm = canUser(currentUser, 'orders_cancel');
+  const canDeleteOrder =
+    currentUser?.role === 'superadmin' ||
+    currentUser?.role === 'pharmacist' ||
+    canUser(currentUser, 'orders_cancel');
   const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
@@ -407,6 +413,16 @@ export default function OrdersTab({
                                 Cancelar
                               </button>
                             )}
+
+                            {canDeleteOrder && onDeleteOrder && (
+                              <button
+                                onClick={() => onDeleteOrder(order.id)}
+                                className="text-[11px] text-slate-400 hover:text-rose-600 transition-colors p-0.5 rounded"
+                                title="Excluir este pedido"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -652,10 +668,20 @@ export default function OrdersTab({
                         )}
                         <button
                           onClick={() => onOpenOrder(order)}
-                          className="p-1 text-slate-400 hover:text-slate-700 rounded"
+                          className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                          title="Ver Detalhes do Pedido"
                         >
                           <Eye size={15} />
                         </button>
+                        {canDeleteOrder && onDeleteOrder && (
+                          <button
+                            onClick={() => onDeleteOrder(order.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Excluir este pedido permanentemente"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

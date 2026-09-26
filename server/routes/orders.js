@@ -151,4 +151,46 @@ router.post('/:id/cancel', async (req, res) => {
   }
 });
 
+// DELETE /api/orders/:id
+// Admin action: Delete order (useful for test orders and administrative cleaning)
+router.delete('/:id', (req, res) => {
+  const orderId = req.params.id;
+  const deletedBy = req.body?.user_name || req.query?.user_name || 'Administrador';
+
+  try {
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+
+    // If order was pending payment, release any reserved stock
+    if (order.status === 'pending_payment') {
+      const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+      const restoreStock = db.prepare('UPDATE products SET reserved_quantity = MAX(0, reserved_quantity - ?) WHERE id = ?');
+      for (const item of items) {
+        restoreStock.run(item.quantity, item.product_id);
+      }
+    }
+
+    // Delete order items and order
+    db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
+    db.prepare('DELETE FROM orders WHERE id = ?').run(orderId);
+
+    // Free driver if was assigned
+    if (order.driver_id && (order.status === 'in_transit' || order.status === 'ready_for_delivery')) {
+      db.prepare("UPDATE delivery_drivers SET status = 'available' WHERE id = ?").run(order.driver_id);
+    }
+
+    // Audit log
+    try {
+      db.prepare(`
+        INSERT INTO audit_logs (tenant_id, user_name, action, details)
+        VALUES (?, ?, 'EXCLUSAO_PEDIDO', ?)
+      `).run(order.tenant_id, deletedBy, `Pedido #${orderId} de ${order.customer_name} (Total: R$ ${order.total}) foi excluído.`);
+    } catch (e) {}
+
+    res.json({ success: true, message: `Pedido #${orderId} excluído com sucesso.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir pedido: ' + err.message });
+  }
+});
+
 module.exports = router;

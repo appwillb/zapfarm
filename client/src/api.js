@@ -113,6 +113,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     }).then((r) => r.json()),
+  deleteOrder: (orderId, userName = 'Administrador') =>
+    fetch(`${API_BASE}/orders/${orderId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_name: userName }),
+    }).then((r) => r.json()),
 
   // Drivers
   getDrivers: (tenantId) => fetch(`${API_BASE}/drivers?tenant_id=${tenantId}`).then((r) => r.json()),
