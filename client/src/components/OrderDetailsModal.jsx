@@ -142,10 +142,15 @@ export default function OrderDetailsModal({
         {order.pix_code && (
           <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                <QrCode size={13} className="text-emerald-600" />
-                Código Pix Copia e Cola
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                  <QrCode size={13} className="text-emerald-600" />
+                  Código Pix Copia e Cola
+                </label>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] border border-emerald-300">
+                  Valor: R$ {Number(order.total).toFixed(2)}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 {order.pix_qrcode_url && (
                   <button
