@@ -34,14 +34,14 @@ export default function Sidebar({
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard_view' },
-    { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, badge: 'Fluxo', perm: 'orders_view' },
+    { id: 'orders', label: 'Pedidos & Balcão', icon: ShoppingBag, perm: 'orders_view' },
     { id: 'products', label: 'Produtos & Remédios', icon: Pill, perm: 'products_view' },
     { id: 'inventory', label: 'Estoque & Lotes', icon: Boxes, perm: 'inventory_manage' },
-    { id: 'suppliers', label: 'Vendedores & Reps', icon: UserCheck, badge: 'WhatsApp', perm: 'products_view' },
+    { id: 'suppliers', label: 'Vendedores & Reps', icon: UserCheck, perm: 'products_view' },
     { id: 'drivers', label: 'Entregadores', icon: Bike, perm: 'drivers_manage' },
     { id: 'whatsapp', label: 'Conexão WhatsApp', icon: QrCode, highlight: true, perm: 'whatsapp_manage' },
     { id: 'chat', label: 'Atendimento & Chat', icon: MessageSquare, perm: 'chat_access' },
-    { id: 'campaigns', label: 'Disparos & Ofertas', icon: Megaphone, badge: 'Anti-Ban', perm: 'campaigns_access' },
+    { id: 'campaigns', label: 'Disparos & Ofertas', icon: Megaphone, perm: 'campaigns_access' },
     { id: 'settings', label: 'Configurações', icon: Settings, perm: 'settings_manage' },
     { id: 'saas_admin', label: 'Painel Dono SaaS', icon: Building2, adminOnly: true },
   ];
@@ -176,13 +176,13 @@ export default function Sidebar({
                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon size={18} className={isActive ? 'text-white' : item.highlight ? 'text-emerald-400' : 'text-slate-400'} />
-                  <span>{item.label}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'text-emerald-400' : 'text-slate-400'}`} />
+                  <span className="whitespace-nowrap">{item.label}</span>
                 </div>
                 {item.id === 'whatsapp' && (
                   <span
-                    className={`w-2.5 h-2.5 rounded-full ${
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                       whatsappStatus?.status === 'connected'
                         ? 'bg-emerald-400 shadow-xs shadow-emerald-400 animate-pulse'
                         : whatsappStatus?.status === 'qrcode'
@@ -192,7 +192,7 @@ export default function Sidebar({
                   />
                 )}
                 {item.badge && !isActive && (
-                  <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-md border border-slate-700">
+                  <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-md border border-slate-700 shrink-0">
                     {item.badge}
                   </span>
                 )}
