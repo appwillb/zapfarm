@@ -47,6 +47,7 @@ export default function OrderDetailsModal({
         </div>
 
         {/* Customer & Delivery Card */}
+        {/* Customer & Delivery Card */}
         <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-slate-500 flex items-center gap-1.5 font-medium">
@@ -64,12 +65,69 @@ export default function OrderDetailsModal({
               {order.delivery_type === 'pickup' ? '🏪 Retirada no Balcão da Farmácia' : order.delivery_address}
             </span>
           </div>
+          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+            <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+              <DollarSign size={13} className="text-slate-400" /> Pagamento:
+            </span>
+            <span className="font-bold">
+              {order.payment_method === 'CARD_ON_DELIVERY' && (
+                <span className="text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  💳 Cartão na Entrega (Maquininha)
+                </span>
+              )}
+              {order.payment_method === 'CASH_ON_DELIVERY' && (
+                <span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  💵 Dinheiro na Entrega
+                </span>
+              )}
+              {order.payment_method === 'CARD_PICKUP' && (
+                <span className="text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  💳 Cartão no Balcão
+                </span>
+              )}
+              {order.payment_method === 'CASH_PICKUP' && (
+                <span className="text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  💵 Dinheiro no Balcão
+                </span>
+              )}
+              {(!order.payment_method || order.payment_method === 'PIX') && (
+                <span className="text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  💠 Pix
+                </span>
+              )}
+            </span>
+          </div>
           {order.notes && (
             <div className="pt-1 text-[11px] text-slate-600 border-t border-slate-200/60">
-              <strong>Observações:</strong> {order.notes}
+              <strong>Observações / Troco:</strong> {order.notes}
             </div>
           )}
         </div>
+
+        {/* Motoboy In-Person Payment Callouts */}
+        {order.payment_method === 'CARD_ON_DELIVERY' && (
+          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 flex items-start gap-2.5">
+            <span className="text-xl">💳</span>
+            <div>
+              <p className="font-bold">Instrução ao Motoboy / Entregador:</p>
+              <p className="text-[11px] text-blue-700 mt-0.5">
+                O cliente escolheu pagar no cartão na entrega. O entregador <strong>DEVE LEVAR A MAQUININHA DE CARTÃO</strong> e cobrar o valor total de <strong>R$ {Number(order.total).toFixed(2)}</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {order.payment_method === 'CASH_ON_DELIVERY' && (
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
+            <span className="text-xl">💵</span>
+            <div>
+              <p className="font-bold">Instrução de Cobrança em Dinheiro:</p>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                O entregador deve receber <strong>R$ {Number(order.total).toFixed(2)}</strong> em espécie.{order.notes ? ` ${order.notes}` : ''}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Items List */}
         <div>
@@ -115,7 +173,11 @@ export default function OrderDetailsModal({
           <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs flex items-center gap-2">
             <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
             <div>
-              <p className="font-bold">Pagamento Pix Confirmado!</p>
+              <p className="font-bold">
+                {order.payment_method === 'CARD_ON_DELIVERY' || order.payment_method === 'CASH_ON_DELIVERY' || order.payment_method === 'CARD_PICKUP' || order.payment_method === 'CASH_PICKUP'
+                  ? 'Pedido Liberado para Separação!'
+                  : 'Pagamento Pix Confirmado!'}
+              </p>
               <p className="text-[11px] text-emerald-700">
                 Data: {new Date(order.payment_confirmed_at).toLocaleString()} &bull; Conferido por:{' '}
                 {order.confirmed_by_user || 'Equipe'}

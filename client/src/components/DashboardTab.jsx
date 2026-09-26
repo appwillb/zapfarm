@@ -305,9 +305,31 @@ export default function DashboardTab({
                           R$ {Number(order.total).toFixed(2)}
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusConfig.color}`}>
-                            {statusConfig.label}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusConfig.color}`}>
+                              {statusConfig.label}
+                            </span>
+                            {order.payment_method === 'CARD_ON_DELIVERY' && (
+                              <span className="text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                💳 Cartão Entrega
+                              </span>
+                            )}
+                            {order.payment_method === 'CASH_ON_DELIVERY' && (
+                              <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                💵 Dinheiro
+                              </span>
+                            )}
+                            {order.payment_method === 'CARD_PICKUP' && (
+                              <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                                💳 Cartão Balcão
+                              </span>
+                            )}
+                            {order.payment_method === 'CASH_PICKUP' && (
+                              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                💵 Dinheiro Balcão
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">

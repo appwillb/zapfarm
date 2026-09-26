@@ -244,6 +244,49 @@ export default function OrdersTab({
                             <p className="text-[10px] text-slate-400">📱 {order.customer_phone}</p>
                           </div>
 
+                          {/* Payment Method Badge */}
+                          <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                            {order.payment_method === 'CARD_ON_DELIVERY' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                💳 Cartão na Entrega
+                              </span>
+                            )}
+                            {order.payment_method === 'CASH_ON_DELIVERY' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                💵 Dinheiro na Entrega
+                              </span>
+                            )}
+                            {order.payment_method === 'CARD_PICKUP' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                💳 Cartão no Balcão
+                              </span>
+                            )}
+                            {order.payment_method === 'CASH_PICKUP' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                💵 Dinheiro no Balcão
+                              </span>
+                            )}
+                            {(!order.payment_method || order.payment_method === 'PIX') && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                💠 Pix
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Motoboy In-Person Payment Alert */}
+                          {order.payment_method === 'CARD_ON_DELIVERY' && (
+                            <div className="mt-1.5 p-1.5 bg-blue-50 rounded-lg border border-blue-200 text-[10px] text-blue-800 font-semibold flex items-center gap-1">
+                              <span>🚨</span>
+                              <span>Entregador deve levar maquininha</span>
+                            </div>
+                          )}
+                          {order.payment_method === 'CASH_ON_DELIVERY' && (
+                            <div className="mt-1.5 p-1.5 bg-amber-50 rounded-lg border border-amber-200 text-[10px] text-amber-800 font-semibold flex items-center gap-1">
+                              <span>💵</span>
+                              <span>{order.notes || 'Receber em dinheiro'}</span>
+                            </div>
+                          )}
+
                           {/* Address */}
                           <div className="mt-1.5 text-[11px] text-slate-600 line-clamp-2">
                             📍 {order.delivery_type === 'pickup' ? '🏪 Retirada no Balcão' : order.delivery_address}
@@ -407,6 +450,34 @@ export default function OrdersTab({
                       <p className="text-[10px] text-slate-400">📱 {order.customer_phone}</p>
                     </div>
 
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {order.payment_method === 'CARD_ON_DELIVERY' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          💳 Cartão na Entrega (Maquininha)
+                        </span>
+                      )}
+                      {order.payment_method === 'CASH_ON_DELIVERY' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                          💵 Dinheiro na Entrega
+                        </span>
+                      )}
+                      {order.payment_method === 'CARD_PICKUP' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          💳 Cartão no Balcão
+                        </span>
+                      )}
+                      {order.payment_method === 'CASH_PICKUP' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          💵 Dinheiro no Balcão
+                        </span>
+                      )}
+                      {(!order.payment_method || order.payment_method === 'PIX') && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          💠 Pix
+                        </span>
+                      )}
+                    </div>
+
                     <p className="text-[11px] text-slate-600">
                       📍 {order.delivery_type === 'pickup' ? '🏪 Retirada no Balcão' : order.delivery_address}
                     </p>
@@ -486,6 +557,7 @@ export default function OrdersTab({
                   <th className="py-3 px-4">Itens</th>
                   <th className="py-3 px-4">Frete</th>
                   <th className="py-3 px-4">Total</th>
+                  <th className="py-3 px-4">Pagamento</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Entregador</th>
                   <th className="py-3 px-4 text-right">Ações</th>
@@ -507,6 +579,33 @@ export default function OrdersTab({
                     </td>
                     <td className="py-3 px-4 text-slate-700">R$ {Number(order.delivery_fee).toFixed(2)}</td>
                     <td className="py-3 px-4 font-bold text-slate-800">R$ {Number(order.total).toFixed(2)}</td>
+                    <td className="py-3 px-4">
+                      {order.payment_method === 'CARD_ON_DELIVERY' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          💳 Cartão Entrega
+                        </span>
+                      )}
+                      {order.payment_method === 'CASH_ON_DELIVERY' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                          💵 Dinheiro Entrega
+                        </span>
+                      )}
+                      {order.payment_method === 'CARD_PICKUP' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          💳 Cartão Balcão
+                        </span>
+                      )}
+                      {order.payment_method === 'CASH_PICKUP' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          💵 Dinheiro Balcão
+                        </span>
+                      )}
+                      {(!order.payment_method || order.payment_method === 'PIX') && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          💠 Pix
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
                         {order.status}

@@ -467,12 +467,29 @@ class BotEngine {
         }
 
         if (lowerText === '2' || lowerText.includes('retirar') || lowerText.includes('balcão') || lowerText.includes('balcao')) {
-          await this.createOrderAndSendPix(tenantId, customerPhone, customerName, {
+          const cart = conv.context.cart || [];
+          const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+          const newContext = {
             ...conv.context,
             delivery_type: 'pickup',
             address: 'Retirada no Balcão da Farmácia',
-            delivery_fee: 0.0
-          });
+            delivery_fee: 0.0,
+            subtotal: subtotal,
+            total: subtotal
+          };
+          this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
+
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🏪 *Retirada no Balcão Selecionada!*\n\n` +
+            `📦 *Total dos produtos:* R$ ${subtotal.toFixed(2)}\n\n` +
+            `Como você prefere realizar o pagamento?\n\n` +
+            `*[1]* 💠 *Pix* (Gera código Copia e Cola / QR Code para pagar agora)\n` +
+            `*[2]* 💳 *Cartão no Balcão* (Pagar na maquininha ao retirar)\n` +
+            `*[3]* 💵 *Dinheiro no Balcão* (Pagar em espécie ao retirar)\n\n` +
+            `Responda com *1*, *2* ou *3*:`
+          );
           return;
         }
 
@@ -494,12 +511,155 @@ class BotEngine {
           deliveryFee = 0.00;
         }
 
-        await this.createOrderAndSendPix(tenantId, customerPhone, customerName, {
+        const total = subtotal + deliveryFee;
+        const newContext = {
           ...conv.context,
           delivery_type: 'delivery',
           address: rawText,
-          delivery_fee: deliveryFee
+          delivery_fee: deliveryFee,
+          subtotal: subtotal,
+          total: total
+        };
+
+        this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
+
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `📍 *Endereço anotado com sucesso!*\n${rawText}\n\n` +
+          `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
+          `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+          `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
+          `Qual será a forma de pagamento?\n\n` +
+          `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
+          `*[2]* 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
+          `*[3]* 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n\n` +
+          `Responda com *1*, *2* ou *3*:`
+        );
+        break;
+      }
+
+      case 'choosing_payment': {
+        const isPickup = conv.context.delivery_type === 'pickup';
+        if (lowerText === '1' || lowerText.includes('pix')) {
+          await this.createOrder(tenantId, customerPhone, customerName, {
+            ...conv.context,
+            payment_method: 'PIX'
+          });
+          return;
+        }
+
+        if (
+          lowerText === '2' ||
+          lowerText.includes('cartao') ||
+          lowerText.includes('cartão') ||
+          lowerText.includes('credito') ||
+          lowerText.includes('crédito') ||
+          lowerText.includes('debito') ||
+          lowerText.includes('débito') ||
+          lowerText.includes('maquininha')
+        ) {
+          const payMethod = isPickup ? 'CARD_PICKUP' : 'CARD_ON_DELIVERY';
+          const note = isPickup
+            ? 'Pagamento no balcão com Cartão'
+            : 'Pagamento na entrega: Cartão (Entregador deve levar a maquininha)';
+          await this.createOrder(tenantId, customerPhone, customerName, {
+            ...conv.context,
+            payment_method: payMethod,
+            notes: note
+          });
+          return;
+        }
+
+        if (
+          lowerText === '3' ||
+          lowerText.includes('dinheiro') ||
+          lowerText.includes('especie') ||
+          lowerText.includes('espécie')
+        ) {
+          if (isPickup) {
+            await this.createOrder(tenantId, customerPhone, customerName, {
+              ...conv.context,
+              payment_method: 'CASH_PICKUP',
+              notes: 'Pagamento no balcão em Dinheiro'
+            });
+            return;
+          } else {
+            this.updateConversation(tenantId, customerPhone, 'asking_change', conv.context);
+            await this.sendReply(
+              tenantId,
+              customerPhone,
+              `💵 *Pagamento em Dinheiro selecionado!*\n\n` +
+              `Você vai precisar de troco para quanto?\n` +
+              `(Ex: *Troco para 50*, *Troco para 100*, ou digite *Não* se tiver o valor exato trocado):`
+            );
+            return;
+          }
+        }
+
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `Por favor, escolha uma opção válida de pagamento:\n\n` +
+          `*[1]* 💠 Pix\n` +
+          `*[2]* 💳 Cartão ${isPickup ? 'no Balcão' : 'na Entrega (Levar maquininha)'}\n` +
+          `*[3]* 💵 Dinheiro ${isPickup ? 'no Balcão' : 'na Entrega'}\n\n` +
+          `Digite *1*, *2* ou *3*:`
+        );
+        break;
+      }
+
+      case 'asking_change': {
+        let changeNote = '';
+        if (/^(nao|não|naum|sem troco|trocado|exato|0|nao precisa|não precisa)$/i.test(lowerText.trim())) {
+          changeNote = 'Dinheiro exato (não necessita de troco)';
+        } else {
+          changeNote = `Troco solicitado pelo cliente: ${rawText.trim()}`;
+        }
+        await this.createOrder(tenantId, customerPhone, customerName, {
+          ...conv.context,
+          payment_method: 'CASH_ON_DELIVERY',
+          notes: changeNote
         });
+        break;
+      }
+
+      case 'order_confirmed': {
+        const orderId = conv.context.active_order_id;
+        const lower = lowerText;
+        if (
+          lower.includes('status') ||
+          lower.includes('pedido') ||
+          lower.includes('onde esta') ||
+          lower.includes('onde está') ||
+          lower.includes('demora') ||
+          lower.includes('previsao') ||
+          lower.includes('previsão')
+        ) {
+          if (orderId) {
+            const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+            if (order) {
+              const statusTranslations = {
+                paid: 'está sendo separado e embalado na farmácia 📦',
+                ready_for_delivery: 'já está pronto aguardando saída 🛵',
+                in_transit: 'já saiu para entrega com o motoboy 🛵💨',
+                delivered: 'consta como entregue! 🎉',
+                cancelled: 'foi cancelado.',
+                pending_payment: 'está aguardando o pagamento do Pix ⏳'
+              };
+              await this.sendReply(
+                tenantId,
+                customerPhone,
+                `Olá! O seu Pedido *#${orderId}* ${statusTranslations[order.status] || order.status}.\n\nSe precisar de ajuda adicional, digite *0* para falar com o atendente!`
+              );
+              return;
+            }
+          }
+        }
+
+        // If they ask for another product or greeting, reset to searching / idle
+        this.updateConversation(tenantId, customerPhone, 'idle', {});
+        await this.searchAndRespondProducts(tenantId, customerPhone, rawText, {});
         break;
       }
 
@@ -625,7 +785,7 @@ class BotEngine {
     msg += `\n💰 *Subtotal: R$ ${subtotal.toFixed(2)}*\n\n` +
       `O que você deseja fazer agora?\n` +
       `*[1]* ➕ Adicionar outro remédio/produto\n` +
-      `*[2]* 🚀 Finalizar Pedido e Pagar via Pix\n` +
+      `*[2]* 🚀 Finalizar Pedido (Pix, Cartão ou Dinheiro)\n` +
       `*[3]* 🗑️ Limpar carrinho e cancelar\n\n` +
       `Digite *1*, *2* ou *3*:`;
 
@@ -633,26 +793,42 @@ class BotEngine {
   }
 
   async createOrderAndSendPix(tenantId, customerPhone, customerName, context) {
+    return this.createOrder(tenantId, customerPhone, customerName, { ...context, payment_method: 'PIX' });
+  }
+
+  async createOrder(tenantId, customerPhone, customerName, context) {
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
     const cart = context.cart || [];
     const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
     const deliveryFee = context.delivery_fee || 0.0;
     const total = subtotal + deliveryFee;
+    const paymentMethod = context.payment_method || 'PIX';
+    const isPix = paymentMethod === 'PIX';
+    const initialStatus = isPix ? 'pending_payment' : 'paid';
 
-    // Reserve inventory
-    const updateReserved = db.prepare(`
-      UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ?
-    `);
-    for (const item of cart) {
-      updateReserved.run(item.quantity, item.product_id);
+    // If PIX, reserve stock; if in-person (Card/Cash), directly deduct physical stock
+    if (isPix) {
+      const updateReserved = db.prepare(`
+        UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ?
+      `);
+      for (const item of cart) {
+        updateReserved.run(item.quantity, item.product_id);
+      }
+    } else {
+      const updateStock = db.prepare(`
+        UPDATE products SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?
+      `);
+      for (const item of cart) {
+        updateStock.run(item.quantity, item.product_id);
+      }
     }
 
     // Insert order
     const insertOrder = db.prepare(`
       INSERT INTO orders (
         tenant_id, customer_phone, customer_name, delivery_type, delivery_address, delivery_fee,
-        subtotal, total, status, payment_method, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', 'PIX', ?)
+        subtotal, total, status, payment_method, notes, payment_confirmed_at, confirmed_by_user
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const orderRes = insertOrder.run(
@@ -664,7 +840,11 @@ class BotEngine {
       deliveryFee,
       subtotal,
       total,
-      context.delivery_type === 'pickup' ? 'Retirada no balcão da farmácia' : ''
+      initialStatus,
+      paymentMethod,
+      context.notes || (context.delivery_type === 'pickup' ? 'Retirada no balcão da farmácia' : ''),
+      isPix ? null : new Date().toISOString(),
+      isPix ? null : 'Automático (Pagamento Presencial)'
     );
 
     const orderId = orderRes.lastInsertRowid;
@@ -688,6 +868,18 @@ class BotEngine {
       );
     }
 
+    // Audit log if in-person
+    if (!isPix) {
+      try {
+        db.prepare(`
+          INSERT INTO audit_logs (tenant_id, user_name, action, details)
+          VALUES (?, ?, 'PEDIDO_CRIADO', ?)
+        `).run(tenantId, 'Robô WhatsApp', `Pedido #${orderId} criado com pagamento presencial (${paymentMethod}) no valor de R$ ${total.toFixed(2)}.`);
+      } catch (e) {
+        console.error('Audit log error:', e);
+      }
+    }
+
     // Broadcast new order to connected web dashboard
     this.broadcast(tenantId, 'new_order_placed', {
       orderId,
@@ -695,75 +887,113 @@ class BotEngine {
       customerName,
       total,
       deliveryType: context.delivery_type,
+      paymentMethod,
+      status: initialStatus,
       timestamp: new Date().toISOString(),
     });
 
-    // Generate PIX
-    const pixCode = generatePixCode({
-      pixKey: tenant.pix_key || '12345678000190',
-      pixType: tenant.pix_type || 'cnpj',
-      merchantName: tenant.name,
-      merchantCity: 'SAO PAULO',
-      amount: total,
-      txid: `ZP${orderId}`
-    });
+    if (isPix) {
+      // Generate PIX
+      const pixCode = generatePixCode({
+        pixKey: tenant.pix_key || '12345678000190',
+        pixType: tenant.pix_type || 'cnpj',
+        merchantName: tenant.name,
+        merchantCity: 'SAO PAULO',
+        amount: total,
+        txid: `ZP${orderId}`
+      });
 
-    let qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
-    try {
-      qrCodeUrl = await qrcode.toDataURL(pixCode, { margin: 1, width: 300 });
-    } catch (e) {
-      console.error('Error generating QR code data URL:', e);
+      let qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
+      try {
+        qrCodeUrl = await qrcode.toDataURL(pixCode, { margin: 1, width: 300 });
+      } catch (e) {
+        console.error('Error generating QR code data URL:', e);
+      }
+
+      db.prepare('UPDATE orders SET pix_code = ?, pix_qrcode_url = ? WHERE id = ?').run(pixCode, qrCodeUrl, orderId);
+
+      // Update conversation state to awaiting_payment
+      this.updateConversation(tenantId, customerPhone, 'awaiting_payment', {
+        ...context,
+        active_order_id: orderId
+      });
+
+      // 1. Mensagem de Resumo do Pedido
+      let orderMsg = `📋 *PEDIDO #${orderId} GERADO COM SUCESSO!*\n` +
+        `-----------------------------------------\n` +
+        `🏪 *Farmácia:* ${tenant.name}\n` +
+        `👤 *Cliente:* ${customerName}\n` +
+        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n\n` +
+        `📦 *ITENS DO PEDIDO:*\n`;
+
+      cart.forEach(item => {
+        orderMsg += `• ${item.quantity}x ${item.name} (${item.dosage || ''}) - R$ ${item.total_price.toFixed(2)}\n`;
+      });
+
+      orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
+        `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+        `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
+        `💠 *PAGAMENTO VIA PIX:*\n` +
+        `O código Pix Copia e Cola foi gerado e está sendo enviado na mensagem abaixo para você copiar facilmente. 👇`;
+
+      await this.sendReply(tenantId, customerPhone, orderMsg);
+
+      await new Promise((r) => setTimeout(r, 400));
+      await this.sendReply(tenantId, customerPhone, pixCode);
+      await new Promise((r) => setTimeout(r, 400));
+
+      let instructionsMsg = `👆 *CÓDIGO PIX COPIA E COLA ENVIADO ACIMA!*\n\n` +
+        `📱 *Como pagar no seu banco:*\n` +
+        `1. Toque e segure a mensagem acima para *COPIAR* o código Pix.\n` +
+        `2. Abra o aplicativo do seu banco (Nubank, Inter, Caixa, Itaú, BB, etc.).\n` +
+        `3. Escolha a opção *Pix > Copia e Cola*.\n` +
+        `4. Cole o código e confirme o valor de *R$ ${total.toFixed(2)}*.\n\n` +
+        `⏱️ *Liberação do Pedido:*\n` +
+        `Assim que o banco confirmar a transferência e nossa equipe conferir no sistema, seu pedido entrará em separação e ` +
+        (context.delivery_type === 'delivery' ? 'o motoboy será acionado para a entrega! 🛵' : 'avisaremos para você retirar no balcão! 🏪') +
+        `\n\nMuito obrigado pela confiança! 💚`;
+
+      await this.sendReply(tenantId, customerPhone, instructionsMsg);
+    } else {
+      // In-person payment (Card or Cash)
+      this.updateConversation(tenantId, customerPhone, 'order_confirmed', {
+        ...context,
+        active_order_id: orderId
+      });
+
+      let paymentLabel = '';
+      if (paymentMethod === 'CARD_ON_DELIVERY') {
+        paymentLabel = `💳 *Forma de Pagamento:* Cartão na Entrega (O entregador levará a maquininha 🛵)`;
+      } else if (paymentMethod === 'CASH_ON_DELIVERY') {
+        paymentLabel = `💵 *Forma de Pagamento:* Dinheiro na Entrega (${context.notes || 'Pagar ao entregador'})`;
+      } else if (paymentMethod === 'CARD_PICKUP') {
+        paymentLabel = `💳 *Forma de Pagamento:* Cartão no Balcão ao retirar`;
+      } else {
+        paymentLabel = `💵 *Forma de Pagamento:* Dinheiro no Balcão ao retirar`;
+      }
+
+      let orderMsg = `📋 *PEDIDO #${orderId} CONFIRMADO COM SUCESSO!* 🎉\n` +
+        `-----------------------------------------\n` +
+        `🏪 *Farmácia:* ${tenant.name}\n` +
+        `👤 *Cliente:* ${customerName}\n` +
+        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n\n` +
+        `📦 *ITENS DO PEDIDO:*\n`;
+
+      cart.forEach(item => {
+        orderMsg += `• ${item.quantity}x ${item.name} (${item.dosage || ''}) - R$ ${item.total_price.toFixed(2)}\n`;
+      });
+
+      orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
+        `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+        `*VALOR TOTAL A PAGAR: R$ ${total.toFixed(2)}*\n\n` +
+        `${paymentLabel}\n\n` +
+        `✅ *Seu pedido já foi encaminhado para separação imediata!*\n` +
+        (context.delivery_type === 'delivery'
+          ? `🛵 Assim que o pacote for retirado pelo motoboy, você receberá a notificação aqui com os dados do entregador!`
+          : `🏪 Assim que estiver separado e embalado, te avisaremos para retirar no balcão!`);
+
+      await this.sendReply(tenantId, customerPhone, orderMsg);
     }
-
-    db.prepare('UPDATE orders SET pix_code = ?, pix_qrcode_url = ? WHERE id = ?').run(pixCode, qrCodeUrl, orderId);
-
-    // Update conversation state to awaiting_payment
-    this.updateConversation(tenantId, customerPhone, 'awaiting_payment', {
-      ...context,
-      active_order_id: orderId
-    });
-
-    // 1. Mensagem de Resumo do Pedido
-    let orderMsg = `📋 *PEDIDO #${orderId} GERADO COM SUCESSO!*\n` +
-      `-----------------------------------------\n` +
-      `🏪 *Farmácia:* ${tenant.name}\n` +
-      `👤 *Cliente:* ${customerName}\n` +
-      `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n\n` +
-      `📦 *ITENS DO PEDIDO:*\n`;
-
-    cart.forEach(item => {
-      orderMsg += `• ${item.quantity}x ${item.name} (${item.dosage || ''}) - R$ ${item.total_price.toFixed(2)}\n`;
-    });
-
-    orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
-      `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
-      `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
-      `💠 *PAGAMENTO VIA PIX:*\n` +
-      `O código Pix Copia e Cola foi gerado e está sendo enviado na mensagem abaixo para você copiar facilmente. 👇`;
-
-    await this.sendReply(tenantId, customerPhone, orderMsg);
-
-    // Intervalo para garantir a sequência exata no WhatsApp
-    await new Promise((r) => setTimeout(r, 400));
-
-    // 2. MENSAGEM ISOLADA APENAS COM O CÓDIGO PIX (1 TOQUE PARA COPIAR NO WHATSAPP)
-    await this.sendReply(tenantId, customerPhone, pixCode);
-
-    await new Promise((r) => setTimeout(r, 400));
-
-    // 3. MENSAGEM COM INSTRUÇÕES DE PAGAMENTO E SEGURANÇA
-    let instructionsMsg = `👆 *CÓDIGO PIX COPIA E COLA ENVIADO ACIMA!*\n\n` +
-      `📱 *Como pagar no seu banco:*\n` +
-      `1. Toque e segure a mensagem acima para *COPIAR* o código Pix.\n` +
-      `2. Abra o aplicativo do seu banco (Nubank, Inter, Caixa, Itaú, BB, etc.).\n` +
-      `3. Escolha a opção *Pix > Copia e Cola*.\n` +
-      `4. Cole o código e confirme o valor de *R$ ${total.toFixed(2)}*.\n\n` +
-      `⏱️ *Liberação do Pedido:*\n` +
-      `Assim que o banco confirmar a transferência e nossa equipe conferir no sistema, seu pedido entrará em separação e ` +
-      (context.delivery_type === 'delivery' ? 'o motoboy será acionado para a entrega! 🛵' : 'avisaremos para você retirar no balcão! 🏪') +
-      `\n\nMuito obrigado pela confiança! 💚`;
-
-    await this.sendReply(tenantId, customerPhone, instructionsMsg);
   }
 
   // --- ACTIONS EXECUTED FROM THE PHARMACY DASHBOARD ---
@@ -876,19 +1106,41 @@ class BotEngine {
     const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
     const itemsList = items.map(i => `• ${i.quantity}x ${i.product_name} (${i.dosage || ''})`).join('\n');
 
-    // CRITICAL REQUIREMENT: Notify the Motoboy via WhatsApp!
+    // CRITICAL REQUIREMENT: Clear financial instructions for Motoboy (Card machine vs Cash vs Pre-paid Pix)
+    let paymentInstruction = '';
+    if (order.payment_method === 'CARD_ON_DELIVERY') {
+      paymentInstruction = `💳 *FINANCEIRO / COBRANÇA:*\n` +
+        `🚨 *ATENÇÃO: LEVAR MAQUININHA DE CARTÃO!* 💳\n` +
+        `*COBRAR DO CLIENTE NA ENTREGA:* R$ ${order.total.toFixed(2)}`;
+    } else if (order.payment_method === 'CASH_ON_DELIVERY') {
+      paymentInstruction = `💵 *FINANCEIRO / COBRANÇA:*\n` +
+        `*RECEBER EM DINHEIRO DO CLIENTE:* R$ ${order.total.toFixed(2)}\n` +
+        (order.notes ? `*OBS / TROCO:* ${order.notes}\n` : '');
+    } else {
+      paymentInstruction = `✅ *STATUS FINANCEIRO:* PAGO VIA PIX (R$ ${order.total.toFixed(2)})\n` +
+        `*(NÃO COBRAR NADA DO CLIENTE - JÁ FOI PAGO)*`;
+    }
+
     const motoboyMsg = `🚨 *NOVA ENTREGA DISPONÍVEL!* 🛵📦\n\n` +
       `*Pedido:* #${order.id}\n` +
       `*Farmácia:* ${tenant.name}\n` +
       `*Cliente:* ${order.customer_name || 'Cliente'} (${order.customer_phone})\n` +
       `*Endereço de Entrega:*\n📍 ${order.delivery_address}\n\n` +
       `*Itens do Pacote:*\n${itemsList}\n\n` +
-      `*Status Financeiro:* ✅ PAGO VIA PIX (R$ ${order.total.toFixed(2)})\n` +
+      `${paymentInstruction}\n` +
       `*Sua Taxa de Entrega:* R$ ${order.delivery_fee.toFixed(2)}\n` +
-      (order.notes ? `*Observações:* ${order.notes}\n` : '') +
+      (order.notes && order.payment_method !== 'CASH_ON_DELIVERY' ? `*Observações:* ${order.notes}\n` : '') +
       `\n👉 Por favor, retire o pacote na bancada da farmácia e leve com cuidado ao cliente!`;
 
     await this.sendReply(order.tenant_id, driver.phone, motoboyMsg);
+
+    // Customer payment reminder if in-person
+    let customerPaymentReminder = '';
+    if (order.payment_method === 'CARD_ON_DELIVERY') {
+      customerPaymentReminder = `\n💳 *Pagamento:* Tenha seu cartão em mãos para passar na maquininha com o entregador (Total: R$ ${order.total.toFixed(2)}).`;
+    } else if (order.payment_method === 'CASH_ON_DELIVERY') {
+      customerPaymentReminder = `\n💵 *Pagamento:* Tenha o valor em dinheiro em mãos para pagar ao entregador (Total: R$ ${order.total.toFixed(2)}${order.notes ? ` - ${order.notes}` : ''}).`;
+    }
 
     // Notify customer
     await this.sendReply(
@@ -896,8 +1148,9 @@ class BotEngine {
       order.customer_phone,
       `🛵💨 *SEU PEDIDO SAIU PARA ENTREGA!*\n\n` +
       `O entregador *${driver.name}* (${driver.vehicle || 'Moto'} placa: ${driver.plate || '---'}) já retirou seus medicamentos e está a caminho do seu endereço!\n` +
-      `Endereço de entrega: ${order.delivery_address}\n\n` +
-      `Fique atento ao interfone ou telefone. Logo ele chegará!`
+      `Endereço de entrega: ${order.delivery_address}\n` +
+      customerPaymentReminder +
+      `\n\nFique atento ao interfone ou telefone. Logo ele chegará!`
     );
 
     return { order: db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId), driver };

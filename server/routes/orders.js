@@ -116,10 +116,16 @@ router.post('/:id/cancel', async (req, res) => {
   if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
 
   try {
-    // If pending payment, release reserved stock
+    // If pending payment, release reserved stock; if paid/in-transit (e.g. card on delivery), restore physical stock
     if (order.status === 'pending_payment') {
       const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
       const restoreStock = db.prepare('UPDATE products SET reserved_quantity = MAX(0, reserved_quantity - ?) WHERE id = ?');
+      for (const item of items) {
+        restoreStock.run(item.quantity, item.product_id);
+      }
+    } else if (order.status === 'paid' || order.status === 'ready_for_delivery' || order.status === 'in_transit') {
+      const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+      const restoreStock = db.prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?');
       for (const item of items) {
         restoreStock.run(item.quantity, item.product_id);
       }

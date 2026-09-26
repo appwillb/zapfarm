@@ -75,6 +75,11 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
     'Finalizar Pedido',
     '1',
     'Av. Paulista, 1000 - Apto 54',
+    '1 (Pix)',
+    '2 (Cartão na Entrega)',
+    '3 (Dinheiro)',
+    'Não (sem troco)',
+    'Troco para 50',
     'Já paguei, segue o comprovante',
   ];
 
