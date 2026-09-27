@@ -15,6 +15,7 @@ import {
   Check,
   Lock,
   Trash2,
+  Receipt,
 } from 'lucide-react';
 import { canUser } from '../utils/permissions';
 
@@ -278,6 +279,28 @@ export default function OrdersTab({
                               </span>
                             )}
                           </div>
+
+                          {/* Pix Receipt Alert if Customer sent proof */}
+                          {Boolean(order.pix_receipt_url || order.receipt_status === 'receipt_received') && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenOrder(order);
+                              }}
+                              className="mt-2 p-2 bg-emerald-50 rounded-xl border border-emerald-300 flex items-center justify-between cursor-pointer hover:bg-emerald-100 transition-colors shadow-xs"
+                              title="Comprovante enviado pelo cliente! Clique para conferir"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Receipt size={14} className="text-emerald-700 shrink-0" />
+                                <span className="text-[11px] font-extrabold text-emerald-900 truncate">
+                                  Comprovante Pix Anexado
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                Conferir
+                              </span>
+                            </div>
+                          )}
 
                           {/* Motoboy In-Person Payment Alert */}
                           {order.payment_method === 'CARD_ON_DELIVERY' && (
@@ -623,13 +646,35 @@ export default function OrdersTab({
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                        {order.status}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusMap[order.status]?.color || 'bg-slate-100 text-slate-700'}`}>
+                          {statusMap[order.status]?.label || order.status}
+                        </span>
+                        {Boolean(order.pix_receipt_url || order.receipt_status === 'receipt_received') && (
+                          <span
+                            onClick={() => onOpenOrder(order)}
+                            className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 transition-colors animate-pulse"
+                            title="Comprovante enviado pelo cliente! Clique para conferir"
+                          >
+                            <Receipt size={10} />
+                            Comprovante Anexado
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">{order.driver_name || '—'}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {Boolean(order.pix_receipt_url || order.receipt_status === 'receipt_received') && (
+                          <button
+                            onClick={() => onOpenOrder(order)}
+                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded text-[11px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
+                            title="Ver Comprovante Pix do Cliente"
+                          >
+                            <Receipt size={12} />
+                            Comprovante
+                          </button>
+                        )}
                         {order.status === 'pending_payment' && (
                           canConfirmPayment ? (
                             <button

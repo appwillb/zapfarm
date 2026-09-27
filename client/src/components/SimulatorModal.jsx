@@ -181,6 +181,16 @@ export default function SimulatorModal({ isOpen, onClose, tenantId, tenantName, 
                         : 'bg-[#202c33] text-slate-100 rounded-tl-xs'
                     }`}
                   >
+                    {m.media_url && (
+                      <div className="mb-1.5 rounded-lg overflow-hidden border border-white/10 max-h-40">
+                        <img
+                          src={m.media_url}
+                          alt="Anexo / Comprovante"
+                          className="w-full h-auto max-h-40 object-cover cursor-pointer"
+                          onClick={() => window.open(m.media_url, '_blank')}
+                        />
+                      </div>
+                    )}
                     {isPixCode ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2 border-b border-emerald-500/30 pb-1">

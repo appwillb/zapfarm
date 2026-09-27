@@ -6,10 +6,18 @@ const db = require('../db/database');
 
 // POST /api/simulation/message - simulate an incoming customer WhatsApp message
 router.post('/message', async (req, res) => {
-  const { tenant_id = 1, phone = '5511999887766', text, name = 'Cliente Teste' } = req.body;
+  const { tenant_id = 1, phone = '5511999887766', text, name = 'Cliente Teste', media_url = null, media_type = null } = req.body;
 
-  if (!text) {
-    return res.status(400).json({ error: 'Texto da mensagem é obrigatório.' });
+  if (!text && !media_url) {
+    return res.status(400).json({ error: 'Texto da mensagem ou mídia é obrigatório.' });
+  }
+
+  // If text mentions comprovante and no media_url is provided, generate a simulated receipt preview
+  let simulatedMediaUrl = media_url;
+  let simulatedMediaType = media_type;
+  if (!simulatedMediaUrl && text && (text.toLowerCase().includes('comprovante') || text.toLowerCase().includes('paguei'))) {
+    simulatedMediaUrl = 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80';
+    simulatedMediaType = 'image';
   }
 
   try {
@@ -17,7 +25,9 @@ router.post('/message', async (req, res) => {
     sessionManager.broadcast(Number(tenant_id), 'new_chat_message', {
       customerPhone: phone,
       fromMe: false,
-      text,
+      text: text || '📸 [Comprovante Pix]',
+      mediaUrl: simulatedMediaUrl,
+      mediaType: simulatedMediaType,
       pushName: name,
       timestamp: new Date().toISOString(),
     });
@@ -25,8 +35,10 @@ router.post('/message', async (req, res) => {
     await botEngine.handleIncomingMessage({
       tenantId: Number(tenant_id),
       customerPhone: phone,
-      text,
+      text: text || '📸 [Comprovante Pix]',
       pushName: name,
+      mediaUrl: simulatedMediaUrl,
+      mediaType: simulatedMediaType,
     });
 
     const messages = db

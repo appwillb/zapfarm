@@ -89,6 +89,7 @@ export const api = {
     if (status) params.append('status', status);
     return fetch(`${API_BASE}/orders?${params}`).then((r) => r.json());
   },
+  getOrder: (id) => fetch(`${API_BASE}/orders/${id}`).then((r) => r.json()),
   confirmPayment: (orderId, confirmedBy) =>
     fetch(`${API_BASE}/orders/${orderId}/confirm-payment`, {
       method: 'POST',

@@ -3,10 +3,17 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { WebSocketServer, WebSocket } = require('ws');
 
 // Initialize Database
 require('./db/database');
+
+// Ensure uploads directory exists
+const uploadsDir = process.env.UPLOADS_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const sessionManager = require('./baileys/sessionManager');
 const authRoutes = require('./routes/auth');
@@ -75,6 +82,9 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/simulation', simulationRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/suppliers', suppliersRoutes);
+
+// Serve uploaded media (receipts, prescriptions) statically
+app.use('/uploads', express.static(uploadsDir));
 
 // Serve static frontend in production (Coolify / Docker / Built assets)
 const clientDistPath = path.join(__dirname, '../client/dist');

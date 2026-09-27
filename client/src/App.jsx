@@ -117,6 +117,34 @@ export default function App() {
       loadTenantData();
     });
 
+    const unsubReceipt = wsClient.subscribe('pix_receipt_received', (payload) => {
+      unlockAudio();
+      playIncomingMessageAlert({
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        text: `Comprovante Pix do Pedido #${payload.orderId}`,
+        isPixReceipt: true,
+        orderId: payload.orderId,
+        force: true,
+      });
+
+      setActiveAlert({
+        id: Date.now(),
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        orderId: payload.orderId,
+        total: payload.total,
+        receiptUrl: payload.receiptUrl,
+        type: 'pix_receipt',
+      });
+
+      loadTenantData();
+    });
+
+    const unsubOrdersChanged = wsClient.subscribe('orders_changed', () => {
+      loadTenantData();
+    });
+
     const unsubWs = wsClient.subscribe('whatsapp_status', (payload) => {
       setWhatsappStatus(payload);
     });
@@ -125,6 +153,8 @@ export default function App() {
       unsubChat();
       unsubHuman();
       unsubOrder();
+      unsubReceipt();
+      unsubOrdersChanged();
       unsubWs();
       wsClient.disconnect();
     };
@@ -604,6 +634,16 @@ export default function App() {
           setActiveAlert(null);
           setSelectedChatPhone(phone);
           setCurrentTab('chat');
+        }}
+        onOpenOrder={(orderId) => {
+          setActiveAlert(null);
+          setCurrentTab('orders');
+          api.getOrder(orderId).then((ord) => {
+            if (ord) setOrderModal({ open: true, order: ord });
+          }).catch(() => {
+            const found = orders.find((o) => o.id === orderId);
+            if (found) setOrderModal({ open: true, order: found });
+          });
         }}
         onDismiss={() => setActiveAlert(null)}
       />

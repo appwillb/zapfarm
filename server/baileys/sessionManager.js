@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const path = require('path');
 const fs = require('fs');
@@ -6,9 +6,14 @@ const qrcode = require('qrcode');
 const botEngine = require('../bot/botEngine');
 const db = require('../db/database');
 
-const sessionsDir = path.join(process.env.DATA_DIR || path.join(__dirname, '../../data'), 'sessions');
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../data');
+const sessionsDir = path.join(dataDir, 'sessions');
 if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
+}
+const uploadsDir = process.env.UPLOADS_DIR || path.join(dataDir, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 class SessionManager {
@@ -203,23 +208,63 @@ class SessionManager {
             } catch (e) {}
           }
 
-          // Extract text (including support for images without caption, e.g. prescriptions)
-          const text =
+          // Check and download media (Images, PDFs / Documents)
+          let mediaUrl = null;
+          let mediaType = null;
+          const isImage = Boolean(msg.message.imageMessage);
+          const isDocument = Boolean(
+            msg.message.documentMessage ||
+            msg.message.documentWithCaptionMessage?.message?.documentMessage
+          );
+
+          if (isImage || isDocument) {
+            try {
+              const buffer = await downloadMediaMessage(msg, 'buffer', {}, {});
+              if (buffer && buffer.length > 0) {
+                const docName = msg.message.documentMessage?.fileName ||
+                                msg.message.documentWithCaptionMessage?.message?.documentMessage?.fileName ||
+                                '';
+                const ext = isImage ? 'jpg' : (docName.split('.').pop() || 'pdf');
+                const filename = `media_${tId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+                fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+                mediaUrl = `/uploads/${filename}`;
+                mediaType = isImage ? 'image' : 'document';
+                console.log(`[Tenant ${tId}] Mídia WhatsApp salva: ${mediaUrl} (${buffer.length} bytes)`);
+              }
+            } catch (mediaErr) {
+              console.error(`[Tenant ${tId}] Erro ao baixar mídia WhatsApp:`, mediaErr.message);
+            }
+          }
+
+          // Extract text (including support for captions, document names or fallback)
+          let text =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||
             msg.message.imageMessage?.caption ||
-            (msg.message.imageMessage ? 'Receita médica enviada em foto' : '') ||
+            msg.message.documentMessage?.caption ||
+            msg.message.documentWithCaptionMessage?.message?.documentMessage?.caption ||
             '';
 
-          if (!text) continue;
+          if (!text && isImage) {
+            text = '📸 [Comprovante Pix / Foto enviada]';
+          } else if (!text && isDocument) {
+            const fileName = msg.message.documentMessage?.fileName ||
+                             msg.message.documentWithCaptionMessage?.message?.documentMessage?.fileName ||
+                             'Comprovante.pdf';
+            text = `📄 [Documento / Comprovante: ${fileName}]`;
+          }
 
-          console.log(`[Tenant ${tId}] Mensagem recebida de ${customerPhone} (${pushName}): ${text}`);
+          if (!text && !mediaUrl) continue;
+
+          console.log(`[Tenant ${tId}] Mensagem recebida de ${customerPhone} (${pushName}): ${text} ${mediaUrl ? `[Anexo: ${mediaUrl}]` : ''}`);
 
           // Broadcast to connected web dashboard (chat tab)
           this.broadcast(tId, 'new_chat_message', {
             customerPhone,
             fromMe: false,
             text,
+            mediaUrl,
+            mediaType,
             pushName,
             timestamp: new Date().toISOString(),
           });
@@ -231,6 +276,8 @@ class SessionManager {
               customerPhone,
               text,
               pushName,
+              mediaUrl,
+              mediaType,
             });
           } catch (err) {
             console.error(`Error processing message in bot engine for tenant ${tId}:`, err);

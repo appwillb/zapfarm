@@ -187,6 +187,8 @@ export function playIncomingMessageAlert({
   text = '',
   isHumanRequest = false,
   isNewOrder = false,
+  isPixReceipt = false,
+  orderId = null,
   force = false,
 }) {
   const config = getAudioConfig();
@@ -196,8 +198,8 @@ export function playIncomingMessageAlert({
   const phoneKey = customerPhone || 'unknown';
   const lastSpoken = lastSpokenMap.get(phoneKey) || 0;
 
-  // Debounce unless forced or human support requested
-  if (!force && !isHumanRequest && !isNewOrder) {
+  // Debounce unless forced, human support, new order or pix receipt
+  if (!force && !isHumanRequest && !isNewOrder && !isPixReceipt) {
     const elapsedSeconds = (now - lastSpoken) / 1000;
     if (elapsedSeconds < config.throttleSeconds) {
       // Still throttled, skip audio repeat
@@ -211,7 +213,11 @@ export function playIncomingMessageAlert({
 
   // Construct phrase
   let speechPhrase = '';
-  if (isHumanRequest) {
+  if (isPixReceipt) {
+    speechPhrase = cleanName
+      ? `Atenção balcão! Comprovante Pix recebido de ${cleanName} para o pedido número ${orderId || ''}!`
+      : `Atenção balcão! Novo comprovante Pix recebido para o pedido número ${orderId || ''}!`;
+  } else if (isHumanRequest) {
     speechPhrase = cleanName
       ? `Atenção balcão! Cliente ${cleanName} solicitou atendente no WhatsApp!`
       : 'Atenção balcão! Um cliente solicitou atendente no WhatsApp!';
@@ -242,7 +248,9 @@ export function playIncomingMessageAlert({
   if (config.browserNotifications && typeof window !== 'undefined' && 'Notification' in window) {
     if (Notification.permission === 'granted') {
       try {
-        const notifTitle = isHumanRequest
+        const notifTitle = isPixReceipt
+          ? `🧾 Comprovante Pix - Pedido #${orderId || ''}`
+          : isHumanRequest
           ? '👨‍⚕️ Chamado de Atendente!'
           : isNewOrder
           ? '📦 Novo Pedido Recebido!'

@@ -121,6 +121,9 @@ function initDb() {
       driver_notified_at DATETIME,
       notes TEXT,
       prescription_url TEXT,
+      pix_receipt_url TEXT,
+      receipt_received_at DATETIME,
+      receipt_status TEXT DEFAULT 'none',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
@@ -160,6 +163,8 @@ function initDb() {
       customer_phone TEXT NOT NULL,
       from_me INTEGER DEFAULT 0,
       text TEXT NOT NULL,
+      media_url TEXT,
+      media_type TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
@@ -284,6 +289,26 @@ function initDb() {
 
   try {
     db.exec(`ALTER TABLE products ADD COLUMN last_stock_alert_at DATETIME`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN pix_receipt_url TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN receipt_received_at DATETIME`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN receipt_status TEXT DEFAULT 'none'`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE messages ADD COLUMN media_url TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE messages ADD COLUMN media_type TEXT`);
   } catch (e) {}
 
   // Seed default suppliers if none exist

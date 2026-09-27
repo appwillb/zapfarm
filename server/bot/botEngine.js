@@ -162,15 +162,15 @@ class BotEngine {
     `).run(state, JSON.stringify(context), isHumanVal, tenantId, phone);
   }
 
-  async handleIncomingMessage({ tenantId, customerPhone, text, pushName = '' }) {
+  async handleIncomingMessage({ tenantId, customerPhone, text, pushName = '', mediaUrl = null, mediaType = null }) {
     const rawText = (text || '').trim();
     const lowerText = rawText.toLowerCase();
 
-    // Log message
+    // Log message with media if present
     db.prepare(`
-      INSERT INTO messages (tenant_id, customer_phone, from_me, text)
-      VALUES (?, ?, 0, ?)
-    `).run(tenantId, customerPhone, rawText);
+      INSERT INTO messages (tenant_id, customer_phone, from_me, text, media_url, media_type)
+      VALUES (?, ?, 0, ?, ?, ?)
+    `).run(tenantId, customerPhone, rawText, mediaUrl || null, mediaType || null);
 
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
     if (!tenant) return;
@@ -183,6 +183,84 @@ class BotEngine {
     }
 
     const customerName = pushName || conv.customer_name || 'Cliente';
+
+    // 1. Check if customer is sending proof of payment for an active pending order
+    const pendingOrder = db.prepare(`
+      SELECT * FROM orders 
+      WHERE tenant_id = ? AND customer_phone = ? AND status = 'pending_payment'
+      ORDER BY id DESC LIMIT 1
+    `).get(tenantId, customerPhone);
+
+    const isProofOfPayment =
+      pendingOrder &&
+      (Boolean(mediaUrl) ||
+        lowerText.includes('comprovante') ||
+        lowerText.includes('paguei') ||
+        lowerText.includes('pagamento') ||
+        lowerText.includes('fiz o pix') ||
+        lowerText.includes('pix feito') ||
+        lowerText.includes('ta pago') ||
+        lowerText.includes('tá pago') ||
+        lowerText.includes('mandei o pix') ||
+        lowerText.includes('transferi') ||
+        lowerText.includes('enviei o pix') ||
+        lowerText.includes('conferir pix') ||
+        lowerText.includes('mandei comprovante') ||
+        lowerText.includes('ja paguei') ||
+        lowerText.includes('já paguei'));
+
+    if (isProofOfPayment) {
+      // Attach receipt URL and update status
+      db.prepare(`
+        UPDATE orders 
+        SET pix_receipt_url = COALESCE(?, pix_receipt_url),
+            receipt_received_at = CURRENT_TIMESTAMP,
+            receipt_status = 'receipt_received',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(mediaUrl || null, pendingOrder.id);
+
+      // Audit log
+      try {
+        db.prepare(`
+          INSERT INTO audit_logs (tenant_id, user_name, action, details)
+          VALUES (?, 'Robô WhatsApp', 'COMPROVANTE_PIX_RECEBIDO', ?)
+        `).run(
+          tenantId,
+          `Cliente ${customerName} (${customerPhone}) enviou comprovante para o Pedido #${pendingOrder.id} (R$ ${Number(pendingOrder.total).toFixed(2)}).`
+        );
+      } catch (e) {}
+
+      // Broadcast real-time loud event to the pharmacy dashboard / balcão
+      this.broadcast(tenantId, 'pix_receipt_received', {
+        orderId: pendingOrder.id,
+        customerName,
+        customerPhone,
+        total: pendingOrder.total,
+        receiptUrl: mediaUrl || pendingOrder.pix_receipt_url,
+        mediaType: mediaType || (mediaUrl ? 'image' : null),
+        text: rawText,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Broadcast order change to update orders table & kanban immediately
+      this.broadcast(tenantId, 'orders_changed', {
+        orderId: pendingOrder.id,
+        status: pendingOrder.status,
+        receiptStatus: 'receipt_received',
+      });
+
+      // Send clear reassurance to customer on WhatsApp
+      await this.sendReply(
+        tenantId,
+        customerPhone,
+        `✅ *Comprovante recebido com sucesso!* 🧾\n\n` +
+        `Nosso operador de caixa e equipe de balcão da *${tenant.name}* já receberam o seu comprovante do *Pedido #${pendingOrder.id}* (Total: *R$ ${Number(pendingOrder.total).toFixed(2)}*) no painel!\n\n` +
+        `🔍 Estamos conferindo a entrada do Pix no extrato para liberar imediatamente a separação dos seus medicamentos.\n\n` +
+        `🛵 Assim que conferido pelo operador de caixa, você receberá a notificação de confirmação aqui no WhatsApp!`
+      );
+      return;
+    }
 
     // Check if attendant has taken over human support
     if (conv.is_human_agent === 1) {
@@ -438,12 +516,16 @@ class BotEngine {
       }
 
       case 'prescription_check': {
-        // Customer acknowledged prescription
-        this.updateConversation(tenantId, customerPhone, 'choosing_delivery', conv.context);
+        // Customer acknowledged prescription or sent recipe image
+        const updatedContext = {
+          ...conv.context,
+          prescription_url: mediaUrl || conv.context?.prescription_url || null,
+        };
+        this.updateConversation(tenantId, customerPhone, 'choosing_delivery', updatedContext);
         await this.sendReply(
           tenantId,
           customerPhone,
-          `Receita registrada! ✅ Nossa equipe farmacêutica validará o documento na separação.\n\n` +
+          `Receita registrada com sucesso! ✅ Nossa equipe farmacêutica validará o documento na separação.\n\n` +
           `Como você prefere receber o seu pedido?\n\n` +
           `[1] 🛵 *Entrega no endereço (Delivery)*\n` +
           `[2] 🏪 *Retirar no balcão da farmácia*\n\n` +
@@ -829,8 +911,8 @@ class BotEngine {
     const insertOrder = db.prepare(`
       INSERT INTO orders (
         tenant_id, customer_phone, customer_name, delivery_type, delivery_address, delivery_fee,
-        subtotal, total, status, payment_method, notes, payment_confirmed_at, confirmed_by_user
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        subtotal, total, status, payment_method, notes, prescription_url, payment_confirmed_at, confirmed_by_user
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const orderRes = insertOrder.run(
@@ -845,6 +927,7 @@ class BotEngine {
       initialStatus,
       paymentMethod,
       context.notes || (context.delivery_type === 'pickup' ? 'Retirada no balcão da farmácia' : ''),
+      context.prescription_url || null,
       isPix ? null : new Date().toISOString(),
       isPix ? null : 'Automático (Pagamento Presencial)'
     );
@@ -1030,6 +1113,7 @@ class BotEngine {
       SET status = 'paid',
           payment_confirmed_at = CURRENT_TIMESTAMP,
           confirmed_by_user = ?,
+          receipt_status = 'verified',
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(confirmedByUser, orderId);

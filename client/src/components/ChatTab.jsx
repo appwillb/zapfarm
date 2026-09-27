@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt } from 'lucide-react';
 import { api } from '../api';
 import { wsClient } from '../services/websocket';
 
@@ -367,6 +367,37 @@ export default function ChatTab({
                           : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
                       }`}
                     >
+                      {/* Media Attachment (Photo / Document / Receipt) */}
+                      {m.media_url && (
+                        <div className="mb-2">
+                          {m.media_type === 'image' || m.media_url.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                            <div className="rounded-xl overflow-hidden border border-slate-200/80 bg-black/10">
+                              <img
+                                src={m.media_url}
+                                alt="Anexo / Comprovante"
+                                className="max-h-60 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => window.open(m.media_url, '_blank')}
+                              />
+                            </div>
+                          ) : (
+                            <a
+                              href={m.media_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                isMe
+                                  ? 'bg-emerald-700/80 text-white border-emerald-500'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                              }`}
+                            >
+                              <FileText size={14} />
+                              <span>Abrir Documento / PDF</span>
+                              <ExternalLink size={11} />
+                            </a>
+                          )}
+                        </div>
+                      )}
+
                       {isPixCode ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-1.5">

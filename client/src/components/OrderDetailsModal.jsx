@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck, Copy, Check, Lock, Trash2 } from 'lucide-react';
+import { X, CheckCircle, Bike, Clock, QrCode, DollarSign, MapPin, Phone, ShieldCheck, Copy, Check, Lock, Trash2, Receipt, FileText, ExternalLink } from 'lucide-react';
 import { canUser } from '../utils/permissions';
 
 export default function OrderDetailsModal({
@@ -197,6 +197,83 @@ export default function OrderDetailsModal({
                 Veículo: {order.driver_vehicle} {order.driver_plate ? `(${order.driver_plate})` : ''} &bull; Notificado no WhatsApp em:{' '}
                 {order.driver_notified_at ? new Date(order.driver_notified_at).toLocaleTimeString() : '—'}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Customer Pix Receipt Section */}
+        {order.pix_receipt_url && (
+          <div className="p-4 bg-emerald-50/90 rounded-2xl border-2 border-emerald-400 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-emerald-950 flex items-center gap-2">
+                <Receipt size={16} className="text-emerald-700" />
+                Comprovante Pix Enviado pelo Cliente
+              </span>
+              {order.receipt_received_at && (
+                <span className="text-[10px] text-emerald-800 bg-white/90 px-2 py-0.5 rounded-full border border-emerald-300 font-bold">
+                  Enviado às {new Date(order.receipt_received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+
+            {order.pix_receipt_url.toLowerCase().endsWith('.pdf') ? (
+              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-emerald-200">
+                <div className="flex items-center gap-2">
+                  <FileText size={22} className="text-rose-600" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Comprovante em PDF</p>
+                    <p className="text-[10px] text-slate-500">Documento bancário recebido via WhatsApp</p>
+                  </div>
+                </div>
+                <a
+                  href={order.pix_receipt_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink size={12} />
+                  Abrir PDF
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="relative group max-h-72 overflow-hidden rounded-xl border border-emerald-200 bg-white flex items-center justify-center p-1.5">
+                  <img
+                    src={order.pix_receipt_url}
+                    alt="Comprovante Pix do Cliente"
+                    className="max-h-64 object-contain rounded-lg hover:scale-102 transition-transform cursor-pointer"
+                    onClick={() => window.open(order.pix_receipt_url, '_blank')}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-emerald-800 px-1">
+                  <span>Toque na imagem para ampliar em tela cheia</span>
+                  <a
+                    href={order.pix_receipt_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold underline flex items-center gap-1 hover:text-emerald-950"
+                  >
+                    Ver original <ExternalLink size={10} />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Prescription Attachment Section */}
+        {order.prescription_url && (
+          <div className="p-3.5 bg-indigo-50/80 rounded-2xl border border-indigo-200 space-y-2">
+            <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+              📄 Foto da Receita Médica Anexada
+            </span>
+            <div className="max-h-48 overflow-hidden rounded-xl border border-indigo-200 bg-white flex items-center justify-center p-1">
+              <img
+                src={order.prescription_url}
+                alt="Receita Médica"
+                className="max-h-44 object-contain cursor-pointer rounded-lg hover:scale-102 transition-transform"
+                onClick={() => window.open(order.prescription_url, '_blank')}
+              />
             </div>
           </div>
         )}
