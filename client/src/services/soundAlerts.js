@@ -159,23 +159,45 @@ export function speakPortuguese(text, options = {}) {
 
 /**
  * Cleans and sanitizes the customer name for natural pronunciation.
+ * Extracts only the first name, filtering out prepositions (da, de, do),
+ * handles, parentheses, emojis, and awkward symbols.
  */
 export function formatCustomerNameForVoice(rawName) {
   if (!rawName) return null;
-  const trimmed = String(rawName).trim();
-  if (!trimmed || trimmed.toLowerCase() === 'cliente' || trimmed.toLowerCase() === 'null') {
+  let trimmed = String(rawName).trim();
+  if (
+    !trimmed ||
+    trimmed.toLowerCase() === 'cliente' ||
+    trimmed.toLowerCase() === 'null' ||
+    trimmed.toLowerCase() === 'undefined'
+  ) {
     return null;
   }
-  // Strip emojis, weird symbols, and excess spaces
+
+  // Remove phone numbers, handles, JIDs, brackets, parenthesized words
+  trimmed = trimmed.replace(/\(.*?\)/g, ' ');
+  trimmed = trimmed.replace(/\[.*?\]/g, ' ');
+  trimmed = trimmed.replace(/~.*$/g, ' '); // remove WhatsApp tilde handles e.g. ~mauri
+  trimmed = trimmed.replace(/[@#_~*`]/g, ' ');
+
+  // Strip emojis, non-letter symbols and excess spaces
   const clean = trimmed.replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
   if (clean.length < 2) return null;
 
-  // Take first 2 words max so the voice doesn't read full long names (e.g. "Rosana Silva")
-  const parts = clean.split(' ');
-  if (parts.length > 2) {
-    return `${parts[0]} ${parts[1]}`;
+  // Split into words
+  const words = clean.split(' ').filter((w) => w.length >= 2);
+  if (words.length === 0) return null;
+
+  // The first name is always the most polite, natural, and clear announcement
+  const firstName = words[0];
+
+  // Ignore if the first name is generic
+  if (['cliente', 'novo', 'nova', 'usuario', 'usuário', 'contato'].includes(firstName.toLowerCase())) {
+    return null;
   }
-  return clean;
+
+  // Capitalize properly (e.g. "mauricio" -> "Mauricio")
+  return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 }
 
 /**
@@ -211,7 +233,7 @@ export function playIncomingMessageAlert({
 
   const cleanName = formatCustomerNameForVoice(customerName);
 
-  // Construct phrase
+  // Construct natural Portuguese phrase (without English foreign words like 'WhatsApp' that TTS mispronounces)
   let speechPhrase = '';
   if (isPixReceipt) {
     speechPhrase = cleanName
@@ -219,16 +241,16 @@ export function playIncomingMessageAlert({
       : `Atenção balcão! Novo comprovante Pix recebido para o pedido número ${orderId || ''}!`;
   } else if (isHumanRequest) {
     speechPhrase = cleanName
-      ? `Atenção balcão! Cliente ${cleanName} solicitou atendente no WhatsApp!`
-      : 'Atenção balcão! Um cliente solicitou atendente no WhatsApp!';
+      ? `Atenção balcão! ${cleanName} está chamando um atendente.`
+      : 'Atenção balcão! Um cliente chamou o atendimento humano.';
   } else if (isNewOrder) {
     speechPhrase = cleanName
-      ? `Novo pedido recebido de ${cleanName} no WhatsApp!`
-      : 'Atenção balcão! Novo pedido recebido no WhatsApp!';
+      ? `Atenção balcão! Novo pedido recebido de ${cleanName}.`
+      : 'Atenção balcão! Novo pedido recebido na farmácia.';
   } else {
     speechPhrase = cleanName
-      ? `Atenção! Cliente ${cleanName} está chamando no WhatsApp.`
-      : 'Atenção! Novo cliente chamando no WhatsApp.';
+      ? `Atenção balcão! Nova mensagem de ${cleanName}.`
+      : 'Atenção balcão! Nova mensagem no balcão.';
   }
 
   // 1. Play Chime
