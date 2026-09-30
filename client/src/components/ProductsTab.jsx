@@ -215,9 +215,23 @@ export default function ProductsTab({
                     </div>
 
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-sm text-emerald-700">
-                        R$ {Number(prod.sale_price).toFixed(2)}
-                      </p>
+                      {prod.is_promotion && prod.original_price && Number(prod.original_price) > Number(prod.sale_price) ? (
+                        <div>
+                          <span className="text-[10px] text-slate-400 line-through block">
+                            R$ {Number(prod.original_price).toFixed(2)}
+                          </span>
+                          <p className="font-bold text-sm text-emerald-700 flex items-center justify-end gap-1">
+                            R$ {Number(prod.sale_price).toFixed(2)}
+                            <span className="bg-amber-100 text-amber-800 text-[9px] px-1 py-0.2 rounded font-bold uppercase tracking-wider">
+                              PROMO
+                            </span>
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="font-bold text-sm text-emerald-700">
+                          R$ {Number(prod.sale_price).toFixed(2)}
+                        </p>
+                      )}
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full font-bold text-[9px] mt-1 ${
                           available > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -397,7 +411,21 @@ export default function ProductsTab({
                         )}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
-                        R$ {Number(prod.sale_price).toFixed(2)}
+                        {prod.is_promotion && prod.original_price && Number(prod.original_price) > Number(prod.sale_price) ? (
+                          <div>
+                            <span className="text-[10px] text-slate-400 line-through block font-normal">
+                              R$ {Number(prod.original_price).toFixed(2)}
+                            </span>
+                            <span className="text-emerald-700 flex items-center gap-1.5">
+                              R$ {Number(prod.sale_price).toFixed(2)}
+                              <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                Promo
+                              </span>
+                            </span>
+                          </div>
+                        ) : (
+                          <span>R$ {Number(prod.sale_price).toFixed(2)}</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         <span

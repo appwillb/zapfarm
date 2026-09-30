@@ -38,17 +38,21 @@ function importDrogarosaCatalog(tenantId = 1) {
     console.warn(`[Import DrogaRosa] Aviso ao desativar mock products:`, err.message);
   }
 
-  // 3. Preparar Statements para inserção / atualização atômica e rápida
+  // 3. Garantir colunas de preço original e promoção no SQLite
+  try { db.exec('ALTER TABLE products ADD COLUMN original_price REAL;'); } catch (e) {}
+  try { db.exec('ALTER TABLE products ADD COLUMN is_promotion INTEGER DEFAULT 0;'); } catch (e) {}
+
+  // 4. Preparar Statements para inserção / atualização atômica e rápida
   const checkStmt = db.prepare('SELECT id FROM products WHERE tenant_id = ? AND barcode = ?');
   const insertStmt = db.prepare(`
     INSERT INTO products (
       tenant_id, name, active_ingredient, manufacturer, dosage, form,
-      presentation, barcode, cost_price, sale_price, stock_quantity,
+      presentation, barcode, cost_price, sale_price, original_price, is_promotion, stock_quantity,
       min_stock, reserved_quantity, requires_prescription, prescription_type,
       category, active, created_at
     ) VALUES (
       ?, @name, @active_ingredient, @manufacturer, @dosage, @form,
-      @presentation, @barcode, @cost_price, @sale_price, @stock_quantity,
+      @presentation, @barcode, @cost_price, @sale_price, @original_price, @is_promotion, @stock_quantity,
       @min_stock, @reserved_quantity, @requires_prescription, @prescription_type,
       @category, 1, datetime('now', 'localtime')
     )
@@ -64,6 +68,8 @@ function importDrogarosaCatalog(tenantId = 1) {
         presentation = @presentation,
         cost_price = @cost_price,
         sale_price = @sale_price,
+        original_price = @original_price,
+        is_promotion = @is_promotion,
         stock_quantity = @stock_quantity,
         min_stock = @min_stock,
         requires_prescription = @requires_prescription,

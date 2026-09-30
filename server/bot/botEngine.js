@@ -407,7 +407,9 @@ class BotEngine {
           `🔬 Princípio Ativo: ${selected.active_ingredient || 'Não informado'}\n` +
           `Dosagem: *${selected.dosage || 'Padrão'}*\n` +
           `📦 Apresentação: ${selected.presentation || selected.form || 'Unidade'}\n` +
-          `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}*\n` +
+          (selected.is_promotion && selected.original_price && Number(selected.original_price) > Number(selected.sale_price)
+            ? `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}* 🔥 _(Em oferta! De R$ ${Number(selected.original_price).toFixed(2)})_\n`
+            : `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}*\n`) +
           `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
           (selected.requires_prescription ? `⚠️ *Atenção:* Medicamento com retenção de receita (${selected.prescription_type}).\n\n` : '') +
           `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*):`;
@@ -824,7 +826,9 @@ class BotEngine {
         `🔬 Princípio Ativo: ${p.active_ingredient || 'Não informado'}\n` +
         `Dosagem: *${p.dosage || 'Padrão'}*\n` +
         `📦 Apresentação: ${p.presentation || p.form || 'Unidade'}\n` +
-        `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}*\n` +
+        (p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price)
+          ? `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}* 🔥 _(Em oferta! De R$ ${Number(p.original_price).toFixed(2)})_\n`
+          : `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}*\n`) +
         `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
         (p.requires_prescription ? `⚠️ *Atenção:* Medicamento sob retenção de receita médica.\n\n` : '') +
         `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*)\n` +
@@ -846,8 +850,9 @@ class BotEngine {
 
     products.forEach((p, idx) => {
       const available = p.stock_quantity - p.reserved_quantity;
+      const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
       listMsg += `*[${idx + 1}]* ${p.name} - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
-        `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}* | Disp: ${available} un.\n\n`;
+        `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}*${isPromo ? ' 🔥 *(PROMO)*' : ''} | Disp: ${available} un.\n\n`;
     });
 
     listMsg += `Digite o número de 1 a ${products.length}, ou digite *0* para falar com atendente:`;

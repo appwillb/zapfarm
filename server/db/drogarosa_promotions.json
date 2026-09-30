@@ -1,0 +1,2297 @@
+[
+  {
+    "code": "0010023408",
+    "name": "ABC SPRAY 30ML*",
+    "manufacturer": "KLEY HERTZ",
+    "regular_price": 57.15,
+    "promo_price": 51.43,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010032415",
+    "name": "CIMELIDE GTS 15ML",
+    "manufacturer": "CIMED",
+    "regular_price": 29.27,
+    "promo_price": 23.42,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990007850",
+    "name": "ACEBROFILINA",
+    "manufacturer": "GLOBO",
+    "regular_price": 31.62,
+    "promo_price": 28.46,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0030004463",
+    "name": "CIMETIDINA 200MG TEUTO",
+    "manufacturer": "",
+    "regular_price": 34.51,
+    "promo_price": 25.54,
+    "discount_percent": 26,
+    "page": 1
+  },
+  {
+    "code": "0010033835",
+    "name": "ACEBROFILINA",
+    "manufacturer": "GEOLAB",
+    "regular_price": 30.28,
+    "promo_price": 30.28,
+    "discount_percent": 0,
+    "page": 1
+  },
+  {
+    "code": "0010018993",
+    "name": "CIPRIX 500MG",
+    "manufacturer": "GEOLAB",
+    "regular_price": 47.8,
+    "promo_price": 33.46,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0030006358",
+    "name": "ACET CIPRO+ETINIL",
+    "manufacturer": "UNIAO",
+    "regular_price": 45.83,
+    "promo_price": 38.5,
+    "discount_percent": 16,
+    "page": 1
+  },
+  {
+    "code": "0010035462",
+    "name": "CISTEIL 20MG/ML",
+    "manufacturer": "GEOLAB",
+    "regular_price": 33.55,
+    "promo_price": 31.87,
+    "discount_percent": 5,
+    "page": 1
+  },
+  {
+    "code": "0010033838",
+    "name": "ACET.DEXAMETAS UNIAO",
+    "manufacturer": "",
+    "regular_price": 13.3,
+    "promo_price": 11.31,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0010038886",
+    "name": "CISTEIL 600MG",
+    "manufacturer": "GEOLAB",
+    "regular_price": 74.52,
+    "promo_price": 50.67,
+    "discount_percent": 32,
+    "page": 1
+  },
+  {
+    "code": "0010024366",
+    "name": "ACETILCISTEINA",
+    "manufacturer": "EMS",
+    "regular_price": 88.73,
+    "promo_price": 40.82,
+    "discount_percent": 54,
+    "page": 1
+  },
+  {
+    "code": "0030006588",
+    "name": "CL FEXOFENADINA EMS",
+    "manufacturer": "",
+    "regular_price": 66.5,
+    "promo_price": 46.55,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "9990008369",
+    "name": "ACEVITON 1G",
+    "manufacturer": "CIMED",
+    "regular_price": 67.45,
+    "promo_price": 40.47,
+    "discount_percent": 40,
+    "page": 1
+  },
+  {
+    "code": "9990002712",
+    "name": "CLINDAMIN C",
+    "manufacturer": "TEUTO",
+    "regular_price": 111.33,
+    "promo_price": 94.63,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0010028240",
+    "name": "ACICLOVIR 200MG PRATI-",
+    "manufacturer": "",
+    "regular_price": 88.57,
+    "promo_price": 39.86,
+    "discount_percent": 55,
+    "page": 1
+  },
+  {
+    "code": "0030003649",
+    "name": "CLONAZEPAN 2MG GEOLAB",
+    "manufacturer": "",
+    "regular_price": 17.86,
+    "promo_price": 14.29,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990017883",
+    "name": "ACICLOVIR 400MG PRATI-",
+    "manufacturer": "",
+    "regular_price": 138.45,
+    "promo_price": 89.99,
+    "discount_percent": 35,
+    "page": 1
+  },
+  {
+    "code": "9990009389",
+    "name": "CLORID. DE",
+    "manufacturer": "PRATI-",
+    "regular_price": 109.19,
+    "promo_price": 38.22,
+    "discount_percent": 65,
+    "page": 1
+  },
+  {
+    "code": "0010031238",
+    "name": "AERODINI SPRAY",
+    "manufacturer": "TEUTO",
+    "regular_price": 37.99,
+    "promo_price": 30.39,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990011511",
+    "name": "CLORID.AMBROXO PRATI-",
+    "manufacturer": "",
+    "regular_price": 25.41,
+    "promo_price": 22.87,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010021637",
+    "name": "ALBEL 400MG",
+    "manufacturer": "GEOLAB",
+    "regular_price": 9.07,
+    "promo_price": 6.8,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "9990010835",
+    "name": "CLORID.AMITRIPITILI",
+    "manufacturer": "MEDLEY",
+    "regular_price": 18.57,
+    "promo_price": 15.78,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0030003707",
+    "name": "ALENDRONATO DE DELTA",
+    "manufacturer": "",
+    "regular_price": 50.98,
+    "promo_price": 17.84,
+    "discount_percent": 65,
+    "page": 1
+  },
+  {
+    "code": "0010039529",
+    "name": "CLORID.AMITRIPTILI",
+    "manufacturer": "TEUTO",
+    "regular_price": 22.98,
+    "promo_price": 16.09,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0010036885",
+    "name": "ALERADINA 5MG",
+    "manufacturer": "NOVA",
+    "regular_price": 50.34,
+    "promo_price": 24.16,
+    "discount_percent": 52,
+    "page": 1
+  },
+  {
+    "code": "0030000859",
+    "name": "CLORID.AMITRIPTILI",
+    "manufacturer": "EMS",
+    "regular_price": 25.38,
+    "promo_price": 19.03,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010020494",
+    "name": "ALLEXOFEDRIN",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 67.21,
+    "promo_price": 50.41,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010034225",
+    "name": "CLORID.CIPROFL",
+    "manufacturer": "CIMED",
+    "regular_price": 51.94,
+    "promo_price": 33.76,
+    "discount_percent": 35,
+    "page": 1
+  },
+  {
+    "code": "0010020495",
+    "name": "ALLEXOFEDRIN",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 97.66,
+    "promo_price": 58.6,
+    "discount_percent": 40,
+    "page": 1
+  },
+  {
+    "code": "9990018801",
+    "name": "CLORID.DULOXETINUNIAO",
+    "manufacturer": "",
+    "regular_price": 126.87,
+    "promo_price": 107.84,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0010036010",
+    "name": "ALPRAZOLAM",
+    "manufacturer": "TEUTO",
+    "regular_price": 86.68,
+    "promo_price": 43.34,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "9990002615",
+    "name": "CLORID.FLUOXETINTEUTO",
+    "manufacturer": "",
+    "regular_price": 62.44,
+    "promo_price": 21.85,
+    "discount_percent": 65,
+    "page": 1
+  },
+  {
+    "code": "0010037255",
+    "name": "ALPRAZOLAM",
+    "manufacturer": "BIOSINTETICA",
+    "regular_price": 78.54,
+    "promo_price": 31.42,
+    "discount_percent": 60,
+    "page": 1
+  },
+  {
+    "code": "9990013338",
+    "name": "CLORID.FLUXETINA",
+    "manufacturer": "FARMACO",
+    "regular_price": 88.64,
+    "promo_price": 44.32,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "0010024327",
+    "name": "ALPRAZOLAM",
+    "manufacturer": "GERMED",
+    "regular_price": 98.9,
+    "promo_price": 31.65,
+    "discount_percent": 68,
+    "page": 1
+  },
+  {
+    "code": "0010028420",
+    "name": "CLORID.METFORMI TEUTO",
+    "manufacturer": "",
+    "regular_price": 14.23,
+    "promo_price": 11.38,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "0030005752",
+    "name": "AMOX+CLAV",
+    "manufacturer": "UNIAO",
+    "regular_price": 81.59,
+    "promo_price": 44.87,
+    "discount_percent": 45,
+    "page": 1
+  },
+  {
+    "code": "0030006295",
+    "name": "CLORID.ONDANSETNOVA",
+    "manufacturer": "",
+    "regular_price": 76.6,
+    "promo_price": 15.32,
+    "discount_percent": 80,
+    "page": 1
+  },
+  {
+    "code": "0010007076",
+    "name": "APEVITIN BC 240",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 61.79,
+    "promo_price": 37.07,
+    "discount_percent": 40,
+    "page": 1
+  },
+  {
+    "code": "9990002315",
+    "name": "CLORID.PAROXETIN",
+    "manufacturer": "UNIAO",
+    "regular_price": 64.26,
+    "promo_price": 32.13,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "0010028031",
+    "name": "ATENOLOL 50MG",
+    "manufacturer": "PRATI-",
+    "regular_price": 19.92,
+    "promo_price": 9.41,
+    "discount_percent": 53,
+    "page": 1
+  },
+  {
+    "code": "0030006614",
+    "name": "CLORID.TANSULOS LEGRAND",
+    "manufacturer": "",
+    "regular_price": 118.23,
+    "promo_price": 68.57,
+    "discount_percent": 42,
+    "page": 1
+  },
+  {
+    "code": "0010036887",
+    "name": "ATORVASTATINA",
+    "manufacturer": "TEUTO",
+    "regular_price": 81.98,
+    "promo_price": 32.79,
+    "discount_percent": 60,
+    "page": 1
+  },
+  {
+    "code": "9990010285",
+    "name": "CLORID.VENLAFAX TORRENT",
+    "manufacturer": "",
+    "regular_price": 65.27,
+    "promo_price": 32.63,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "0030005198",
+    "name": "AZITROMICINA",
+    "manufacturer": "GEOLAB",
+    "regular_price": 49,
+    "promo_price": 41.65,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0030002408",
+    "name": "COLACT AMEIXA",
+    "manufacturer": "UNIAO",
+    "regular_price": 54.19,
+    "promo_price": 35.22,
+    "discount_percent": 35,
+    "page": 1
+  },
+  {
+    "code": "0030003200",
+    "name": "BEPANTRIZ DERMACIMED",
+    "manufacturer": "",
+    "regular_price": 70.7,
+    "promo_price": 28.28,
+    "discount_percent": 60,
+    "page": 1
+  },
+  {
+    "code": "9990005725",
+    "name": "COLACT FRUTAS",
+    "manufacturer": "UNIAO",
+    "regular_price": 54.19,
+    "promo_price": 35.22,
+    "discount_percent": 35,
+    "page": 1
+  },
+  {
+    "code": "9990003286",
+    "name": "BEPANTRIZ DERMACIMED",
+    "manufacturer": "",
+    "regular_price": 35,
+    "promo_price": 30.92,
+    "discount_percent": 12,
+    "page": 1
+  },
+  {
+    "code": "0030002409",
+    "name": "COLACT SEM",
+    "manufacturer": "UNIAO",
+    "regular_price": 54.19,
+    "promo_price": 35.22,
+    "discount_percent": 35,
+    "page": 1
+  },
+  {
+    "code": "0010024773",
+    "name": "BEPANTRIZ",
+    "manufacturer": "CIMED",
+    "regular_price": 28.58,
+    "promo_price": 24.29,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "9990011340",
+    "name": "COLGEN II 40MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 323.25,
+    "promo_price": 129.3,
+    "discount_percent": 60,
+    "page": 1
+  },
+  {
+    "code": "9990017724",
+    "name": "BESIL.ANLOD.5MG PRATI-",
+    "manufacturer": "",
+    "regular_price": 16.91,
+    "promo_price": 14.04,
+    "discount_percent": 17,
+    "page": 1
+  },
+  {
+    "code": "0010037963",
+    "name": "COLIRIO GEOLAB",
+    "manufacturer": "GEOLAB",
+    "regular_price": 16.78,
+    "promo_price": 15.1,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "9990018955",
+    "name": "BILASTINA 20MG",
+    "manufacturer": "EMS",
+    "regular_price": 97.13,
+    "promo_price": 72.85,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010038355",
+    "name": "COLIRIO NEO",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 19.58,
+    "promo_price": 17.62,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010037465",
+    "name": "BIO C 1G 3X10CPR UNIAO",
+    "manufacturer": "",
+    "regular_price": 63,
+    "promo_price": 47.25,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010012478",
+    "name": "COLIRIO TEUTO",
+    "manufacturer": "TEUTO",
+    "regular_price": 16.62,
+    "promo_price": 16.62,
+    "discount_percent": 0,
+    "page": 1
+  },
+  {
+    "code": "0030005952",
+    "name": "BIOLAGRIMA",
+    "manufacturer": "TEUTO",
+    "regular_price": 99.98,
+    "promo_price": 52.99,
+    "discount_percent": 47,
+    "page": 1
+  },
+  {
+    "code": "9990018980",
+    "name": "COLPADAK CREME BELFAR",
+    "manufacturer": "",
+    "regular_price": 30.83,
+    "promo_price": 24.66,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "0010007060",
+    "name": "BISMU-JET 20ML",
+    "manufacturer": "LEGRAND",
+    "regular_price": 44.03,
+    "promo_price": 38.75,
+    "discount_percent": 12,
+    "page": 1
+  },
+  {
+    "code": "9990012026",
+    "name": "COMPLEXO B",
+    "manufacturer": "AIRELA",
+    "regular_price": 34.96,
+    "promo_price": 26.22,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0030004351",
+    "name": "BISSULF.CLOPIDOG",
+    "manufacturer": "TEUTO",
+    "regular_price": 65.21,
+    "promo_price": 39.13,
+    "discount_percent": 40,
+    "page": 1
+  },
+  {
+    "code": "0010014526",
+    "name": "CORTICORTEN",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 33.29,
+    "promo_price": 24.97,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010029532",
+    "name": "BRASART BCC",
+    "manufacturer": "SIGMA",
+    "regular_price": 131.04,
+    "promo_price": 91.73,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0010014748",
+    "name": "CORTICORTEN",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 19.08,
+    "promo_price": 17.17,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010017497",
+    "name": "BROMETO DE",
+    "manufacturer": "UNIAO",
+    "regular_price": 17.53,
+    "promo_price": 12.27,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0030006599",
+    "name": "DAPAGLIFLOZINA",
+    "manufacturer": "BIOSINT.GENE",
+    "regular_price": 159.08,
+    "promo_price": 79.02,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "0030003238",
+    "name": "BUPROVIL 600MG",
+    "manufacturer": "MULTILAB",
+    "regular_price": 19.85,
+    "promo_price": 15.88,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990018457",
+    "name": "DCAL MDK 30CPR",
+    "manufacturer": "UNIAO",
+    "regular_price": 74.96,
+    "promo_price": 67.46,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010035447",
+    "name": "CARVEDILOL",
+    "manufacturer": "BIOLAB",
+    "regular_price": 39.32,
+    "promo_price": 19.66,
+    "discount_percent": 50,
+    "page": 1
+  },
+  {
+    "code": "0030003361",
+    "name": "DENTALFIX 68GR",
+    "manufacturer": "KLEY HERTZ",
+    "regular_price": 87.29,
+    "promo_price": 78.56,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "9990004478",
+    "name": "CEFALEXINA",
+    "manufacturer": "UNIAO",
+    "regular_price": 43.91,
+    "promo_price": 35.13,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990020535",
+    "name": "DESLORATADINA",
+    "manufacturer": "PRATI-",
+    "regular_price": 41.81,
+    "promo_price": 26,
+    "discount_percent": 38,
+    "page": 1
+  },
+  {
+    "code": "9990008557",
+    "name": "CEFTRIAXONA 1G",
+    "manufacturer": "TEUTO",
+    "regular_price": 50.4,
+    "promo_price": 35.28,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0030003554",
+    "name": "DESLORATADINA",
+    "manufacturer": "PRATI-",
+    "regular_price": 66.5,
+    "promo_price": 36.58,
+    "discount_percent": 45,
+    "page": 1
+  },
+  {
+    "code": "0010012845",
+    "name": "CEFTRIAXONA 1G",
+    "manufacturer": "EUROFARMA",
+    "regular_price": 51.22,
+    "promo_price": 40.98,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990009456",
+    "name": "DESOGESTREL",
+    "manufacturer": "UNIAO",
+    "regular_price": 32.51,
+    "promo_price": 22.76,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0010032813",
+    "name": "CELERG 20CPR",
+    "manufacturer": "LEGRAND",
+    "regular_price": 28.2,
+    "promo_price": 26.79,
+    "discount_percent": 5,
+    "page": 1
+  },
+  {
+    "code": "0010021711",
+    "name": "DESONIDA 0,5MG",
+    "manufacturer": "GERMED",
+    "regular_price": 44.75,
+    "promo_price": 35.8,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "0010018571",
+    "name": "CELESTRAT",
+    "manufacturer": "UNIAO",
+    "regular_price": 38.67,
+    "promo_price": 28.62,
+    "discount_percent": 26,
+    "page": 1
+  },
+  {
+    "code": "0010031477",
+    "name": "DEXASON TEU",
+    "manufacturer": "TEUTO",
+    "regular_price": 13.63,
+    "promo_price": 12.27,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "9990018697",
+    "name": "CENEVIT TRIPLA",
+    "manufacturer": "LEGRAND",
+    "regular_price": 60.08,
+    "promo_price": 47.99,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "0010034123",
+    "name": "DEXMINE XPE",
+    "manufacturer": "CIMED",
+    "regular_price": 33.89,
+    "promo_price": 32.2,
+    "discount_percent": 5,
+    "page": 1
+  },
+  {
+    "code": "0010029126",
+    "name": "CETOBETA CREME DELTA",
+    "manufacturer": "",
+    "regular_price": 41.32,
+    "promo_price": 28.1,
+    "discount_percent": 32,
+    "page": 1
+  },
+  {
+    "code": "0030004520",
+    "name": "DIAD 1,5 MG 1CPR",
+    "manufacturer": "CIMED",
+    "regular_price": 23.58,
+    "promo_price": 16.82,
+    "discount_percent": 29,
+    "page": 1
+  },
+  {
+    "code": "0010029125",
+    "name": "CETOBETA",
+    "manufacturer": "DELTA",
+    "regular_price": 41.32,
+    "promo_price": 28.1,
+    "discount_percent": 32,
+    "page": 1
+  },
+  {
+    "code": "0010026297",
+    "name": "DICLOF.DIETILAMO CIMED",
+    "manufacturer": "",
+    "regular_price": 22.02,
+    "promo_price": 18.72,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0010038877",
+    "name": "CETOCONAZOL",
+    "manufacturer": "PHARLAB",
+    "regular_price": 34.66,
+    "promo_price": 24.26,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0010039758",
+    "name": "DICLOR.BETAISTIN EUROFARMA",
+    "manufacturer": "",
+    "regular_price": 42.68,
+    "promo_price": 32.01,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010026225",
+    "name": "CETOCONAZOL",
+    "manufacturer": "CIMED",
+    "regular_price": 36.42,
+    "promo_price": 32.78,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010009103",
+    "name": "DIGESTINA 10MG",
+    "manufacturer": "UNIAO",
+    "regular_price": 32.39,
+    "promo_price": 22.67,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "0010039731",
+    "name": "CETOCONAZOL+BECIMED",
+    "manufacturer": "",
+    "regular_price": 29.98,
+    "promo_price": 25.48,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0010009104",
+    "name": "DIGESTINA GTS",
+    "manufacturer": "UNIAO",
+    "regular_price": 24.95,
+    "promo_price": 17.46,
+    "discount_percent": 30,
+    "page": 1
+  },
+  {
+    "code": "9990008243",
+    "name": "CETOPROFENO",
+    "manufacturer": "MEDLEY -",
+    "regular_price": 46.81,
+    "promo_price": 37.45,
+    "discount_percent": 20,
+    "page": 1
+  },
+  {
+    "code": "9990019972",
+    "name": "DIPIRONA SODICA",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 26.98,
+    "promo_price": 7.82,
+    "discount_percent": 71,
+    "page": 1
+  },
+  {
+    "code": "9990019051",
+    "name": "CICLOBENZAPRINA",
+    "manufacturer": "VITAMEDIC",
+    "regular_price": 23.35,
+    "promo_price": 19.85,
+    "discount_percent": 15,
+    "page": 1
+  },
+  {
+    "code": "0030000663",
+    "name": "DOMPGRAN 10MG",
+    "manufacturer": "LEGRAND",
+    "regular_price": 25.7,
+    "promo_price": 23.13,
+    "discount_percent": 10,
+    "page": 1
+  },
+  {
+    "code": "0010034173",
+    "name": "CIMECORT CREME CIMED",
+    "manufacturer": "",
+    "regular_price": 32.59,
+    "promo_price": 26.72,
+    "discount_percent": 18,
+    "page": 1
+  },
+  {
+    "code": "0010034415",
+    "name": "DORALEX 500MG",
+    "manufacturer": "VITAMEDIC",
+    "regular_price": 9.12,
+    "promo_price": 6.84,
+    "discount_percent": 25,
+    "page": 1
+  },
+  {
+    "code": "0010009737",
+    "name": "DORALGINA 4CPR",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 8.84,
+    "promo_price": 7.01,
+    "discount_percent": 21,
+    "page": 2
+  },
+  {
+    "code": "9990018367",
+    "name": "IBUPRIL 600MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 30.04,
+    "promo_price": 26.13,
+    "discount_percent": 13,
+    "page": 2
+  },
+  {
+    "code": "0010019097",
+    "name": "DOXICLIN 100MG",
+    "manufacturer": "PHARLAB",
+    "regular_price": 47.14,
+    "promo_price": 40.07,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0010031582",
+    "name": "IBUPRIL 600MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 26.6,
+    "promo_price": 13.3,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0010037988",
+    "name": "DROSPIRENONA",
+    "manufacturer": "GERMED",
+    "regular_price": 73.46,
+    "promo_price": 49.95,
+    "discount_percent": 32,
+    "page": 2
+  },
+  {
+    "code": "9990005907",
+    "name": "INDAPAMIDA",
+    "manufacturer": "GEOLAB",
+    "regular_price": 36.47,
+    "promo_price": 25.53,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990020387",
+    "name": "DUZOR 1GR CAIXA PRATI-",
+    "manufacturer": "",
+    "regular_price": 18.68,
+    "promo_price": 15.5,
+    "discount_percent": 17,
+    "page": 2
+  },
+  {
+    "code": "0010031517",
+    "name": "INFRALAX 30CPR",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 37.59,
+    "promo_price": 26.31,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "0010030046",
+    "name": "EMSCORT CR.30G",
+    "manufacturer": "MULTILAB",
+    "regular_price": 42.2,
+    "promo_price": 35.87,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "9990020064",
+    "name": "IVECTE 6MG C/4",
+    "manufacturer": "VITAMEDIC",
+    "regular_price": 38.78,
+    "promo_price": 19.39,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0010038436",
+    "name": "ESOMEP.MAG.TRI- ASTRAZENEC",
+    "manufacturer": "",
+    "regular_price": 213.1,
+    "promo_price": 89.5,
+    "discount_percent": 58,
+    "page": 2
+  },
+  {
+    "code": "0030006495",
+    "name": "IVERMECTINA 6 MG",
+    "manufacturer": "PRATI-",
+    "regular_price": 37.5,
+    "promo_price": 16.88,
+    "discount_percent": 55,
+    "page": 2
+  },
+  {
+    "code": "0010038563",
+    "name": "ESOP 20MG 28CPR NOVA",
+    "manufacturer": "",
+    "regular_price": 144.04,
+    "promo_price": 83.54,
+    "discount_percent": 42,
+    "page": 2
+  },
+  {
+    "code": "0030005450",
+    "name": "KAODINE PLUS 5% GEOLAB",
+    "manufacturer": "",
+    "regular_price": 42.64,
+    "promo_price": 34.11,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010007068",
+    "name": "EXPEC XPE 120ML LEGRAND",
+    "manufacturer": "",
+    "regular_price": 54.14,
+    "promo_price": 46.02,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "9990007885",
+    "name": "LAVITAN",
+    "manufacturer": "CIMED",
+    "regular_price": 109.95,
+    "promo_price": 93.46,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0010040149",
+    "name": "FENAREN 10MG",
+    "manufacturer": "UNIAO",
+    "regular_price": 26.78,
+    "promo_price": 24.1,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0030004036",
+    "name": "LAVITAN",
+    "manufacturer": "CIMED",
+    "regular_price": 136.45,
+    "promo_price": 88.69,
+    "discount_percent": 35,
+    "page": 2
+  },
+  {
+    "code": "9990009617",
+    "name": "FENBIP 150MG",
+    "manufacturer": "NOVA",
+    "regular_price": 61.24,
+    "promo_price": 29.4,
+    "discount_percent": 52,
+    "page": 2
+  },
+  {
+    "code": "9990005095",
+    "name": "LAVITAN KIDS",
+    "manufacturer": "CIMED",
+    "regular_price": 42.89,
+    "promo_price": 38.17,
+    "discount_percent": 11,
+    "page": 2
+  },
+  {
+    "code": "0010039563",
+    "name": "FERISEPT SPRAY",
+    "manufacturer": "UNIAO",
+    "regular_price": 30.94,
+    "promo_price": 27.85,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "9990011793",
+    "name": "LAVITAN",
+    "manufacturer": "CIMED",
+    "regular_price": 70.72,
+    "promo_price": 35.36,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0010032064",
+    "name": "FERRONIL 40MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 25.13,
+    "promo_price": 20.61,
+    "discount_percent": 18,
+    "page": 2
+  },
+  {
+    "code": "0010021760",
+    "name": "LEVERCTIN 6MG",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 47.13,
+    "promo_price": 29.69,
+    "discount_percent": 37,
+    "page": 2
+  },
+  {
+    "code": "0010017987",
+    "name": "FEXOFENADINA",
+    "manufacturer": "RANBAXY-GE",
+    "regular_price": 53.68,
+    "promo_price": 32.21,
+    "discount_percent": 40,
+    "page": 2
+  },
+  {
+    "code": "9990005935",
+    "name": "LEVOFLOXACINO",
+    "manufacturer": "GEOLAB",
+    "regular_price": 122.72,
+    "promo_price": 49.09,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "0010017988",
+    "name": "FEXOFENADINA",
+    "manufacturer": "RANBAXY-GE",
+    "regular_price": 93.09,
+    "promo_price": 46.55,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0030006558",
+    "name": "LEVOFLOXACINO",
+    "manufacturer": "ZYDUS",
+    "regular_price": 123.5,
+    "promo_price": 61.75,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "9990008440",
+    "name": "FEXX 120MG",
+    "manufacturer": "CIMED",
+    "regular_price": 62.08,
+    "promo_price": 37.25,
+    "discount_percent": 40,
+    "page": 2
+  },
+  {
+    "code": "0010038597",
+    "name": "LORATADINA",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 55.93,
+    "promo_price": 11.19,
+    "discount_percent": 80,
+    "page": 2
+  },
+  {
+    "code": "0030005485",
+    "name": "FIGMED 200MG",
+    "manufacturer": "CIMED",
+    "regular_price": 92.64,
+    "promo_price": 77.82,
+    "discount_percent": 16,
+    "page": 2
+  },
+  {
+    "code": "0010036325",
+    "name": "LORATAMED",
+    "manufacturer": "CIMED",
+    "regular_price": 23.43,
+    "promo_price": 16.4,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990018820",
+    "name": "FLORASTOR 1",
+    "manufacturer": "UNIAO",
+    "regular_price": 36.06,
+    "promo_price": 28.85,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010033446",
+    "name": "LOSARTANA",
+    "manufacturer": "BIOSINT.GENE",
+    "regular_price": 11.14,
+    "promo_price": 4.99,
+    "discount_percent": 55,
+    "page": 2
+  },
+  {
+    "code": "9990005146",
+    "name": "FLORASTOR",
+    "manufacturer": "UNIAO",
+    "regular_price": 54.99,
+    "promo_price": 43.99,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010036434",
+    "name": "LOSARTANA",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 11.22,
+    "promo_price": 6.73,
+    "discount_percent": 40,
+    "page": 2
+  },
+  {
+    "code": "0010017761",
+    "name": "FLUCANIL 150MG",
+    "manufacturer": "GEOLAB",
+    "regular_price": 26.81,
+    "promo_price": 10.72,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "0030005659",
+    "name": "LOSARTANA+HIDR TEUTO",
+    "manufacturer": "",
+    "regular_price": 52.96,
+    "promo_price": 21.18,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "0030006541",
+    "name": "FLUCOLCID 150MG TEUTO",
+    "manufacturer": "",
+    "regular_price": 20.21,
+    "promo_price": 11.99,
+    "discount_percent": 41,
+    "page": 2
+  },
+  {
+    "code": "0010038599",
+    "name": "LOZAN 200MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 87.01,
+    "promo_price": 47.86,
+    "discount_percent": 45,
+    "page": 2
+  },
+  {
+    "code": "0030006338",
+    "name": "FLUCONAZOL",
+    "manufacturer": "PRATI-",
+    "regular_price": 22.45,
+    "promo_price": 8.98,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "0030000314",
+    "name": "MAGNAZIA SUSP",
+    "manufacturer": "CIMED",
+    "regular_price": 65.54,
+    "promo_price": 39.32,
+    "discount_percent": 40,
+    "page": 2
+  },
+  {
+    "code": "9990005155",
+    "name": "FLUCONAZOL",
+    "manufacturer": "GLOBO",
+    "regular_price": 23.27,
+    "promo_price": 12.8,
+    "discount_percent": 45,
+    "page": 2
+  },
+  {
+    "code": "0010017995",
+    "name": "MAGNOSTASE",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 10.86,
+    "promo_price": 10.86,
+    "discount_percent": 0,
+    "page": 2
+  },
+  {
+    "code": "0030004782",
+    "name": "FLUCONAZOL",
+    "manufacturer": "VITAMEDIC",
+    "regular_price": 20.1,
+    "promo_price": 15.08,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "0010037052",
+    "name": "MAMYLAN 30GR",
+    "manufacturer": "UNIAO",
+    "regular_price": 67.81,
+    "promo_price": 61.03,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0010025997",
+    "name": "FOLIFOLIN 5MG",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 20.31,
+    "promo_price": 18.28,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0010032296",
+    "name": "MASSAGEOL",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 63.61,
+    "promo_price": 47.71,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "0010023578",
+    "name": "FUROATO",
+    "manufacturer": "GERMED",
+    "regular_price": 45.55,
+    "promo_price": 36.44,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0030004705",
+    "name": "MAXALGINA 1G",
+    "manufacturer": "NATULAB",
+    "regular_price": 31.22,
+    "promo_price": 15.61,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0010023581",
+    "name": "FUROATO",
+    "manufacturer": "GERMED",
+    "regular_price": 45.55,
+    "promo_price": 34.16,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "9990005545",
+    "name": "MAXALGINA",
+    "manufacturer": "NATULAB",
+    "regular_price": 21.02,
+    "promo_price": 7.36,
+    "discount_percent": 65,
+    "page": 2
+  },
+  {
+    "code": "0010039368",
+    "name": "GINKGO VITAL",
+    "manufacturer": "PRATI-",
+    "regular_price": 77.5,
+    "promo_price": 65.88,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0030005941",
+    "name": "MINOXIDIL 5% SOL UNIAO",
+    "manufacturer": "",
+    "regular_price": 66.07,
+    "promo_price": 52.86,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010039369",
+    "name": "GINKGO VITAL",
+    "manufacturer": "PRATI-",
+    "regular_price": 58.1,
+    "promo_price": 46.48,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010038283",
+    "name": "MIRTAZAPINA",
+    "manufacturer": "SANDOZ",
+    "regular_price": 139.97,
+    "promo_price": 55.99,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "9990017895",
+    "name": "GINSENG 60CPS",
+    "manufacturer": "LEDAL",
+    "regular_price": 55.98,
+    "promo_price": 49.26,
+    "discount_percent": 12,
+    "page": 2
+  },
+  {
+    "code": "0030006531",
+    "name": "MONTELUCASTE",
+    "manufacturer": "CIMED",
+    "regular_price": 95.77,
+    "promo_price": 47.88,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "9990014488",
+    "name": "GLICLAZIDA 30 MG LEGRAND",
+    "manufacturer": "",
+    "regular_price": 33.7,
+    "promo_price": 23.59,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990020711",
+    "name": "MUCOS EXPEC INF LEGRAND",
+    "manufacturer": "",
+    "regular_price": 42.51,
+    "promo_price": 29.76,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990011734",
+    "name": "GLICLAZIDA 60MG",
+    "manufacturer": "LEGRAND",
+    "regular_price": 72.23,
+    "promo_price": 57.78,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010031549",
+    "name": "NAPRONAX 550MG NEO QUIMICA",
+    "manufacturer": "",
+    "regular_price": 34.23,
+    "promo_price": 30.81,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0010040636",
+    "name": "GRAV TEST CLICK",
+    "manufacturer": "CIMED",
+    "regular_price": 23.12,
+    "promo_price": 21.27,
+    "discount_percent": 8,
+    "page": 2
+  },
+  {
+    "code": "0030006538",
+    "name": "NARATANO 2,5MG",
+    "manufacturer": "MULTILAB",
+    "regular_price": 46.36,
+    "promo_price": 38.48,
+    "discount_percent": 17,
+    "page": 2
+  },
+  {
+    "code": "0010006650",
+    "name": "GRAV TEST FITA",
+    "manufacturer": "CIMED",
+    "regular_price": 22.5,
+    "promo_price": 13,
+    "discount_percent": 42,
+    "page": 2
+  },
+  {
+    "code": "0010007960",
+    "name": "NARIDRIN 12H",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 39.19,
+    "promo_price": 27.43,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990007127",
+    "name": "HEDERA 7MG/ML",
+    "manufacturer": "KLEY HERTZ",
+    "regular_price": 30.46,
+    "promo_price": 27.41,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0010039275",
+    "name": "NARIX AD 30ML",
+    "manufacturer": "CIMED",
+    "regular_price": 10.12,
+    "promo_price": 8.6,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0010036646",
+    "name": "HEMI.BISOPROLOL EMS",
+    "manufacturer": "",
+    "regular_price": 57.56,
+    "promo_price": 43.17,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "0010031875",
+    "name": "NATUS GERIN LEG LEGRAND",
+    "manufacturer": "",
+    "regular_price": 100.88,
+    "promo_price": 80.7,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "9990001604",
+    "name": "HEMI.QUETIAPINA",
+    "manufacturer": "GEOLAB",
+    "regular_price": 74.68,
+    "promo_price": 33.61,
+    "discount_percent": 55,
+    "page": 2
+  },
+  {
+    "code": "0010040613",
+    "name": "NEOCOFLAN",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 55.12,
+    "promo_price": 41.34,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "9990014612",
+    "name": "HEMI.ZOLPIDEM",
+    "manufacturer": "GEOLAB",
+    "regular_price": 67.41,
+    "promo_price": 33.7,
+    "discount_percent": 50,
+    "page": 2
+  },
+  {
+    "code": "0010032083",
+    "name": "NEOCOFLAN",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 35.15,
+    "promo_price": 28.12,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "9990009718",
+    "name": "HEMI.ZOLPIDEM",
+    "manufacturer": "LEGRAND",
+    "regular_price": 95.29,
+    "promo_price": 38.12,
+    "discount_percent": 60,
+    "page": 2
+  },
+  {
+    "code": "0010017128",
+    "name": "NEOCOPAN",
+    "manufacturer": "UNIAO",
+    "regular_price": 21.17,
+    "promo_price": 19.05,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "0010010035",
+    "name": "HEMOFISS 30G",
+    "manufacturer": "CIMED",
+    "regular_price": 69.95,
+    "promo_price": 55.96,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "9990008530",
+    "name": "NEOLEFRIN 20CPR NEO QUIMICA",
+    "manufacturer": "",
+    "regular_price": 21.17,
+    "promo_price": 18.83,
+    "discount_percent": 11,
+    "page": 2
+  },
+  {
+    "code": "0030006138",
+    "name": "HENNA PROF",
+    "manufacturer": "QUARIS",
+    "regular_price": 19.5,
+    "promo_price": 15.6,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010023830",
+    "name": "NEVRALGEX 10CPRCIMED",
+    "manufacturer": "",
+    "regular_price": 14.14,
+    "promo_price": 6.36,
+    "discount_percent": 55,
+    "page": 2
+  },
+  {
+    "code": "0030004891",
+    "name": "HERVIRAX 50MG",
+    "manufacturer": "PHARLAB",
+    "regular_price": 35.07,
+    "promo_price": 29.81,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0030005855",
+    "name": "NEVRALPRO 11,6",
+    "manufacturer": "CIMED",
+    "regular_price": 25.78,
+    "promo_price": 22.69,
+    "discount_percent": 12,
+    "page": 2
+  },
+  {
+    "code": "0010015006",
+    "name": "HIDRALYTE 45",
+    "manufacturer": "NATULAB",
+    "regular_price": 25.85,
+    "promo_price": 23.27,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "9990018102",
+    "name": "NIMESULIDA",
+    "manufacturer": "UNIAO",
+    "regular_price": 21.72,
+    "promo_price": 15.5,
+    "discount_percent": 29,
+    "page": 2
+  },
+  {
+    "code": "0010028187",
+    "name": "HIDRALYTE 45",
+    "manufacturer": "NATULAB",
+    "regular_price": 25.85,
+    "promo_price": 23.27,
+    "discount_percent": 10,
+    "page": 2
+  },
+  {
+    "code": "9990017795",
+    "name": "NIMESULIDA",
+    "manufacturer": "NOVA",
+    "regular_price": 16.96,
+    "promo_price": 11.87,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "9990019289",
+    "name": "HISCONGEX",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 35.58,
+    "promo_price": 30.24,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0010038074",
+    "name": "NISOFLAN 15ML",
+    "manufacturer": "GEOLAB",
+    "regular_price": 22.56,
+    "promo_price": 19.18,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "0010003945",
+    "name": "HISTAMIN 2MG",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 19.85,
+    "promo_price": 17.07,
+    "discount_percent": 14,
+    "page": 2
+  },
+  {
+    "code": "0010014940",
+    "name": "NISTATINA 50ML",
+    "manufacturer": "EMS",
+    "regular_price": 42.21,
+    "promo_price": 29.55,
+    "discount_percent": 30,
+    "page": 2
+  },
+  {
+    "code": "0010038190",
+    "name": "HORA H 1,5MG",
+    "manufacturer": "BIOSINT-",
+    "regular_price": 23.85,
+    "promo_price": 15.5,
+    "discount_percent": 35,
+    "page": 2
+  },
+  {
+    "code": "0030003480",
+    "name": "NITRATO DE",
+    "manufacturer": "CIMED",
+    "regular_price": 22.57,
+    "promo_price": 18.06,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "0010017768",
+    "name": "HYSTIN 2MG 20CPRGEOLAB",
+    "manufacturer": "",
+    "regular_price": 12,
+    "promo_price": 9.6,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "9990018036",
+    "name": "OLMESAR.MEDOXOEMS",
+    "manufacturer": "",
+    "regular_price": 77.83,
+    "promo_price": 58.37,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "9990001625",
+    "name": "IBUPRIL 100MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 21.69,
+    "promo_price": 18.44,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "9990018253",
+    "name": "OLMESARTANA+H",
+    "manufacturer": "EMS",
+    "regular_price": 77.85,
+    "promo_price": 58.39,
+    "discount_percent": 25,
+    "page": 2
+  },
+  {
+    "code": "0010031581",
+    "name": "IBUPRIL 300MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 21.19,
+    "promo_price": 18.01,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "9990018035",
+    "name": "OLMESARTANA+H",
+    "manufacturer": "EMS",
+    "regular_price": 68.33,
+    "promo_price": 54.66,
+    "discount_percent": 20,
+    "page": 2
+  },
+  {
+    "code": "9990000276",
+    "name": "IBUPRIL 400MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 27.99,
+    "promo_price": 20.71,
+    "discount_percent": 26,
+    "page": 2
+  },
+  {
+    "code": "9990001200",
+    "name": "OMEGATIVE A-Z",
+    "manufacturer": "KRESS",
+    "regular_price": 88.73,
+    "promo_price": 75.42,
+    "discount_percent": 15,
+    "page": 2
+  },
+  {
+    "code": "9990005320",
+    "name": "OPTOCARE UL",
+    "manufacturer": "KLEY HERTZ",
+    "regular_price": 47.5,
+    "promo_price": 38.95,
+    "discount_percent": 18,
+    "page": 3
+  },
+  {
+    "code": "0030005175",
+    "name": "VITAMINA D3 5.000 UNIAO",
+    "manufacturer": "",
+    "regular_price": 89.28,
+    "promo_price": 31.25,
+    "discount_percent": 65,
+    "page": 3
+  },
+  {
+    "code": "9990009968",
+    "name": "ORLISTATE 120MG PRATI-",
+    "manufacturer": "",
+    "regular_price": 211.07,
+    "promo_price": 109.76,
+    "discount_percent": 48,
+    "page": 3
+  },
+  {
+    "code": "0030005176",
+    "name": "VITAMINA D3",
+    "manufacturer": "UNIAO",
+    "regular_price": 81.81,
+    "promo_price": 40.91,
+    "discount_percent": 50,
+    "page": 3
+  },
+  {
+    "code": "9990009973",
+    "name": "OXALATO DE",
+    "manufacturer": "PHARLAB",
+    "regular_price": 65.25,
+    "promo_price": 26.1,
+    "discount_percent": 60,
+    "page": 3
+  },
+  {
+    "code": "0030006324",
+    "name": "VITAMINA D3",
+    "manufacturer": "UNIAO",
+    "regular_price": 117.6,
+    "promo_price": 47.04,
+    "discount_percent": 60,
+    "page": 3
+  },
+  {
+    "code": "0030006610",
+    "name": "OXALATO",
+    "manufacturer": "PRATI-",
+    "regular_price": 109.4,
+    "promo_price": 32.82,
+    "discount_percent": 70,
+    "page": 3
+  },
+  {
+    "code": "0030006442",
+    "name": "VITAMINA D3 7.000 UNIAO",
+    "manufacturer": "",
+    "regular_price": 85.32,
+    "promo_price": 31.57,
+    "discount_percent": 63,
+    "page": 3
+  },
+  {
+    "code": "0030006512",
+    "name": "OXOM+IOD+BENZ+ EMS",
+    "manufacturer": "",
+    "regular_price": 53.84,
+    "promo_price": 26.92,
+    "discount_percent": 50,
+    "page": 3
+  },
+  {
+    "code": "9990009285",
+    "name": "VITAMINAS A-",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 86.47,
+    "promo_price": 69.18,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0010037633",
+    "name": "PANTOPRAZOL",
+    "manufacturer": "BIOSINT.GENE",
+    "regular_price": 42.98,
+    "promo_price": 14.61,
+    "discount_percent": 66,
+    "page": 3
+  },
+  {
+    "code": "9990010927",
+    "name": "PANTOPRAZOL",
+    "manufacturer": "MEDQUIMICA-",
+    "regular_price": 81.47,
+    "promo_price": 28.51,
+    "discount_percent": 65,
+    "page": 3
+  },
+  {
+    "code": "9990010928",
+    "name": "PANTOPRAZOL",
+    "manufacturer": "MEDQUIMICA",
+    "regular_price": 189.49,
+    "promo_price": 47.37,
+    "discount_percent": 75,
+    "page": 3
+  },
+  {
+    "code": "9990009991",
+    "name": "PARACETAMOL",
+    "manufacturer": "PRATI-",
+    "regular_price": 18.06,
+    "promo_price": 12.64,
+    "discount_percent": 30,
+    "page": 3
+  },
+  {
+    "code": "0010007025",
+    "name": "PEPSOGEL GEL",
+    "manufacturer": "LEGRAND",
+    "regular_price": 55.18,
+    "promo_price": 44.14,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0010039137",
+    "name": "PERFENOL",
+    "manufacturer": "UNIAO",
+    "regular_price": 25.74,
+    "promo_price": 20.08,
+    "discount_percent": 22,
+    "page": 3
+  },
+  {
+    "code": "0030003327",
+    "name": "PERMENATI 5%",
+    "manufacturer": "NATIVITA",
+    "regular_price": 50.32,
+    "promo_price": 27.68,
+    "discount_percent": 45,
+    "page": 3
+  },
+  {
+    "code": "0010030982",
+    "name": "POLIDERMS",
+    "manufacturer": "UNIAO",
+    "regular_price": 59.42,
+    "promo_price": 47.54,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "9990016243",
+    "name": "POSLOV 1,5 MG 1",
+    "manufacturer": "CIFARMA",
+    "regular_price": 20.02,
+    "promo_price": 10,
+    "discount_percent": 50,
+    "page": 3
+  },
+  {
+    "code": "0030003654",
+    "name": "PREDSIGMA 20MG NOVA",
+    "manufacturer": "",
+    "regular_price": 26.42,
+    "promo_price": 23.78,
+    "discount_percent": 10,
+    "page": 3
+  },
+  {
+    "code": "9990010596",
+    "name": "PREGABALINA",
+    "manufacturer": "EUROFARMA",
+    "regular_price": 175.75,
+    "promo_price": 36.91,
+    "discount_percent": 79,
+    "page": 3
+  },
+  {
+    "code": "0030006511",
+    "name": "PREGABALINA",
+    "manufacturer": "PHARLAB",
+    "regular_price": 66.11,
+    "promo_price": 24.46,
+    "discount_percent": 63,
+    "page": 3
+  },
+  {
+    "code": "9990007256",
+    "name": "PROCTFIS H POM",
+    "manufacturer": "UNIAO",
+    "regular_price": 47.26,
+    "promo_price": 40.17,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "9990004250",
+    "name": "PROPIONATO",
+    "manufacturer": "PRATI-",
+    "regular_price": 54.19,
+    "promo_price": 46.06,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "0010000832",
+    "name": "PSOREX POM.30GRGLAXOWELLC",
+    "manufacturer": "",
+    "regular_price": 52.6,
+    "promo_price": 42.08,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0010032184",
+    "name": "REPOFLOR 100MG LEGRAND",
+    "manufacturer": "",
+    "regular_price": 66.74,
+    "promo_price": 48.72,
+    "discount_percent": 27,
+    "page": 3
+  },
+  {
+    "code": "0010032172",
+    "name": "REPOFLOR 1GR",
+    "manufacturer": "LEGRAND",
+    "regular_price": 48.47,
+    "promo_price": 41.2,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "0010026464",
+    "name": "REPOFLOR 200MG LEGRAND",
+    "manufacturer": "",
+    "regular_price": 56.34,
+    "promo_price": 49.58,
+    "discount_percent": 12,
+    "page": 3
+  },
+  {
+    "code": "0010002234",
+    "name": "RITMONEURAN",
+    "manufacturer": "KLEY HERTZ",
+    "regular_price": 48.67,
+    "promo_price": 34.07,
+    "discount_percent": 30,
+    "page": 3
+  },
+  {
+    "code": "0010036804",
+    "name": "ROSUVASTATINA",
+    "manufacturer": "EMS",
+    "regular_price": 230.84,
+    "promo_price": 60.02,
+    "discount_percent": 74,
+    "page": 3
+  },
+  {
+    "code": "9990011442",
+    "name": "RUDITE 500MG",
+    "manufacturer": "MULTILAB",
+    "regular_price": 68.55,
+    "promo_price": 56.21,
+    "discount_percent": 18,
+    "page": 3
+  },
+  {
+    "code": "0010039178",
+    "name": "SECNIHEXAL",
+    "manufacturer": "SANDOZ",
+    "regular_price": 36.27,
+    "promo_price": 18.14,
+    "discount_percent": 50,
+    "page": 3
+  },
+  {
+    "code": "0010039179",
+    "name": "SECNIHEXAL",
+    "manufacturer": "SANDOZ",
+    "regular_price": 64.59,
+    "promo_price": 35.52,
+    "discount_percent": 45,
+    "page": 3
+  },
+  {
+    "code": "0030004279",
+    "name": "SIMETICONA",
+    "manufacturer": "MULTILAB",
+    "regular_price": 22.01,
+    "promo_price": 15.41,
+    "discount_percent": 30,
+    "page": 3
+  },
+  {
+    "code": "9990006097",
+    "name": "SIMETICONA",
+    "manufacturer": "UNIAO",
+    "regular_price": 22.95,
+    "promo_price": 21.8,
+    "discount_percent": 5,
+    "page": 3
+  },
+  {
+    "code": "9990006099",
+    "name": "SIMETICONA 75MG UNIAO",
+    "manufacturer": "",
+    "regular_price": 21.35,
+    "promo_price": 18.15,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "0010024546",
+    "name": "SIMETICONA 75MG PRATI-",
+    "manufacturer": "",
+    "regular_price": 21.22,
+    "promo_price": 16.98,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0010007013",
+    "name": "SOMINEX",
+    "manufacturer": "EMS INDUST",
+    "regular_price": 48,
+    "promo_price": 38.4,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0010025374",
+    "name": "SOYNATI 150MG",
+    "manufacturer": "PHARMASCIE",
+    "regular_price": 90.29,
+    "promo_price": 76.75,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "0010035597",
+    "name": "SUAVICID CRM",
+    "manufacturer": "LEGRAND",
+    "regular_price": 129,
+    "promo_price": 109.65,
+    "discount_percent": 15,
+    "page": 3
+  },
+  {
+    "code": "0010028446",
+    "name": "SULFADIAZINA DE",
+    "manufacturer": "UNIAO",
+    "regular_price": 31.48,
+    "promo_price": 28.33,
+    "discount_percent": 10,
+    "page": 3
+  },
+  {
+    "code": "9990002518",
+    "name": "SUPRINAN FRUTAS",
+    "manufacturer": "KRESS",
+    "regular_price": 47.99,
+    "promo_price": 43.19,
+    "discount_percent": 10,
+    "page": 3
+  },
+  {
+    "code": "9990010210",
+    "name": "TADALAFILA",
+    "manufacturer": "PRATI-",
+    "regular_price": 61.71,
+    "promo_price": 27.77,
+    "discount_percent": 55,
+    "page": 3
+  },
+  {
+    "code": "9990002457",
+    "name": "TADALAFILA 5MG",
+    "manufacturer": "EUROFARMA",
+    "regular_price": 435.66,
+    "promo_price": 25.01,
+    "discount_percent": 94,
+    "page": 3
+  },
+  {
+    "code": "9990007833",
+    "name": "TENOXICAM 20MG UNIAO",
+    "manufacturer": "",
+    "regular_price": 45.45,
+    "promo_price": 29.54,
+    "discount_percent": 35,
+    "page": 3
+  },
+  {
+    "code": "0010019931",
+    "name": "TEUTOVIT E 400UI",
+    "manufacturer": "TEUTO",
+    "regular_price": 46.85,
+    "promo_price": 46.38,
+    "discount_percent": 1,
+    "page": 3
+  },
+  {
+    "code": "9990003209",
+    "name": "TEUTOZOL 20MG",
+    "manufacturer": "TEUTO",
+    "regular_price": 28.82,
+    "promo_price": 23.06,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "9990017090",
+    "name": "TOBRAMICINA 3",
+    "manufacturer": "GEOLAB",
+    "regular_price": 26.35,
+    "promo_price": 23.19,
+    "discount_percent": 12,
+    "page": 3
+  },
+  {
+    "code": "0010032074",
+    "name": "TORSILAX 30CPR",
+    "manufacturer": "NEO QUIMICA",
+    "regular_price": 37.4,
+    "promo_price": 29.92,
+    "discount_percent": 20,
+    "page": 3
+  },
+  {
+    "code": "0030005257",
+    "name": "TROMETAMOL",
+    "manufacturer": "UNIAO",
+    "regular_price": 37.37,
+    "promo_price": 26.16,
+    "discount_percent": 30,
+    "page": 3
+  },
+  {
+    "code": "0010033540",
+    "name": "TYFLEN 750MG",
+    "manufacturer": "BRASTERAP.",
+    "regular_price": 12.3,
+    "promo_price": 12.3,
+    "discount_percent": 0,
+    "page": 3
+  },
+  {
+    "code": "9990019812",
+    "name": "UMIDIFICADOR AR BIOLAND",
+    "manufacturer": "",
+    "regular_price": 176,
+    "promo_price": 169.89,
+    "discount_percent": 3,
+    "page": 3
+  },
+  {
+    "code": "9990017309",
+    "name": "VALSARTANA 320",
+    "manufacturer": "CIMED",
+    "regular_price": 67.5,
+    "promo_price": 47.25,
+    "discount_percent": 30,
+    "page": 3
+  },
+  {
+    "code": "9990010623",
+    "name": "VENAFLON",
+    "manufacturer": "TEUTO",
+    "regular_price": 158.07,
+    "promo_price": 85.36,
+    "discount_percent": 46,
+    "page": 3
+  },
+  {
+    "code": "9990010954",
+    "name": "VENAFLON",
+    "manufacturer": "TEUTO",
+    "regular_price": 282.25,
+    "promo_price": 112.9,
+    "discount_percent": 60,
+    "page": 3
+  }
+]
