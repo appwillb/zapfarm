@@ -11,7 +11,8 @@ router.get('/', (req, res) => {
   const supplierId = req.query.supplier_id || null;
 
   let query = `
-    SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company
+    SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company,
+           (SELECT COUNT(*) FROM product_suppliers ps WHERE ps.product_id = p.id) as suppliers_count
     FROM products p
     LEFT JOIN suppliers s ON p.supplier_id = s.id
     WHERE p.tenant_id = ? AND p.active = 1
@@ -115,6 +116,17 @@ router.post('/', (req, res) => {
       WHERE p.id = ?
     `).get(result.lastInsertRowid);
 
+    // Sync product_suppliers table
+    if (newProd && newProd.supplier_id) {
+      try {
+        db.prepare(`
+          INSERT INTO product_suppliers (tenant_id, product_id, supplier_id, is_primary)
+          VALUES (?, ?, ?, 1)
+          ON CONFLICT(product_id, supplier_id) DO UPDATE SET is_primary = 1
+        `).run(tenant_id, newProd.id, newProd.supplier_id);
+      } catch (e) {}
+    }
+
     // If initial stock is already <= min_stock, notify supplier
     if (newProd.stock_quantity <= newProd.min_stock && newProd.supplier_id) {
       botEngine.checkAndNotifyLowStock(tenant_id, [newProd.id]).catch((e) => console.error(e));
@@ -195,6 +207,23 @@ router.put('/:id', (req, res) => {
       LEFT JOIN suppliers s ON p.supplier_id = s.id
       WHERE p.id = ?
     `).get(id);
+
+    // Sync product_suppliers table
+    if (supplier_id !== undefined) {
+      try {
+        if (supplier_id) {
+          db.prepare('UPDATE product_suppliers SET is_primary = 0 WHERE product_id = ?').run(id);
+          db.prepare(`
+            INSERT INTO product_suppliers (tenant_id, product_id, supplier_id, is_primary)
+            VALUES (?, ?, ?, 1)
+            ON CONFLICT(product_id, supplier_id) DO UPDATE SET is_primary = 1
+          `).run(updated.tenant_id, id, Number(supplier_id));
+        } else {
+          // If supplier was unset, demote primary
+          db.prepare('UPDATE product_suppliers SET is_primary = 0 WHERE product_id = ?').run(id);
+        }
+      } catch (e) {}
+    }
 
     // If stock lowered to or below min_stock, notify supplier
     if (stock_quantity !== undefined && updated.stock_quantity <= updated.min_stock && updated.supplier_id) {

@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Pill,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Factory,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -87,12 +89,10 @@ export default function SuppliersTab({
       const res = await api.testSupplierWhatsApp(supplier.id, 'Farmacêutico Responsável');
       if (res.success) {
         alert(
-          `✅ Mensagem teste entregue com sucesso no WhatsApp de ${supplier.name} (${supplier.phone})!\n\nVerifique a chegada da notificação no celular dele.`
+          `✅ Mensagem teste entregue com sucesso no WhatsApp de ${supplier.name} (${supplier.phone})!\n\nVerifique a notificação no celular dele.`
         );
       } else {
-        alert(
-          `⚠️ ${res.error || 'Erro ao enviar notificação teste.'}`
-        );
+        alert(`⚠️ ${res.error || 'Erro ao enviar notificação teste.'}`);
       }
     } catch (err) {
       alert('Erro ao disparar teste: ' + err.message);
@@ -108,16 +108,22 @@ export default function SuppliersTab({
 
   const filteredSuppliers = suppliers.filter((s) => {
     const term = searchTerm.toLowerCase();
+    const mfrsStr = Array.isArray(s.manufacturers) ? s.manufacturers.join(' ').toLowerCase() : '';
     return (
       s.name.toLowerCase().includes(term) ||
       (s.company && s.company.toLowerCase().includes(term)) ||
       (s.phone && s.phone.includes(term)) ||
       (s.email && s.email.toLowerCase().includes(term)) ||
-      (s.notes && s.notes.toLowerCase().includes(term))
+      (s.notes && s.notes.toLowerCase().includes(term)) ||
+      mfrsStr.includes(term)
     );
   });
 
   const totalLinkedProducts = products.filter((p) => p.supplier_id).length;
+
+  const totalUniqueManufacturersRepresented = new Set(
+    suppliers.flatMap((s) => (Array.isArray(s.manufacturers) ? s.manufacturers : []))
+  ).size;
 
   return (
     <div className="space-y-5">
@@ -133,7 +139,7 @@ export default function SuppliersTab({
                 WhatsApp da Farmácia Desconectado
               </h4>
               <p className="text-[11px] text-amber-800 mt-0.5">
-                Para que os alertas de estoque e testes cheguem ao celular dos vendedores, escaneie o QR Code com o WhatsApp da farmácia.
+                Para que os alertas de reposição e testes cheguem ao celular dos vendedores, escaneie o QR Code com o WhatsApp da farmácia.
               </p>
             </div>
           </div>
@@ -150,7 +156,7 @@ export default function SuppliersTab({
       )}
 
       {/* Top Banner & KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <UserCheck size={24} />
@@ -158,7 +164,20 @@ export default function SuppliersTab({
           <div>
             <p className="text-xs font-medium text-slate-500">Vendedores & Reps</p>
             <p className="text-2xl font-bold text-slate-800 mt-0.5">{suppliers.length}</p>
-            <p className="text-[11px] text-slate-400">Representantes cadastrados</p>
+            <p className="text-[11px] text-slate-400">Representantes ativos</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Factory size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-500">Laboratórios Vinculados</p>
+            <p className="text-2xl font-bold text-indigo-700 mt-0.5">
+              {totalUniqueManufacturersRepresented}
+            </p>
+            <p className="text-[11px] text-slate-400">Fabricantes com vendedor direto</p>
           </div>
         </div>
 
@@ -167,22 +186,22 @@ export default function SuppliersTab({
             <Phone size={24} />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">WhatsApp Ativo p/ Alertas</p>
+            <p className="text-xs font-medium text-slate-500">WhatsApp p/ Cotação</p>
             <p className="text-2xl font-bold text-teal-700 mt-0.5">
               {suppliers.filter((s) => s.phone && s.active).length}
             </p>
-            <p className="text-[11px] text-slate-400">Notificação automática ativada</p>
+            <p className="text-[11px] text-slate-400">Robô envia pedido direto</p>
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
             <Pill size={24} />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Medicamentos Vinculados</p>
-            <p className="text-2xl font-bold text-indigo-700 mt-0.5">{totalLinkedProducts}</p>
-            <p className="text-[11px] text-slate-400">Itens com vendedor definido</p>
+            <p className="text-xs font-medium text-slate-500">Medicamentos Cobertos</p>
+            <p className="text-2xl font-bold text-sky-700 mt-0.5">{totalLinkedProducts}</p>
+            <p className="text-[11px] text-slate-400">Com vendedor automático</p>
           </div>
         </div>
       </div>
@@ -193,7 +212,7 @@ export default function SuppliersTab({
           <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por nome, distribuidora, WhatsApp..."
+            placeholder="Buscar por nome, laboratório, distribuidora..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
@@ -233,6 +252,8 @@ export default function SuppliersTab({
           ) : (
             filteredSuppliers.map((s) => {
               const count = getProductCount(s.id);
+              const mfrs = Array.isArray(s.manufacturers) ? s.manufacturers : [];
+
               return (
                 <div key={s.id} className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -261,6 +282,25 @@ export default function SuppliersTab({
                       {count} {count === 1 ? 'remédio' : 'remédios'}
                     </span>
                   </div>
+
+                  {/* Manufacturers tags on mobile */}
+                  {mfrs.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {mfrs.slice(0, 3).map((m) => (
+                        <span
+                          key={m}
+                          className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-semibold"
+                        >
+                          {m}
+                        </span>
+                      ))}
+                      {mfrs.length > 3 && (
+                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px]">
+                          +{mfrs.length - 3} mais
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {s.phone && (
                     <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
@@ -330,11 +370,11 @@ export default function SuppliersTab({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Representante / Fornecedor</th>
-                <th className="py-3 px-4">Distribuidora / Laboratório</th>
+                <th className="py-3 px-4">Representante / Vendedor</th>
+                <th className="py-3 px-4">Distribuidora</th>
+                <th className="py-3 px-4">Fabricantes / Laboratórios</th>
                 <th className="py-3 px-4">WhatsApp (Robô ZapFarm)</th>
-                <th className="py-3 px-4">E-mail</th>
-                <th className="py-3 px-4">Itens Fornecidos</th>
+                <th className="py-3 px-4">Medicamentos</th>
                 <th className="py-3 px-4">Observações</th>
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
@@ -349,6 +389,8 @@ export default function SuppliersTab({
               ) : (
                 filteredSuppliers.map((s) => {
                   const count = getProductCount(s.id);
+                  const mfrs = Array.isArray(s.manufacturers) ? s.manufacturers : [];
+
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4">
@@ -359,7 +401,7 @@ export default function SuppliersTab({
                           <div>
                             <p className="font-bold text-slate-800">{s.name}</p>
                             <span className="text-[10px] text-emerald-600 font-medium">
-                              {s.active ? '🟢 Ativo para Alertas' : '🔴 Inativo'}
+                              {s.active ? '🟢 Ativo para Cotações' : '🔴 Inativo'}
                             </span>
                           </div>
                         </div>
@@ -372,7 +414,41 @@ export default function SuppliersTab({
                             {s.company}
                           </span>
                         ) : (
-                          <span className="text-slate-400 italic">Geral / Multimarcas</span>
+                          <span className="text-slate-400 italic">Multimarcas</span>
+                        )}
+                      </td>
+
+                      {/* Manufacturers column */}
+                      <td className="py-3.5 px-4">
+                        {mfrs.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                            {mfrs.slice(0, 2).map((m) => (
+                              <span
+                                key={m}
+                                className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold"
+                              >
+                                {m}
+                              </span>
+                            ))}
+                            {mfrs.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEditSupplier(s)}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[10px] font-semibold"
+                                title={mfrs.join(', ')}
+                              >
+                                +{mfrs.length - 2} mais
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onOpenEditSupplier(s)}
+                            className="text-[11px] text-slate-400 hover:text-indigo-600 hover:underline flex items-center gap-1"
+                          >
+                            + Vincular laboratórios
+                          </button>
                         )}
                       </td>
 
@@ -383,7 +459,7 @@ export default function SuppliersTab({
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
-                            title="Abrir WhatsApp"
+                            title="Abrir conversa no WhatsApp"
                           >
                             <Phone size={12} className="text-emerald-500" />
                             {s.phone}
@@ -392,10 +468,6 @@ export default function SuppliersTab({
                         ) : (
                           <span className="text-rose-500 italic">Sem WhatsApp</span>
                         )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-500">
-                        {s.email || <span className="text-slate-400 italic">—</span>}
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -420,14 +492,16 @@ export default function SuppliersTab({
                               title="Disparar cotação/alerta de teste para este vendedor via WhatsApp"
                             >
                               <Bell size={13} className={testingId === s.id ? 'animate-bounce' : ''} />
-                              <span className="hidden lg:inline">{testingId === s.id ? 'Enviando...' : 'Testar WhatsApp'}</span>
+                              <span className="hidden lg:inline">
+                                {testingId === s.id ? 'Enviando...' : 'Testar WhatsApp'}
+                              </span>
                             </button>
                           )}
 
                           <button
                             onClick={() => onOpenEditSupplier(s)}
                             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                            title="Editar Dados do Vendedor"
+                            title="Editar Dados e Fabricantes do Vendedor"
                           >
                             <Edit size={14} />
                           </button>

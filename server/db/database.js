@@ -311,6 +311,39 @@ function initDb() {
     db.exec(`ALTER TABLE messages ADD COLUMN media_type TEXT`);
   } catch (e) {}
 
+  try {
+    db.exec(`ALTER TABLE suppliers ADD COLUMN manufacturers TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS supplier_manufacturers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        supplier_id INTEGER NOT NULL,
+        manufacturer TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_supplier_mfr ON supplier_manufacturers(tenant_id, manufacturer);
+
+      CREATE TABLE IF NOT EXISTS product_suppliers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        supplier_id INTEGER NOT NULL,
+        is_primary INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_prod_supp ON product_suppliers(product_id, supplier_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_uniq_prod_supp ON product_suppliers(product_id, supplier_id);
+    `);
+  } catch (e) {}
+
   // Seed default suppliers if none exist
   try {
     const suppCount = db.prepare('SELECT COUNT(*) as count FROM suppliers WHERE tenant_id = 1').get();

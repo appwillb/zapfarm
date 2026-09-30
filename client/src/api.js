@@ -57,6 +57,20 @@ export const api = {
   // Suppliers / Representantes
   getSuppliers: (tenantId) => fetch(`${API_BASE}/suppliers?tenant_id=${tenantId}`).then((r) => r.json()),
   getSupplier: (id) => fetch(`${API_BASE}/suppliers/${id}`).then((r) => r.json()),
+  getManufacturers: (tenantId) => fetch(`${API_BASE}/suppliers/manufacturers?tenant_id=${tenantId}`).then((r) => r.json()),
+  getProductSuppliers: (productId) => fetch(`${API_BASE}/suppliers/product/${productId}/suppliers`).then((r) => r.json()),
+  bindSupplierManufacturers: (data) =>
+    fetch(`${API_BASE}/suppliers/bind-manufacturers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+  quoteMultivendor: (productId, sentBy = 'Farmacêutico') =>
+    fetch(`${API_BASE}/suppliers/quote-multivendor/${productId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sent_by: sentBy }),
+    }).then((r) => r.json()),
   createSupplier: (data) =>
     fetch(`${API_BASE}/suppliers`, {
       method: 'POST',

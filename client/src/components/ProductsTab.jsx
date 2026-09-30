@@ -44,19 +44,41 @@ export default function ProductsTab({
     }
   };
 
-  const handleNotifySupplier = async (product) => {
-    if (!product.supplier_id) {
-      if (window.confirm(`O produto "${product.name}" ainda não possui um vendedor/representante vinculado.\n\nDeseja abrir a edição para vincular um vendedor agora?`)) {
-        onOpenEditProduct(product);
-      }
-      return;
-    }
-
+  const handleNotifySupplier = async (product, forceMulti = false) => {
     try {
       setNotifyingId(product.id);
+
+      // If multi-vendor was requested or product has multiple suppliers
+      if (forceMulti || (product.suppliers_count && product.suppliers_count > 1)) {
+        const res = await api.quoteMultivendor(product.id, currentUser?.name || 'Farmacêutico');
+        if (res.success) {
+          alert(`✅ Cotação multivendedor enviada com sucesso para ${res.sentCount} vendedor(es) via WhatsApp!`);
+          if (onRefresh) onRefresh();
+          return;
+        } else if (res.error && res.whatsappConnected === false) {
+          alert(res.error);
+          return;
+        }
+      }
+
+      if (!product.supplier_id) {
+        // Try checking if manufacturer has assigned suppliers
+        const multiRes = await api.quoteMultivendor(product.id, currentUser?.name || 'Farmacêutico');
+        if (multiRes.success && multiRes.sentCount > 0) {
+          alert(`✅ Cotação disparada para os representantes do fabricante (${multiRes.sentCount} contatados) via WhatsApp!`);
+          if (onRefresh) onRefresh();
+          return;
+        }
+
+        if (window.confirm(`O produto "${product.name}" ainda não possui um vendedor vinculado.\n\nDeseja abrir a edição para vincular um vendedor agora?`)) {
+          onOpenEditProduct(product);
+        }
+        return;
+      }
+
       const res = await api.notifySupplierLowStock(product.id, currentUser?.name || 'Farmacêutico');
       if (res.success) {
-        alert(`✅ Notificação de reposição enviada com sucesso para ${res.supplier?.name} (${res.supplier?.phone}) via WhatsApp!`);
+        alert(`✅ Notificação de reposição enviada com sucesso via WhatsApp!`);
         if (onRefresh) onRefresh();
       } else {
         alert(res.error || 'Erro ao avisar vendedor');
@@ -273,6 +295,11 @@ export default function ProductsTab({
                         {prod.supplier_company && (
                           <span className="text-[10px] text-slate-400 truncate">({prod.supplier_company})</span>
                         )}
+                        {prod.suppliers_count > 1 && (
+                          <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[9px] font-bold shrink-0">
+                            +{prod.suppliers_count - 1} rep(s)
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-[10px] text-slate-400 italic">Sem vendedor vinculado</span>
@@ -300,17 +327,29 @@ export default function ProductsTab({
                     {isLow && (
                       <button
                         type="button"
-                        onClick={() => handleNotifySupplier(prod)}
+                        onClick={() => handleNotifySupplier(prod, prod.suppliers_count > 1)}
                         disabled={notifyingId === prod.id}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                          prod.supplier_id
+                          prod.suppliers_count > 1
+                            ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300'
+                            : prod.supplier_id
                             ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                         }`}
-                        title={prod.supplier_id ? `Avisar representante ${prod.supplier_name} via WhatsApp` : 'Vincular e avisar vendedor'}
+                        title={
+                          prod.suppliers_count > 1
+                            ? `Disparar cotação para ${prod.suppliers_count} vendedores via WhatsApp`
+                            : prod.supplier_id
+                            ? `Avisar representante ${prod.supplier_name} via WhatsApp`
+                            : 'Vincular e avisar vendedor'
+                        }
                       >
                         <Bell size={13} className={notifyingId === prod.id ? 'animate-bounce text-amber-700' : 'text-amber-600'} />
-                        {notifyingId === prod.id ? 'Avisando...' : 'Avisar Rep.'}
+                        {notifyingId === prod.id
+                          ? 'Cotando...'
+                          : prod.suppliers_count > 1
+                          ? `Cotar (${prod.suppliers_count})`
+                          : 'Avisar Rep.'}
                       </button>
                     )}
                     <button
@@ -395,8 +434,10 @@ export default function ProductsTab({
                             {prod.supplier_company && (
                               <p className="text-[10px] text-slate-500">{prod.supplier_company}</p>
                             )}
-                            {prod.supplier_phone && (
-                              <p className="text-[10px] text-emerald-600 font-mono">📱 {prod.supplier_phone}</p>
+                            {prod.suppliers_count > 1 && (
+                              <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[9px] font-bold">
+                                +{prod.suppliers_count - 1} outro(s) rep(s)
+                              </span>
                             )}
                           </div>
                         ) : (
@@ -472,21 +513,31 @@ export default function ProductsTab({
                           {isLow && (
                             <button
                               type="button"
-                              onClick={() => handleNotifySupplier(prod)}
+                              onClick={() => handleNotifySupplier(prod, prod.suppliers_count > 1)}
                               disabled={notifyingId === prod.id}
                               className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold ${
-                                prod.supplier_id
+                                prod.suppliers_count > 1
+                                  ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                  : prod.supplier_id
                                   ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
                                   : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
                               }`}
                               title={
-                                prod.supplier_name
+                                prod.suppliers_count > 1
+                                  ? `Disparar cotação para ${prod.suppliers_count} vendedores via WhatsApp`
+                                  : prod.supplier_name
                                   ? `Disparar pedido de reposição via WhatsApp para ${prod.supplier_name} (${prod.supplier_phone})`
                                   : 'Vincular e avisar vendedor'
                               }
                             >
-                              <Bell size={14} className={notifyingId === prod.id ? 'animate-bounce text-amber-600' : 'text-amber-600'} />
-                              <span className="hidden xl:inline">{notifyingId === prod.id ? 'Enviando...' : 'Avisar Rep.'}</span>
+                              <Bell size={14} className={notifyingId === prod.id ? 'animate-bounce text-indigo-600' : prod.suppliers_count > 1 ? 'text-indigo-600' : 'text-amber-600'} />
+                              <span className="hidden xl:inline">
+                                {notifyingId === prod.id
+                                  ? 'Enviando...'
+                                  : prod.suppliers_count > 1
+                                  ? `Cotar (${prod.suppliers_count})`
+                                  : 'Avisar Rep.'}
+                              </span>
                             </button>
                           )}
                           <button
