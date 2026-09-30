@@ -27,15 +27,14 @@ function importDrogarosaCatalog(tenantId = 1) {
     console.warn(`[Import DrogaRosa] Aviso ao atualizar tenant:`, err.message);
   }
 
-  // 2. Desativar produtos mock iniciais (que não são da Drogarosa)
+  // 2. Remover produtos mock fictícios iniciais (que não são da Drogarosa)
   try {
     db.prepare(`
-      UPDATE products
-      SET active = 0
+      DELETE FROM products
       WHERE tenant_id = ? AND LENGTH(barcode) <> 10
     `).run(tenantId);
   } catch (err) {
-    console.warn(`[Import DrogaRosa] Aviso ao desativar mock products:`, err.message);
+    console.warn(`[Import DrogaRosa] Aviso ao remover mock products:`, err.message);
   }
 
   // 3. Garantir colunas de preço original e promoção no SQLite
