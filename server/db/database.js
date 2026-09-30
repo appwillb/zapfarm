@@ -746,15 +746,15 @@ function seedData() {
 
 initDb();
 
+module.exports = db;
+
 // Carregar automaticamente catálogo da DrogaRosa LTDA caso ainda não esteja carregado
 try {
   const drogarosaCount = db.prepare('SELECT COUNT(*) as c FROM products WHERE tenant_id = 1 AND active = 1 AND LENGTH(barcode) = 10').get();
   if (!drogarosaCount || drogarosaCount.c < 3000) {
     const { importDrogarosaCatalog } = require('./importDrogarosa');
-    importDrogarosaCatalog(1);
+    importDrogarosaCatalog(1, db);
   }
 } catch (e) {
   console.warn('[Database] Aviso ao verificar/carregar catálogo da DrogaRosa:', e.message);
 }
-
-module.exports = db;

@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const db = require('./database');
 
-function importDrogarosaCatalog(tenantId = 1) {
+function importDrogarosaCatalog(tenantId = 1, dbInstance = null) {
+  const db = dbInstance || require('./database');
   const jsonPath = path.join(__dirname, 'drogarosa_products.json');
   if (!fs.existsSync(jsonPath)) {
     throw new Error(`Arquivo drogarosa_products.json não encontrado em: ${jsonPath}`);
