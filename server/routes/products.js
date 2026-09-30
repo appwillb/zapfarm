@@ -271,5 +271,17 @@ router.post('/batch-import', (req, res) => {
   }
 });
 
+// POST /api/products/sync-drogarosa
+router.post('/sync-drogarosa', (req, res) => {
+  try {
+    const tenantId = req.body.tenant_id || 1;
+    const { importDrogarosaCatalog } = require('../db/importDrogarosa');
+    const result = importDrogarosaCatalog(tenantId);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao sincronizar catálogo DrogaRosa: ' + err.message });
+  }
+});
+
 module.exports = router;
 

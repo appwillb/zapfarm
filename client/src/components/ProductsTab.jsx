@@ -71,12 +71,17 @@ export default function ProductsTab({
   const categories = [
     'Todos',
     'Medicamentos',
-    'Analgésicos e Antitérmicos',
     'Antibióticos',
     'Anti-inflamatórios',
+    'Analgésicos e Antitérmicos',
     'Cardiovascular',
     'Gastroenterologia',
-    'Relaxante Muscular',
+    'Perfumaria e Cosméticos',
+    'Higiene Pessoal',
+    'Bebê e Infantil',
+    'Suplementos e Vitaminas',
+    'Primeiros Socorros',
+    'Conveniência',
   ];
 
   const filtered = products.filter((p) => {
