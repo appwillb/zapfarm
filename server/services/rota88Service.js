@@ -142,7 +142,7 @@ class Rota88Service {
     // Formata o link oficial de rastreamento com o domínio do painel
     let trackingUrl = rota88Res.tracking_number?.url || '';
     if (trackingNumber) {
-      trackingUrl = `${this.consoleUrl}/track-order?order=${trackingNumber}`;
+      trackingUrl = `${this.consoleUrl}/~/track-order?order=${trackingNumber}`;
     }
 
     // Atualiza os dados de rastreio no pedido do ZapFarm
