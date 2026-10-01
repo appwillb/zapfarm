@@ -254,7 +254,19 @@ class SessionManager {
             text = `📄 [Documento / Comprovante: ${fileName}]`;
           }
 
-          if (!text && !mediaUrl) continue;
+          // Check for WhatsApp Location (pin / live location)
+          const locMsg = msg.message.locationMessage || msg.message.liveLocationMessage;
+          let locationData = null;
+          if (locMsg) {
+            locationData = {
+              latitude: locMsg.degreesLatitude,
+              longitude: locMsg.degreesLongitude,
+              address: locMsg.address || locMsg.name || ''
+            };
+            text = `📍 [Localização GPS: ${locationData.latitude}, ${locationData.longitude}${locationData.address ? ` - ${locationData.address}` : ''}]`;
+          }
+
+          if (!text && !mediaUrl && !locationData) continue;
 
           console.log(`[Tenant ${tId}] Mensagem recebida de ${customerPhone} (${pushName}): ${text} ${mediaUrl ? `[Anexo: ${mediaUrl}]` : ''}`);
 
@@ -278,6 +290,7 @@ class SessionManager {
               pushName,
               mediaUrl,
               mediaType,
+              locationData,
             });
           } catch (err) {
             console.error(`Error processing message in bot engine for tenant ${tId}:`, err);

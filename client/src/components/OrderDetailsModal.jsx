@@ -130,6 +130,35 @@ export default function OrderDetailsModal({
           </div>
         )}
 
+        {/* Rota88 Live Tracking Banner */}
+        {order.rota88_tracking_url && (
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-950 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl">🛵</span>
+              <div>
+                <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                  Rota88 Logística Ativa
+                  <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-mono font-bold shadow-sm">
+                    {order.rota88_tracking_number || 'ROTA88'}
+                  </span>
+                </p>
+                <p className="text-[11px] text-amber-800/90 mt-0.5">
+                  Rastreamento e corrida em tempo real sincronizados.
+                </p>
+              </div>
+            </div>
+            <a
+              href={order.rota88_tracking_url}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-colors shadow-sm flex items-center gap-1"
+            >
+              <span>Ver no Mapa</span>
+              <span>🗺️</span>
+            </a>
+          </div>
+        )}
+
         {/* Items List */}
         <div>
           <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Itens Solicitados</h4>

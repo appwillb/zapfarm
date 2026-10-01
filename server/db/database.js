@@ -303,6 +303,31 @@ function initDb() {
     db.exec(`ALTER TABLE orders ADD COLUMN receipt_status TEXT DEFAULT 'none'`);
   } catch (e) {}
 
+  // Integração Logística Rota88
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN rota88_place_id TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN rota88_order_id TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN rota88_tracking_number TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN rota88_tracking_url TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN delivery_lat REAL`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE orders ADD COLUMN delivery_lng REAL`);
+  } catch (e) {}
+
   try {
     db.exec(`ALTER TABLE messages ADD COLUMN media_url TEXT`);
   } catch (e) {}

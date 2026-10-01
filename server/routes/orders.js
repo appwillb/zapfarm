@@ -94,6 +94,22 @@ router.post('/:id/release-delivery', async (req, res) => {
   }
 });
 
+// POST /api/orders/:id/dispatch-rota88
+router.post('/:id/dispatch-rota88', async (req, res) => {
+  const orderId = req.params.id;
+  try {
+    const rota88Service = require('../services/rota88Service');
+    const dispatch = await rota88Service.dispatchOrder(orderId);
+    res.json({
+      success: true,
+      message: 'Pedido despachado no Rota88 com sucesso!',
+      dispatch,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao integrar com Rota88: ' + err.message });
+  }
+});
+
 // POST /api/orders/:id/mark-delivered
 router.post('/:id/mark-delivered', async (req, res) => {
   const orderId = req.params.id;

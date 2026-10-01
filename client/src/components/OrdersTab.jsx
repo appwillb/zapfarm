@@ -344,6 +344,23 @@ export default function OrdersTab({
                           </div>
                         )}
 
+                        {/* Rota88 Live Tracking Badge */}
+                        {order.rota88_tracking_url && (
+                          <a
+                            href={order.rota88_tracking_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-2 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[10px] font-bold flex items-center justify-between hover:bg-amber-500/20 transition-colors"
+                          >
+                            <span className="flex items-center gap-1">
+                              <span>🛵</span>
+                              <span>Rota88: {order.rota88_tracking_number}</span>
+                            </span>
+                            <span className="underline">Mapa 🗺️</span>
+                          </a>
+                        )}
+
                         {/* Action Buttons strictly controlled by state & cashier permissions */}
                         <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
                           {order.status === 'pending_payment' && (

@@ -162,7 +162,7 @@ class BotEngine {
     `).run(state, JSON.stringify(context), isHumanVal, tenantId, phone);
   }
 
-  async handleIncomingMessage({ tenantId, customerPhone, text, pushName = '', mediaUrl = null, mediaType = null }) {
+  async handleIncomingMessage({ tenantId, customerPhone, text, pushName = '', mediaUrl = null, mediaType = null, locationData = null }) {
     const rawText = (text || '').trim();
     const lowerText = rawText.toLowerCase();
 
@@ -582,8 +582,16 @@ class BotEngine {
       }
 
       case 'asking_address': {
-        if (rawText.length < 5) {
-          await this.sendReply(tenantId, customerPhone, 'Por favor, digite o endereço completo com rua, número e bairro para que o entregador localize com facilidade:');
+        let addressText = rawText;
+        let lat = null;
+        let lng = null;
+
+        if (locationData && locationData.latitude && locationData.longitude) {
+          lat = locationData.latitude;
+          lng = locationData.longitude;
+          addressText = locationData.address || `Localização GPS enviada via WhatsApp (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+        } else if (rawText.length < 5) {
+          await this.sendReply(tenantId, customerPhone, 'Por favor, digite o endereço completo com rua, número e bairro (ou envie sua Localização pelo WhatsApp) para que o entregador localize com facilidade:');
           return;
         }
 
@@ -599,7 +607,9 @@ class BotEngine {
         const newContext = {
           ...conv.context,
           delivery_type: 'delivery',
-          address: rawText,
+          address: addressText,
+          delivery_lat: lat,
+          delivery_lng: lng,
           delivery_fee: deliveryFee,
           subtotal: subtotal,
           total: total
@@ -610,7 +620,7 @@ class BotEngine {
         await this.sendReply(
           tenantId,
           customerPhone,
-          `📍 *Endereço anotado com sucesso!*\n${rawText}\n\n` +
+          `📍 *Localização/Endereço anotado com sucesso!*\n${addressText}\n\n` +
           `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
           `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
           `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
@@ -916,8 +926,9 @@ class BotEngine {
     const insertOrder = db.prepare(`
       INSERT INTO orders (
         tenant_id, customer_phone, customer_name, delivery_type, delivery_address, delivery_fee,
-        subtotal, total, status, payment_method, notes, prescription_url, payment_confirmed_at, confirmed_by_user
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        subtotal, total, status, payment_method, notes, prescription_url, payment_confirmed_at, confirmed_by_user,
+        delivery_lat, delivery_lng
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const orderRes = insertOrder.run(
@@ -934,7 +945,9 @@ class BotEngine {
       context.notes || (context.delivery_type === 'pickup' ? 'Retirada no balcão da farmácia' : ''),
       context.prescription_url || null,
       isPix ? null : new Date().toISOString(),
-      isPix ? null : 'Automático (Pagamento Presencial)'
+      isPix ? null : 'Automático (Pagamento Presencial)',
+      context.delivery_lat || null,
+      context.delivery_lng || null
     );
 
     const orderId = orderRes.lastInsertRowid;
@@ -1215,6 +1228,19 @@ class BotEngine {
         `*(NÃO COBRAR NADA DO CLIENTE - JÁ FOI PAGO)*`;
     }
 
+    // Integração Logística Rota88: Despacha a ordem e gera rota/rastreio
+    let rota88Dispatch = null;
+    try {
+      const rota88Service = require('../services/rota88Service');
+      rota88Dispatch = await rota88Service.dispatchOrder(orderId);
+    } catch (r88Err) {
+      console.error(`[ReleaseDelivery] Erro ao integrar com Rota88:`, r88Err.message);
+    }
+
+    const trackingLinkMsg = rota88Dispatch?.trackingUrl
+      ? `\n🗺️ *Acompanhe a rota em tempo real no mapa:*\n${rota88Dispatch.trackingUrl}\n`
+      : '';
+
     const motoboyMsg = `🚨 *NOVA ENTREGA DISPONÍVEL!* 🛵📦\n\n` +
       `*Pedido:* #${order.id}\n` +
       `*Farmácia:* ${tenant.name}\n` +
@@ -1224,6 +1250,7 @@ class BotEngine {
       `${paymentInstruction}\n` +
       `*Sua Taxa de Entrega:* R$ ${order.delivery_fee.toFixed(2)}\n` +
       (order.notes && order.payment_method !== 'CASH_ON_DELIVERY' ? `*Observações:* ${order.notes}\n` : '') +
+      (rota88Dispatch?.trackingUrl ? `\n🗺️ *Ver rota no Rota88:* ${rota88Dispatch.trackingUrl}\n` : '') +
       `\n👉 Por favor, retire o pacote na bancada da farmácia e leve com cuidado ao cliente!`;
 
     await this.sendReply(order.tenant_id, driver.phone, motoboyMsg);
@@ -1244,10 +1271,11 @@ class BotEngine {
       `O entregador *${driver.name}* (${driver.vehicle || 'Moto'} placa: ${driver.plate || '---'}) já retirou seus medicamentos e está a caminho do seu endereço!\n` +
       `Endereço de entrega: ${order.delivery_address}\n` +
       customerPaymentReminder +
-      `\n\nFique atento ao interfone ou telefone. Logo ele chegará!`
+      trackingLinkMsg +
+      `\nFique atento ao interfone ou telefone. Logo ele chegará!`
     );
 
-    return { order: db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId), driver };
+    return { order: db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId), driver, rota88: rota88Dispatch };
   }
 
   async markOrderDelivered(orderId) {
