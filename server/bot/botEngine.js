@@ -545,7 +545,9 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `🛵 *Excelente! Entregamos no conforto da sua casa.*\n\nPor favor, digite seu *endereço completo de entrega*:\n(Rua, Número, Bairro e Complemento, ex: *Rua das Flores, 123, Centro - Apto 101*)`
+            `🛵 *Excelente! Entregamos no conforto da sua casa.*\n\n` +
+            `📝 *1º Passo:* Digite seu *endereço completo*:\n` +
+            `(Rua, Número, Quadra/Lote, Bairro e Ponto de Referência ou Cor da casa)`
           );
           return;
         }
@@ -582,17 +584,65 @@ class BotEngine {
       }
 
       case 'asking_address': {
-        let addressText = rawText;
+        // Se o cliente já enviou localização de cara
+        if (locationData && locationData.latitude && locationData.longitude) {
+          const lat = locationData.latitude;
+          const lng = locationData.longitude;
+          const addressText = locationData.address || `Localização GPS enviada (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+          
+          this.updateConversation(tenantId, customerPhone, 'asking_address_details', {
+            ...conv.context,
+            delivery_lat: lat,
+            delivery_lng: lng,
+            address_temp: addressText
+          });
+
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `📍 *Localização GPS recebida com sucesso!*\n\n` +
+            `Agora, por favor, digite o *número da casa, quadra/lote e complemento* (ex: *Qd 17 Lt 24, casa amarela*) para o entregador encontrar o portão exato:`
+          );
+          return;
+        }
+
+        if (rawText.length < 5) {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            'Por favor, digite o endereço com rua, número/quadra e bairro para que o entregador consiga te encontrar:'
+          );
+          return;
+        }
+
+        // Gravou o texto escrito, agora pede a localização GPS para traçar a rota exata
+        this.updateConversation(tenantId, customerPhone, 'asking_location', {
+          ...conv.context,
+          written_address: rawText
+        });
+
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `📝 *Endereço anotado:* ${rawText}\n\n` +
+          `📍 *2º Passo (Muito Importante): Envie sua Localização atual!*\n\n` +
+          `Para o motoboy seguir a rota certinha no GPS até a sua porta sem errar o caminho:\n` +
+          `1. Toque no ícone de *Clipe 📎* (ou *+* no iPhone) aqui embaixo no WhatsApp.\n` +
+          `2. Escolha *Localização*.\n` +
+          `3. Toque em *Enviar sua localização atual*.\n\n` +
+          `*(Ou se você não estiver em casa agora, responda "Continuar" para usarmos o endereço digitado)*`
+        );
+        break;
+      }
+
+      case 'asking_location': {
         let lat = null;
         let lng = null;
+        let finalAddress = conv.context.written_address || rawText;
 
         if (locationData && locationData.latitude && locationData.longitude) {
           lat = locationData.latitude;
           lng = locationData.longitude;
-          addressText = locationData.address || `Localização GPS enviada via WhatsApp (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
-        } else if (rawText.length < 5) {
-          await this.sendReply(tenantId, customerPhone, 'Por favor, digite o endereço completo com rua, número e bairro (ou envie sua Localização pelo WhatsApp) para que o entregador localize com facilidade:');
-          return;
         }
 
         const cart = conv.context.cart || [];
@@ -607,7 +657,7 @@ class BotEngine {
         const newContext = {
           ...conv.context,
           delivery_type: 'delivery',
-          address: addressText,
+          address: finalAddress,
           delivery_lat: lat,
           delivery_lng: lng,
           delivery_fee: deliveryFee,
@@ -620,7 +670,54 @@ class BotEngine {
         await this.sendReply(
           tenantId,
           customerPhone,
-          `📍 *Localização/Endereço anotado com sucesso!*\n${addressText}\n\n` +
+          `✅ *Tudo pronto para sua entrega!*\n` +
+          `📍 *Endereço:* ${finalAddress}\n` +
+          (lat && lng ? `🛰️ *GPS integrado:* Rota traçada com precisão!\n\n` : `\n`) +
+          `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
+          `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+          `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
+          `Qual será a forma de pagamento?\n\n` +
+          `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
+          `*[2]* 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
+          `*[3]* 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n\n` +
+          `Responda com *1*, *2* ou *3*:`
+        );
+        break;
+      }
+
+      case 'asking_address_details': {
+        const finalAddress = `${rawText} - ${conv.context.address_temp || ''}`;
+        const lat = conv.context.delivery_lat;
+        const lng = conv.context.delivery_lng;
+
+        const cart = conv.context.cart || [];
+        const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+        let deliveryFee = tenant.delivery_fee_default || 7.00;
+
+        if (tenant.free_shipping_threshold && subtotal >= tenant.free_shipping_threshold) {
+          deliveryFee = 0.00;
+        }
+
+        const total = subtotal + deliveryFee;
+        const newContext = {
+          ...conv.context,
+          delivery_type: 'delivery',
+          address: finalAddress,
+          delivery_lat: lat,
+          delivery_lng: lng,
+          delivery_fee: deliveryFee,
+          subtotal: subtotal,
+          total: total
+        };
+
+        this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
+
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `✅ *Tudo pronto para sua entrega!*\n` +
+          `📍 *Endereço completo:* ${finalAddress}\n` +
+          `🛰️ *GPS:* Rota traçada com precisão!\n\n` +
           `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
           `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
           `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
