@@ -1232,7 +1232,7 @@ class BotEngine {
     let rota88Dispatch = null;
     try {
       const rota88Service = require('../services/rota88Service');
-      rota88Dispatch = await rota88Service.dispatchOrder(orderId);
+      rota88Dispatch = await rota88Service.dispatchOrder(orderId, driver);
     } catch (r88Err) {
       console.error(`[ReleaseDelivery] Erro ao integrar com Rota88:`, r88Err.message);
     }

@@ -88,48 +88,67 @@ class Rota88Service {
   }
 
   /**
-   * Sincroniza e garante que a Farmácia existe como um ponto (Place) no Rota88
+   * Sincroniza e garante que a Farmácia existe como um ponto (Place) no Rota88 com GPS válido
    */
   async syncTenantPlace(tenant) {
     if (!tenant) throw new Error('Tenant não informado');
 
-    // Se já tiver o ID do ponto no Rota88, reutiliza
-    if (tenant.rota88_place_id) {
-      return tenant.rota88_place_id;
+    let placeId = tenant.rota88_place_id;
+    let needsUpdate = false;
+
+    // Se já tem place_id, verifica se ele tem coordenadas válidas
+    if (placeId) {
+      try {
+        const existing = await this.request(`/v1/places/${placeId}`, 'GET');
+        const coords = existing?.location?.coordinates;
+        if (!coords || (coords[0] === 0 && coords[1] === 0)) {
+          needsUpdate = true;
+        }
+      } catch (e) {
+        needsUpdate = true;
+      }
     }
 
-    console.log(`[Rota88Service] Criando ponto da farmácia no Rota88: ${tenant.name}`);
+    // Geocodifica o endereço da farmácia para ter GPS real
+    const gps = await this.geocodeAddress(tenant.address || tenant.name, 'Trindade, Goiás');
+    const validCoords = [gps.lng, gps.lat];
 
-    const placePayload = {
-      name: tenant.name,
-      street1: tenant.address || 'Endereço da Farmácia',
-      phone: tenant.phone || '',
-      country: 'BR'
-    };
-
-    // Geocodifica o endereço da farmácia para ter GPS
-    const coords = await this.geocodeAddress(tenant.address || tenant.name);
-    if (coords) {
-      placePayload.location = {
-        type: 'Point',
-        coordinates: [coords.lng, coords.lat]
+    if (!placeId) {
+      console.log(`[Rota88Service] Criando ponto da farmácia no Rota88: ${tenant.name}`);
+      const placePayload = {
+        name: tenant.name,
+        street1: tenant.address || 'Avenida Manoel Monteiro, 721, Trindade, Goiás',
+        phone: tenant.phone || '',
+        country: 'BR',
+        location: {
+          type: 'Point',
+          coordinates: validCoords
+        }
       };
+      const place = await this.request('/v1/places', 'POST', placePayload);
+      placeId = place.id;
+      db.prepare('UPDATE tenants SET rota88_place_id = ? WHERE id = ?').run(placeId, tenant.id);
+    } else if (needsUpdate) {
+      console.log(`[Rota88Service] Atualizando coordenadas GPS da farmácia ${tenant.name} (${placeId})...`);
+      try {
+        await this.request(`/v1/places/${placeId}`, 'PUT', {
+          location: {
+            type: 'Point',
+            coordinates: validCoords
+          }
+        });
+      } catch (err) {
+        console.warn(`[Rota88Service] Falha ao atualizar coordenadas do place:`, err.message);
+      }
     }
-
-    const place = await this.request('/v1/places', 'POST', placePayload);
-    const placeId = place.id;
-
-    // Salva o place_id no banco da farmácia
-    db.prepare('UPDATE tenants SET rota88_place_id = ? WHERE id = ?').run(placeId, tenant.id);
-    console.log(`[Rota88Service] Farmácia ${tenant.name} sincronizada com sucesso no Rota88! ID: ${placeId}`);
 
     return placeId;
   }
 
   /**
-   * Despacha um pedido para o Rota88 criando a ordem e traçando rota
+   * Despacha um pedido para o Rota88 criando a ordem, associando entregador e traçando rota
    */
-  async dispatchOrder(orderId) {
+  async dispatchOrder(orderId, driver = null) {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) throw new Error('Pedido não encontrado para despacho');
 
@@ -141,7 +160,7 @@ class Rota88Service {
       return null;
     }
 
-    // 1. Garante que a farmácia é o ponto de coleta (Pickup) com coordenadas
+    // 1. Garante que a farmácia é o ponto de coleta (Pickup) com coordenadas reais
     const pickupPlaceId = await this.syncTenantPlace(tenant);
 
     // 2. Prepara o ponto de entrega do cliente (Dropoff)
@@ -160,7 +179,7 @@ class Rota88Service {
       };
     } else {
       // Se digitou texto, geocodifica automaticamente
-      const dropoffCoords = await this.geocodeAddress(order.delivery_address);
+      const dropoffCoords = await this.geocodeAddress(order.delivery_address, 'Trindade, Goiás');
       if (dropoffCoords) {
         dropoffData.location = {
           type: 'Point',
@@ -190,11 +209,23 @@ class Rota88Service {
     };
 
     const rota88Res = await this.request('/v1/orders', 'POST', orderPayload);
-
     const rota88OrderId = rota88Res.id;
     const trackingNumber = rota88Res.tracking_number?.tracking_number || '';
+
+    // 5. Se houver entregador no Rota88 (ex: Motoboy padrão), associa e dispara o dispatch
+    try {
+      const driversList = await this.request('/v1/drivers?limit=1', 'GET');
+      const r88Driver = Array.isArray(driversList) && driversList.length > 0 ? driversList[0] : null;
+      if (r88Driver?.id) {
+        await this.request(`/v1/orders/${rota88OrderId}`, 'PUT', { driver: r88Driver.id });
+        await this.request(`/v1/orders/${rota88OrderId}/dispatch`, 'POST', {});
+        console.log(`[Rota88Service] Ordem ${rota88OrderId} despachada e vinculada ao entregador ${r88Driver.name}`);
+      }
+    } catch (driverErr) {
+      console.warn(`[Rota88Service] Aviso ao associar motorista no Rota88:`, driverErr.message);
+    }
     
-    // Formata o link oficial de rastreamento com o domínio do painel
+    // Formata o link oficial de rastreamento com o domínio do painel HTTPS
     let trackingUrl = rota88Res.tracking_number?.url || '';
     if (trackingNumber) {
       trackingUrl = `${this.consoleUrl}/~/track-order?order=${trackingNumber}`;
