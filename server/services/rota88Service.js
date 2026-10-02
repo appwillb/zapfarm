@@ -2,7 +2,7 @@ const db = require('../db/database');
 
 const ROTA88_API_URL = process.env.ROTA88_API_URL || 'http://api.rota88.org';
 const ROTA88_API_KEY = process.env.ROTA88_API_KEY || 'flb_live_Vxpz6OmeJ70pzndEuPpMEFBpoTrC5j30';
-const ROTA88_CONSOLE_URL = process.env.ROTA88_CONSOLE_URL || 'http://painel.rota88.org';
+const ROTA88_CONSOLE_URL = process.env.ROTA88_CONSOLE_URL || 'https://painel.rota88.org';
 
 class Rota88Service {
   constructor() {
