@@ -1338,16 +1338,40 @@ class BotEngine {
       ? `\n🗺️ *Acompanhe a rota em tempo real no mapa:*\n${rota88Dispatch.trackingUrl}\n`
       : '';
 
+    // Gera links nativos de GPS para o motoboy (Google Maps e Waze)
+    let gpsLinks = '';
+    const cleanCustomerPhone = (order.customer_phone || '').replace(/\D/g, '');
+    const customerWaLink = cleanCustomerPhone ? `https://wa.me/${cleanCustomerPhone}` : null;
+
+    if (order.delivery_lat && order.delivery_lng) {
+      const lat = order.delivery_lat;
+      const lng = order.delivery_lng;
+      gpsLinks = `\n🧭 *NAVEGAÇÃO GPS (1 CLIQUE):*\n` +
+        `🗺️ *Google Maps:* https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}\n` +
+        `🚗 *Waze:* https://waze.com/ul?ll=${lat},${lng}&navigate=yes\n`;
+    } else if (order.delivery_address) {
+      const encodedAddr = encodeURIComponent(order.delivery_address);
+      gpsLinks = `\n🧭 *NAVEGAÇÃO GPS (1 CLIQUE):*\n` +
+        `🗺️ *Google Maps:* https://www.google.com/maps/dir/?api=1&destination=${encodedAddr}\n` +
+        `🚗 *Waze:* https://waze.com/ul?q=${encodedAddr}&navigate=yes\n`;
+    }
+
+    const customerCallAction = customerWaLink
+      ? `💬 *Chamar Cliente no WhatsApp:* ${customerWaLink}\n`
+      : '';
+
     const motoboyMsg = `🚨 *NOVA ENTREGA DISPONÍVEL!* 🛵📦\n\n` +
       `*Pedido:* #${order.id}\n` +
       `*Farmácia:* ${tenant.name}\n` +
       `*Cliente:* ${order.customer_name || 'Cliente'} (${order.customer_phone})\n` +
+      customerCallAction +
       `*Endereço de Entrega:*\n📍 ${order.delivery_address}\n\n` +
+      `${gpsLinks}\n` +
       `*Itens do Pacote:*\n${itemsList}\n\n` +
       `${paymentInstruction}\n` +
       `*Sua Taxa de Entrega:* R$ ${order.delivery_fee.toFixed(2)}\n` +
       (order.notes && order.payment_method !== 'CASH_ON_DELIVERY' ? `*Observações:* ${order.notes}\n` : '') +
-      (rota88Dispatch?.trackingUrl ? `\n🗺️ *Ver rota no Rota88:* ${rota88Dispatch.trackingUrl}\n` : '') +
+      (rota88Dispatch?.trackingUrl ? `🗺️ *Painel Rota88:* ${rota88Dispatch.trackingUrl}\n` : '') +
       `\n👉 Por favor, retire o pacote na bancada da farmácia e leve com cuidado ao cliente!`;
 
     await this.sendReply(order.tenant_id, driver.phone, motoboyMsg);
