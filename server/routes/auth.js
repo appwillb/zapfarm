@@ -2,7 +2,40 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db/database');
-const { generateToken, authenticateToken } = require('../middleware/auth');
+const { generateToken, authenticateToken, requireAdmin, requireSuperadmin } = require('../middleware/auth');
+
+// ---- Rate limiting simples em memoria para o login (anti brute-force) ----
+// Janela de 15 minutos: max 10 tentativas por IP + e-mail.
+const loginAttempts = new Map(); // key -> { count, firstAt }
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+
+function loginRateLimit(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const key = `${ip}|${email}`;
+
+  const now = Date.now();
+  let entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) {
+    entry = { count: 0, firstAt: now };
+    loginAttempts.set(key, entry);
+  }
+  entry.count++;
+
+  if (entry.count > LOGIN_MAX_ATTEMPTS) {
+    const waitMinutes = Math.ceil((entry.firstAt + LOGIN_WINDOW_MS - now) / 60000);
+    return res.status(429).json({ error: `Muitas tentativas de login. Tente novamente em ~${waitMinutes} minuto(s).` });
+  }
+  next();
+}
+
+// Limpa o contador quando o login e bem-sucedido
+function clearLoginAttempts(req) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  loginAttempts.delete(`${ip}|${email}`);
+}
 
 // Role presets and default permissions generator
 function getDefaultPermissions(role) {
@@ -83,7 +116,7 @@ function parseUserPermissions(user) {
 }
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', loginRateLimit, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -95,10 +128,12 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: 'Credenciais inválidas.' });
   }
 
-  const validPassword = bcrypt.compareSync(password, user.password_hash);
+  const validPassword = await bcrypt.compare(password, user.password_hash);
   if (!validPassword) {
     return res.status(401).json({ error: 'Credenciais inválidas.' });
   }
+
+  clearLoginAttempts(req);
 
   let tenant = null;
   if (user.tenant_id) {
@@ -140,7 +175,7 @@ router.get('/me', authenticateToken, (req, res) => {
 });
 
 // GET /api/auth/users - list all users (for SaaS admin or filtered by tenant_id)
-router.get('/users', (req, res) => {
+router.get('/users', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id } = req.query;
   let query = `
     SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.permissions, u.active, u.created_at, t.name as tenant_name
@@ -162,7 +197,7 @@ router.get('/users', (req, res) => {
 });
 
 // POST /api/auth/users - create new user with role & permissions
-router.post('/users', (req, res) => {
+router.post('/users', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id, name, email, password, role = 'attendant', permissions } = req.body;
 
   if (!email || !name || !password) {
@@ -198,7 +233,7 @@ router.post('/users', (req, res) => {
 });
 
 // PUT /api/auth/users/:id - update user (email, name, password, role, permissions, tenant_id)
-router.put('/users/:id', (req, res) => {
+router.put('/users/:id', authenticateToken, requireAdmin, (req, res) => {
   const userId = Number(req.params.id);
   const { name, email, password, role, permissions, tenant_id, active } = req.body;
 
@@ -258,7 +293,7 @@ router.put('/users/:id', (req, res) => {
 });
 
 // DELETE /api/auth/users/:id - delete user
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', authenticateToken, requireAdmin, (req, res) => {
   const userId = Number(req.params.id);
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);

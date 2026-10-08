@@ -3,9 +3,10 @@ const router = express.Router();
 const db = require('../db/database');
 const botEngine = require('../bot/botEngine');
 const sessionManager = require('../baileys/sessionManager');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // GET /api/chat/:tenantId/conversations
-router.get('/:tenantId/conversations', (req, res) => {
+router.get('/:tenantId/conversations', authenticateToken, (req, res) => {
   const tenantId = req.params.tenantId;
 
   const convs = db
@@ -28,7 +29,7 @@ router.get('/:tenantId/conversations', (req, res) => {
 });
 
 // GET /api/chat/:tenantId/messages/:customerPhone
-router.get('/:tenantId/messages/:customerPhone', (req, res) => {
+router.get('/:tenantId/messages/:customerPhone', authenticateToken, (req, res) => {
   const { tenantId, customerPhone } = req.params;
 
   const messages = db
@@ -57,7 +58,7 @@ router.get('/:tenantId/messages/:customerPhone', (req, res) => {
 });
 
 // POST /api/chat/:tenantId/send - Attendant sends manual message
-router.post('/:tenantId/send', async (req, res) => {
+router.post('/:tenantId/send', authenticateToken, async (req, res) => {
   const { tenantId } = req.params;
   const { customerPhone, text } = req.body;
 
@@ -100,7 +101,7 @@ router.post('/:tenantId/send', async (req, res) => {
 });
 
 // POST /api/chat/:tenantId/toggle-human - Take over chat or return to bot
-router.post('/:tenantId/toggle-human', (req, res) => {
+router.post('/:tenantId/toggle-human', authenticateToken, (req, res) => {
   const { tenantId } = req.params;
   const { customerPhone, isHuman } = req.body;
 
@@ -149,7 +150,7 @@ function deleteChatConversation(tenantId, rawPhone) {
 }
 
 // POST /api/chat/:tenantId/delete-conversation - Delete conversation & messages via POST (robust against URL encoding)
-router.post('/:tenantId/delete-conversation', (req, res) => {
+router.post('/:tenantId/delete-conversation', authenticateToken, requireAdmin, (req, res) => {
   const { tenantId } = req.params;
   const customerPhone = req.body.customerPhone || req.body.phone;
 
@@ -162,7 +163,7 @@ router.post('/:tenantId/delete-conversation', (req, res) => {
 });
 
 // DELETE /api/chat/:tenantId/conversations/:customerPhone - Delete conversation & messages
-router.delete('/:tenantId/conversations/:customerPhone', (req, res) => {
+router.delete('/:tenantId/conversations/:customerPhone', authenticateToken, requireAdmin, (req, res) => {
   const { tenantId, customerPhone } = req.params;
   const result = deleteChatConversation(tenantId, customerPhone);
   res.json(result);

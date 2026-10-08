@@ -173,9 +173,20 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('zapfarm_token');
     localStorage.removeItem('zapfarm_user');
+    wsClient.disconnect();
     setCurrentUser(null);
     setCurrentTab('dashboard');
   };
+
+  // Vigia sessao expirada: se a API limpar o token (401), re-loga o usuario
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentUser && !localStorage.getItem('zapfarm_token')) {
+        setCurrentUser(null);
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   const handleUpdateCurrentUser = (updatedUser) => {
     setCurrentUser((prev) => {
@@ -202,8 +213,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadTenants();
-  }, []);
+    if (currentUser) loadTenants();
+  }, [currentUser?.id]);
 
   // 2. Load Tenant Data whenever selectedTenant changes
   const loadTenantData = async () => {

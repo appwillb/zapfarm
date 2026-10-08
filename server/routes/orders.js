@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const botEngine = require('../bot/botEngine');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // GET /api/orders?tenant_id=1&status=pending_payment
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const tenantId = req.query.tenant_id || 1;
   const status = req.query.status;
 
@@ -38,7 +39,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/orders/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
   const order = db
     .prepare(
       `
@@ -60,7 +61,7 @@ router.get('/:id', (req, res) => {
 
 // POST /api/orders/:id/confirm-payment
 // STRICT RULE: Confirm payment with pharmacist/staff verification
-router.post('/:id/confirm-payment', async (req, res) => {
+router.post('/:id/confirm-payment', authenticateToken, async (req, res) => {
   const orderId = req.params.id;
   const confirmedBy = req.body.confirmed_by || 'Farmacêutico (Painel)';
 
@@ -78,7 +79,7 @@ router.post('/:id/confirm-payment', async (req, res) => {
 
 // POST /api/orders/:id/release-delivery
 // Triggers automatic WhatsApp message to Driver and Customer
-router.post('/:id/release-delivery', async (req, res) => {
+router.post('/:id/release-delivery', authenticateToken, async (req, res) => {
   const orderId = req.params.id;
   const driverId = req.body.driver_id ? Number(req.body.driver_id) : null;
 
@@ -95,7 +96,7 @@ router.post('/:id/release-delivery', async (req, res) => {
 });
 
 // POST /api/orders/:id/dispatch-rota88
-router.post('/:id/dispatch-rota88', async (req, res) => {
+router.post('/:id/dispatch-rota88', authenticateToken, async (req, res) => {
   const orderId = req.params.id;
   try {
     const rota88Service = require('../services/rota88Service');
@@ -111,7 +112,7 @@ router.post('/:id/dispatch-rota88', async (req, res) => {
 });
 
 // POST /api/orders/:id/mark-delivered
-router.post('/:id/mark-delivered', async (req, res) => {
+router.post('/:id/mark-delivered', authenticateToken, async (req, res) => {
   const orderId = req.params.id;
   try {
     const updatedOrder = await botEngine.markOrderDelivered(orderId);
@@ -126,7 +127,7 @@ router.post('/:id/mark-delivered', async (req, res) => {
 });
 
 // POST /api/orders/:id/cancel
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
   const orderId = req.params.id;
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
@@ -169,7 +170,7 @@ router.post('/:id/cancel', async (req, res) => {
 
 // DELETE /api/orders/:id
 // Admin action: Delete order (useful for test orders and administrative cleaning)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   const orderId = req.params.id;
   const deletedBy = req.body?.user_name || req.query?.user_name || 'Administrador';
 

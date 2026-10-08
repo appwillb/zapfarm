@@ -2,16 +2,17 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const sessionManager = require('../baileys/sessionManager');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // GET /api/drivers?tenant_id=1
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const tenantId = req.query.tenant_id || 1;
   const drivers = db.prepare('SELECT * FROM delivery_drivers WHERE tenant_id = ? AND active = 1 ORDER BY name ASC').all(tenantId);
   res.json(drivers);
 });
 
 // POST /api/drivers
-router.post('/', (req, res) => {
+router.post('/', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id = 1, name, phone, vehicle = 'Moto', plate, fee_amount = 7.00 } = req.body;
 
   if (!name || !phone) {
@@ -34,7 +35,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/drivers/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const id = req.params.id;
   const { name, phone, vehicle, plate, status, fee_amount, active } = req.body;
 
@@ -68,7 +69,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/drivers/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     const id = req.params.id;
     db.prepare('UPDATE orders SET driver_id = NULL WHERE driver_id = ?').run(id);
@@ -81,7 +82,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/drivers/:id/test-message - Test WhatsApp connectivity to driver
-router.post('/:id/test-message', async (req, res) => {
+router.post('/:id/test-message', authenticateToken, async (req, res) => {
   const driver = db.prepare('SELECT * FROM delivery_drivers WHERE id = ?').get(req.params.id);
   if (!driver) return res.status(404).json({ error: 'Entregador não encontrado.' });
 

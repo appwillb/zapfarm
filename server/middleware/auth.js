@@ -21,25 +21,58 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    // If running in development without strict token, allow fallback to query param or default tenant
-    if (req.query.tenant_id) {
-      req.user = { tenant_id: Number(req.query.tenant_id), role: 'admin' };
-      return next();
-    }
-    return res.status(401).json({ error: 'Acesso não autorizado. Token ausente.' });
+    return res.status(401).json({ error: 'Acesso nao autorizado. Token ausente.' });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Token inválido ou expirado.' });
+      return res.status(403).json({ error: 'Token invalido ou expirado.' });
     }
     req.user = user;
     next();
   });
 }
 
+// Garante que o usuario so acesse dados do seu proprio tenant.
+// Superadmin pode acessar qualquer tenant (acesso global da plataforma).
+function requireTenant(req, res, next) {
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Acesso nao autorizado.' });
+  }
+
+  if (user.role === 'superadmin') {
+    // Superadmin pode indicar tenant via query (troca de farmacia no painel SaaS)
+    req.tenantId = req.query.tenant_id ? Number(req.query.tenant_id) : (user.tenant_id || 1);
+    return next();
+  }
+
+  // Funcionarios so acessam o proprio tenant
+  req.tenantId = user.tenant_id;
+  next();
+}
+
+// Middlewares de permissao por papel
+function requireSuperadmin(req, res, next) {
+  if (req.user?.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Acesso restrito ao administrador da plataforma.' });
+  }
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  const allowed = ['superadmin', 'admin', 'pharmacist'];
+  if (!req.user || !allowed.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Acesso restrito a administradores e farmaceuticos.' });
+  }
+  next();
+}
+
 module.exports = {
   JWT_SECRET,
   generateToken,
   authenticateToken,
+  requireTenant,
+  requireSuperadmin,
+  requireAdmin,
 };

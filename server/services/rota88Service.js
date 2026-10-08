@@ -1,8 +1,15 @@
 const db = require('../db/database');
 
+// Configuracao obrigatoria via variaveis de ambiente (definir no painel do Coolify).
+// NAO existe mais chave padrao: sem ROTA88_API_KEY o despacho falha explicitamente
+// em vez de usar silenciosamente uma chave invalida/vazada.
 const ROTA88_API_URL = process.env.ROTA88_API_URL || 'https://api.rota88.org';
-const ROTA88_API_KEY = process.env.ROTA88_API_KEY || 'flb_live_Vxpz6OmeJ70pzndEuPpMEFBpoTrC5j30';
+const ROTA88_API_KEY = process.env.ROTA88_API_KEY || '';
 const ROTA88_CONSOLE_URL = process.env.ROTA88_CONSOLE_URL || 'https://painel.rota88.org';
+
+if (!ROTA88_API_KEY) {
+  console.warn('[Rota88Service] AVISO: ROTA88_API_KEY nao configurada. Despacho de entregas no Rota88 ficara desabilitado ate configurar a variavel de ambiente.');
+}
 
 class Rota88Service {
   constructor() {
@@ -15,6 +22,9 @@ class Rota88Service {
    * Executa requisição HTTP autenticada contra a API do Rota88
    */
   async request(endpoint, method = 'GET', body = null) {
+    if (!this.apiKey) {
+      throw new Error('ROTA88_API_KEY nao configurada no servidor. Configure a variavel de ambiente no painel (Coolify) para habilitar a integracao.');
+    }
     const url = `${this.apiUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
     const headers = {
       'Authorization': `Bearer ${this.apiKey}`,

@@ -1,15 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
+const { authenticateToken, requireSuperadmin } = require('../middleware/auth');
 
-// GET /api/tenants - list all tenants (for superadmin or switching in demo)
-router.get('/', (req, res) => {
-  const tenants = db.prepare('SELECT * FROM tenants ORDER BY id ASC').all();
-  res.json(tenants);
+// GET /api/tenants - list all tenants (only superadmin sees all; staff sees only their own)
+router.get('/', authenticateToken, (req, res) => {
+  if (req.user.role === 'superadmin') {
+    const tenants = db.prepare('SELECT * FROM tenants ORDER BY id ASC').all();
+    return res.json(tenants);
+  }
+  const own = req.user.tenant_id
+    ? db.prepare('SELECT * FROM tenants WHERE id = ?').all(req.user.tenant_id)
+    : [];
+  res.json(own);
 });
 
 // GET /api/tenants/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
+  if (req.user.role !== 'superadmin' && Number(req.params.id) !== Number(req.user.tenant_id)) {
+    return res.status(403).json({ error: 'Acesso restrito a propria farmacia.' });
+  }
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id);
   if (!tenant) {
     return res.status(404).json({ error: 'Farmácia não encontrada.' });
@@ -20,7 +30,7 @@ router.get('/:id', (req, res) => {
 const botEngine = require('../bot/botEngine');
 
 // POST /api/tenants - create new pharmacy (SaaS platform owner)
-router.post('/', (req, res) => {
+router.post('/', authenticateToken, requireSuperadmin, (req, res) => {
   const {
     name,
     slug,
@@ -88,7 +98,10 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/tenants/:id - update pharmacy settings
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticateToken, (req, res) => {
+  if (req.user.role !== 'superadmin' && Number(req.params.id) !== Number(req.user.tenant_id)) {
+    return res.status(403).json({ error: 'Acesso restrito a propria farmacia.' });
+  }
   const tenantId = req.params.id;
   const {
     name,
@@ -152,7 +165,10 @@ router.put('/:id', (req, res) => {
 });
 
 // POST /api/tenants/:id/preview-pix - test/preview generated Pix code
-router.post('/:id/preview-pix', (req, res) => {
+router.post('/:id/preview-pix', authenticateToken, (req, res) => {
+  if (req.user.role !== 'superadmin' && Number(req.params.id) !== Number(req.user.tenant_id)) {
+    return res.status(403).json({ error: 'Acesso restrito a propria farmacia.' });
+  }
   const { pix_key, pix_type, amount = 10.00 } = req.body;
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id) || {};
   const effectiveKey = pix_key !== undefined ? pix_key : tenant.pix_key;

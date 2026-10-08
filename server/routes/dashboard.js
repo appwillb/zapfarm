@@ -2,10 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const sessionManager = require('../baileys/sessionManager');
+const { authenticateToken } = require('../middleware/auth');
 
 // GET /api/dashboard/:tenantId
-router.get('/:tenantId', (req, res) => {
+router.get('/:tenantId', authenticateToken, (req, res) => {
   const tenantId = req.params.tenantId;
+  // Escopo: funcionario so ve o dashboard da propria farmacia
+  if (req.user.role !== 'superadmin' && Number(tenantId) !== Number(req.user.tenant_id)) {
+    return res.status(403).json({ error: 'Acesso restrito a propria farmacia.' });
+  }
 
   // 1. Order counts by status
   const pendingOrders = db

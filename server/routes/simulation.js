@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const botEngine = require('../bot/botEngine');
 const sessionManager = require('../baileys/sessionManager');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../db/database');
 
 // POST /api/simulation/message - simulate an incoming customer WhatsApp message
-router.post('/message', async (req, res) => {
+router.post('/message', authenticateToken, requireAdmin, async (req, res) => {
   const { tenant_id = 1, phone = '5511999887766', text, name = 'Cliente Teste', media_url = null, media_type = null } = req.body;
 
   if (!text && !media_url) {
@@ -59,7 +60,7 @@ router.post('/message', async (req, res) => {
 });
 
 // GET /api/simulation/history/:tenantId/:phone
-router.get('/history/:tenantId/:phone', (req, res) => {
+router.get('/history/:tenantId/:phone', authenticateToken, (req, res) => {
   const { tenantId, phone } = req.params;
   const messages = db
     .prepare('SELECT * FROM messages WHERE tenant_id = ? AND customer_phone = ? ORDER BY id ASC')
@@ -73,7 +74,7 @@ router.get('/history/:tenantId/:phone', (req, res) => {
 });
 
 // POST /api/simulation/reset
-router.post('/reset', (req, res) => {
+router.post('/reset', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id = 1, phone = '5511999887766' } = req.body;
   try {
     db.prepare('DELETE FROM messages WHERE tenant_id = ? AND customer_phone = ?').run(tenant_id, phone);

@@ -17,7 +17,8 @@ class WebSocketClient {
     const protocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
     // Vite dev server fallback to port 3001
     const host = loc.port === '5173' ? `${loc.hostname}:3001` : loc.host;
-    return `${protocol}//${host}/ws?tenant_id=${tenantId || 1}`;
+    const token = encodeURIComponent(localStorage.getItem('zapfarm_token') || '');
+    return `${protocol}//${host}/ws?tenant_id=${tenantId || 1}&token=${token}`;
   }
 
   connect(tenantId) {

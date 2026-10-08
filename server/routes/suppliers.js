@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const botEngine = require('../bot/botEngine');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 /**
  * Helper to bind a supplier to a list of manufacturers
@@ -91,7 +92,7 @@ function bindSupplierToManufacturers(tenantId, supplierId, manufacturersList, st
 }
 
 // GET /api/suppliers/manufacturers - List all manufacturers with product counts and assigned suppliers
-router.get('/manufacturers', (req, res) => {
+router.get('/manufacturers', authenticateToken, (req, res) => {
   const tenantId = req.query.tenant_id || 1;
 
   try {
@@ -140,7 +141,7 @@ router.get('/manufacturers', (req, res) => {
 });
 
 // GET /api/suppliers/product/:productId/suppliers - Get all suppliers linked to a product
-router.get('/product/:productId/suppliers', (req, res) => {
+router.get('/product/:productId/suppliers', authenticateToken, (req, res) => {
   const productId = req.params.productId;
 
   try {
@@ -184,7 +185,7 @@ router.get('/product/:productId/suppliers', (req, res) => {
 });
 
 // POST /api/suppliers/bind-manufacturers - Explicit batch bind route
-router.post('/bind-manufacturers', (req, res) => {
+router.post('/bind-manufacturers', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id = 1, supplier_id, manufacturers, strategy = 'overwrite' } = req.body;
 
   if (!supplier_id) {
@@ -204,7 +205,7 @@ router.post('/bind-manufacturers', (req, res) => {
 });
 
 // GET /api/suppliers?tenant_id=1
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const tenantId = req.query.tenant_id || 1;
 
   try {
@@ -239,7 +240,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/suppliers/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
   try {
     const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id);
     if (!supplier) return res.status(404).json({ error: 'Vendedor não encontrado.' });
@@ -269,7 +270,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/suppliers
-router.post('/', (req, res) => {
+router.post('/', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id = 1, name, phone, company, email, notes, manufacturers = [], binding_strategy = 'overwrite' } = req.body;
 
   if (!name || !phone) {
@@ -330,7 +331,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/suppliers/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const id = req.params.id;
   const { name, phone, company, email, notes, active, manufacturers, binding_strategy = 'overwrite' } = req.body;
 
@@ -396,7 +397,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/suppliers/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   const id = req.params.id;
   try {
     db.prepare('UPDATE suppliers SET active = 0 WHERE id = ?').run(id);
@@ -408,7 +409,7 @@ router.delete('/:id', (req, res) => {
 
 // POST /api/suppliers/notify-low-stock/:productId
 // Manual action: Pharmacist clicks "Avisar Vendedor Agora"
-router.post('/notify-low-stock/:productId', async (req, res) => {
+router.post('/notify-low-stock/:productId', authenticateToken, requireAdmin, async (req, res) => {
   const productId = req.params.productId;
 
   try {
@@ -468,7 +469,7 @@ router.post('/notify-low-stock/:productId', async (req, res) => {
 
 // POST /api/suppliers/quote-multivendor/:productId
 // Dispatches WhatsApp quote requests to ALL suppliers associated with this product or its manufacturer
-router.post('/quote-multivendor/:productId', async (req, res) => {
+router.post('/quote-multivendor/:productId', authenticateToken, requireAdmin, async (req, res) => {
   const productId = req.params.productId;
 
   try {
@@ -568,7 +569,7 @@ router.post('/quote-multivendor/:productId', async (req, res) => {
 
 // POST /api/suppliers/:id/test-whatsapp
 // Direct action: Test WhatsApp delivery to this specific supplier
-router.post('/:id/test-whatsapp', async (req, res) => {
+router.post('/:id/test-whatsapp', authenticateToken, requireAdmin, async (req, res) => {
   const supplierId = req.params.id;
   try {
     const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(supplierId);

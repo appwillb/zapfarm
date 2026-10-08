@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const botEngine = require('../bot/botEngine');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // GET /api/products?tenant_id=1&search=dipirona&category=...&supplier_id=...
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const tenantId = req.query.tenant_id || 1;
   const search = req.query.search ? `%${req.query.search}%` : null;
   const category = req.query.category || null;
@@ -41,7 +42,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/products/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
   const product = db.prepare(`
     SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company
     FROM products p
@@ -57,7 +58,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/products
-router.post('/', (req, res) => {
+router.post('/', authenticateToken, requireAdmin, (req, res) => {
   const {
     tenant_id = 1,
     name,
@@ -139,7 +140,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/products/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const id = req.params.id;
   const {
     name,
@@ -237,7 +238,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/products/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(req.params.id);
     res.json({ success: true, message: 'Medicamento desativado com sucesso.' });
@@ -247,7 +248,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/products/batch-import - Import array of items (from CSV parsing) with supplier support
-router.post('/batch-import', (req, res) => {
+router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id = 1, products, supplier_id = null } = req.body;
   if (!Array.isArray(products) || products.length === 0) {
     return res.status(400).json({ error: 'Nenhum produto enviado para importação.' });
@@ -301,7 +302,7 @@ router.post('/batch-import', (req, res) => {
 });
 
 // POST /api/products/sync-drogarosa
-router.post('/sync-drogarosa', (req, res) => {
+router.post('/sync-drogarosa', authenticateToken, requireAdmin, (req, res) => {
   try {
     const tenantId = req.body.tenant_id || 1;
     const { importDrogarosaCatalog } = require('../db/importDrogarosa');

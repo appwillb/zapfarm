@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const sessionManager = require('../baileys/sessionManager');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // In-memory set to manage background campaign workers
 const activeWorkers = new Map();
@@ -113,7 +114,7 @@ async function processCampaignQueue(campaignId, tenantId) {
 }
 
 // GET /api/campaigns - List campaigns for tenant
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const { tenant_id } = req.query;
   if (!tenant_id) return res.status(400).json({ error: 'tenant_id é obrigatório.' });
 
@@ -141,7 +142,7 @@ function sanitizePhone(rawPhone) {
 }
 
 // GET /api/campaigns/leads - Get available qualified leads for broadcast
-router.get('/leads', (req, res) => {
+router.get('/leads', authenticateToken, (req, res) => {
   const { tenant_id } = req.query;
   if (!tenant_id) return res.status(400).json({ error: 'tenant_id é obrigatório.' });
 
@@ -219,7 +220,7 @@ router.get('/leads', (req, res) => {
 });
 
 // POST /api/campaigns/leads - Add single lead manually
-router.post('/leads', (req, res) => {
+router.post('/leads', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id, phone, name } = req.body;
   if (!tenant_id || !phone) {
     return res.status(400).json({ error: 'tenant_id e phone são obrigatórios.' });
@@ -259,7 +260,7 @@ router.post('/leads', (req, res) => {
 });
 
 // POST /api/campaigns/leads/bulk - Import multiple leads (CSV / pasted list)
-router.post('/leads/bulk', (req, res) => {
+router.post('/leads/bulk', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id, raw_text, contacts } = req.body;
   if (!tenant_id) return res.status(400).json({ error: 'tenant_id é obrigatório.' });
 
@@ -336,7 +337,7 @@ router.post('/leads/bulk', (req, res) => {
 });
 
 // DELETE /api/campaigns/leads/:phone - Remove lead from broadcast list
-router.delete('/leads/:phone', (req, res) => {
+router.delete('/leads/:phone', authenticateToken, requireAdmin, (req, res) => {
   const { tenant_id } = req.query;
   const rawPhone = req.params.phone;
 
@@ -368,7 +369,7 @@ router.delete('/leads/:phone', (req, res) => {
 });
 
 // POST /api/campaigns/test - Send immediate test broadcast to single phone number
-router.post('/test', async (req, res) => {
+router.post('/test', authenticateToken, requireAdmin, async (req, res) => {
   const { tenant_id, phone, message, image_url } = req.body;
 
   if (!tenant_id || !phone || !message) {
@@ -405,7 +406,7 @@ router.post('/test', async (req, res) => {
 });
 
 // POST /api/campaigns - Create and start campaign
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   const {
     tenant_id,
     title,
@@ -544,7 +545,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/campaigns/:id - Get details and live logs
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
   const campaign = db.prepare('SELECT * FROM marketing_campaigns WHERE id = ?').get(Number(req.params.id));
   if (!campaign) return res.status(404).json({ error: 'Campanha não encontrada.' });
 
@@ -563,7 +564,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/campaigns/:id/pause - Pause campaign
-router.post('/:id/pause', (req, res) => {
+router.post('/:id/pause', authenticateToken, requireAdmin, (req, res) => {
   const campaignId = Number(req.params.id);
   activeWorkers.set(campaignId, false);
   db.prepare('UPDATE marketing_campaigns SET status = ? WHERE id = ?').run('paused', campaignId);
@@ -571,7 +572,7 @@ router.post('/:id/pause', (req, res) => {
 });
 
 // POST /api/campaigns/:id/resume - Resume campaign
-router.post('/:id/resume', (req, res) => {
+router.post('/:id/resume', authenticateToken, requireAdmin, (req, res) => {
   const campaignId = Number(req.params.id);
   const campaign = db.prepare('SELECT * FROM marketing_campaigns WHERE id = ?').get(campaignId);
   if (!campaign) return res.status(404).json({ error: 'Campanha não encontrada.' });
@@ -582,7 +583,7 @@ router.post('/:id/resume', (req, res) => {
 });
 
 // POST /api/campaigns/:id/cancel - Cancel campaign
-router.post('/:id/cancel', (req, res) => {
+router.post('/:id/cancel', authenticateToken, requireAdmin, (req, res) => {
   const campaignId = Number(req.params.id);
   activeWorkers.set(campaignId, false);
   db.prepare('UPDATE marketing_campaigns SET status = ? WHERE id = ?').run('cancelled', campaignId);

@@ -106,13 +106,39 @@ NODE_ENV=production
 DATA_DIR=/app/data
 DATABASE_PATH=/app/data/zapfarm.db
 JWT_SECRET=defina_uma_chave_longa_e_segura_aqui_12345
+
+# Integracao Rota88 (sem a chave, o despacho fica desabilitado com erro explicito)
+ROTA88_API_URL=https://api.rota88.org
+ROTA88_API_KEY=
+ROTA88_CONSOLE_URL=https://painel.rota88.org
+
+# Expiracao automatica de pedidos Pix nao pagos (minutos; devolve o estoque reservado)
+PIX_EXPIRATION_MINUTES=60
 ```
+
+> ⚠️ **Nunca coloque segredos (chaves de API, JWT_SECRET) no codigo ou no git.**
+> Eles vivem apenas nas Environment Variables do Coolify. Se uma chave ja foi
+> commitada, revogue-a no painel do provedor — o historico do git e permanente.
 
 ### 5. Porta e Domínio
 - Configure seu domínio (ex: `farmacia.seusass.com.br`) apontando para a porta `3000`.
 - Clique em **Deploy**.
 
 Pronto! Seu SaaS de Farmácia com Baileys WhatsApp estará online com SSL automático pelo Coolify!
+
+---
+
+## 🔒 Seguranca em Producao (implementada)
+
+- **Autenticacao JWT obrigatoria em todas as rotas de API** — sem token valido, nenhuma rota responde dados (login e a unica excecao).
+- **Isolamento multi-tenant no servidor**: funcionario so acessa dados da propria farmacia; superadmin (dono do SaaS) tem visao global. Aplicado tambem ao WebSocket (`/ws`), que rejeita o handshake sem token valido.
+- **Permissoes por papel**: escritas sensiveis (criar/editar usuarios, produtos, campanhas, conectar WhatsApp) exigem papel `admin`/`pharmacist`; `superadmin` para criar farmacias.
+- **Rate limiting no login**: 10 tentativas por IP+e-mail em 15 minutos (protecao contra brute-force).
+- **JWT_SECRET obrigatorio em producao**: o servidor se recusa a iniciar sem um segredo forte (minimo 32 caracteres).
+- **Sem chave de API hardcoded**: integracao Rota88 le exclusivamente de variavel de ambiente; sem ela, falha explicitamente em vez de usar uma chave padrao.
+- **CORS restrito em producao** (mesma origem serve o frontend; configure `CORS_ORIGIN` so se precisar de dominio externo).
+- **Expiracao automatica de Pix nao pago**: pedidos `pending_payment` sem comprovante por mais de `PIX_EXPIRATION_MINUTES` sao cancelados e o estoque reservado devolvido ao catalogo.
+- **Sessao do frontend**: token expirado/invalido limpa o login automaticamente e devolve o usuario a tela de login.
 
 ---
 
