@@ -1000,6 +1000,24 @@ class BotEngine {
     const isPix = paymentMethod === 'PIX';
     const initialStatus = isPix ? 'pending_payment' : 'paid';
 
+    // SEGURANCA FINANCEIRA: sem chave Pix configurada, o pagamento gerado iria
+    // para uma conta invalida e o cliente pagaria "no vazio". Bloqueia o pedido
+    // e oferece pagamento na entrega como alternativa.
+    if (isPix && (!tenant.pix_key || String(tenant.pix_key).trim() === '')) {
+      this.updateConversation(tenantId, customerPhone, 'choosing_payment', context);
+      await this.sendReply(
+        tenantId,
+        customerPhone,
+        `⚠️ *Pagamento via Pix indisponivel no momento*\n\n` +
+        `Parece que nossa chave Pix ainda nao foi configurada. Para nao te deixar sem seus medicamentos, voce pode pagar na entrega:\n\n` +
+        `*[1]* 💳 Cartao na Entrega (o motoboy leva a maquininha)\n` +
+        `*[2]* 💵 Dinheiro na Entrega\n\n` +
+        `Ou digite *0* para falar com um atendente que resolve na hora!`
+      );
+      console.error(`[BotEngine] BLOQUEADO: tenant ${tenantId} tentou gerar Pix sem pix_key configurada.`);
+      return null;
+    }
+
     // If PIX, reserve stock; if in-person (Card/Cash), directly deduct physical stock
     if (isPix) {
       const updateReserved = db.prepare(`

@@ -590,4 +590,34 @@ router.post('/:id/cancel', authenticateToken, requireAdmin, (req, res) => {
   res.json({ success: true, status: 'cancelled' });
 });
 
+// Retoma no boot do servidor todas as campanhas que estavam 'running'
+// quando o processo caiu/reiniciou (deploy). Sem isso, a fila em memoria
+// era perdida e a campanha ficava presa em 'running' sem enviar nada.
+function resumeRunningCampaigns() {
+  try {
+    const running = db
+      .prepare("SELECT id, tenant_id FROM marketing_campaigns WHERE status = 'running'")
+      .all();
+    let count = 0;
+    for (const c of running) {
+      const pending = db
+        .prepare('SELECT COUNT(*) as n FROM campaign_logs WHERE campaign_id = ? AND status = ?')
+        .get(c.id, 'pending');
+      if (pending && pending.n > 0) {
+        processCampaignQueue(c.id, c.tenant_id);
+        count++;
+      } else {
+        // Nada pendente: conclui em vez de deixar presa
+        db.prepare('UPDATE marketing_campaigns SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?').run('completed', c.id);
+      }
+    }
+    return count;
+  } catch (e) {
+    console.error('[Campanhas] Erro em resumeRunningCampaigns:', e.message);
+    return 0;
+  }
+}
+
+router.resumeRunningCampaigns = resumeRunningCampaigns;
+
 module.exports = router;

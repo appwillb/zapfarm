@@ -165,6 +165,26 @@ server.listen(PORT, () => {
 
   // Auto-restore any saved WhatsApp Baileys sessions for tenants
   sessionManager.initAllSavedSessions();
+
+  // Backup diario automatico do banco e sessoes (ver server/services/backupService.js)
+  try {
+    const { scheduleDailyBackup } = require('./services/backupService');
+    scheduleDailyBackup();
+  } catch (e) {
+    console.error('[Backup] Nao foi possivel agendar o backup diario:', e.message);
+  }
+
+  // Retoma campanhas de marketing que estavam 'running' quando o servidor caiu
+  // (fila vivia so em memoria e era perdida em restart/redeploy)
+  try {
+    const { resumeRunningCampaigns } = require('./routes/campaigns');
+    const resumed = resumeRunningCampaigns();
+    if (resumed > 0) {
+      console.log(`[Campanhas] ${resumed} campanha(s) em andamento retomada(s) apos o restart.`);
+    }
+  } catch (e) {
+    console.error('[Campanhas] Erro ao retomar campanhas no boot:', e.message);
+  }
 });
 
 // ============================================================================

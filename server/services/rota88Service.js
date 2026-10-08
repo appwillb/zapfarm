@@ -78,7 +78,9 @@ class Rota88Service {
       for (const q of queries) {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'Rota88-ZapFarm-App/1.0 (contato@rota88.org)' }
+          // User-Agent honesto: o Nominatim/OSM exige identificacao real da aplicacao.
+          // Nao usar identidade de terceiros para nao parecer abuso do servico gratuito.
+          headers: { 'User-Agent': 'ZapFarm-SaaS/1.0 (suporte@zapfarm.app)' }
         });
         if (res.ok) {
           const list = await res.json();
@@ -222,17 +224,34 @@ class Rota88Service {
     const rota88OrderId = rota88Res.id;
     const trackingNumber = rota88Res.tracking_number?.tracking_number || '';
 
-    // 5. Se houver entregador no Rota88 (ex: Motoboy padrão), associa e dispara o dispatch
+    // 5. Associa o ENTREGADOR CORRETO (o mesmo que o ZapFarm avisou por WhatsApp).
+    // Antes: pegava o primeiro driver da lista do Rota88 - podia ser outro motoboy,
+    // e o cliente rastreava um entregador que nao era o dele.
+    // Agora: busca o driver do Rota88 pelo telefone do motoboy do ZapFarm;
+    // sem matching, a ordem fica criada mas sem dispatch automatico (vinculo manual no painel).
     try {
-      const driversList = await this.request('/v1/drivers?limit=1', 'GET');
-      const r88Driver = Array.isArray(driversList) && driversList.length > 0 ? driversList[0] : null;
-      if (r88Driver?.id) {
-        await this.request(`/v1/orders/${rota88OrderId}`, 'PUT', { driver: r88Driver.id });
-        await this.request(`/v1/orders/${rota88OrderId}/dispatch`, 'POST', {});
-        console.log(`[Rota88Service] Ordem ${rota88OrderId} despachada e vinculada ao entregador ${r88Driver.name}`);
+      let r88Driver = null;
+      if (driver && driver.phone) {
+        const cleanPhone = String(driver.phone).replace(/\D/g, '');
+        const driversList = await this.request('/v1/drivers?limit=100', 'GET');
+        const candidates = Array.isArray(driversList) ? driversList : (driversList?.data || []);
+        r88Driver = candidates.find((d) => {
+          const dPhone = String(d.phone || '').replace(/\D/g, '');
+          return dPhone && (dPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dPhone));
+        }) || null;
+        if (r88Driver) {
+          console.log('[Rota88Service] Motorista do Rota88 localizado por telefone: ' + r88Driver.name + ' (' + r88Driver.phone + ')');
+        }
+      }
+      if (!r88Driver || !r88Driver.id) {
+        console.warn('[Rota88Service] Motorista do ZapFarm nao encontrado no Rota88 por telefone. Ordem ' + rota88OrderId + ' criada SEM dispatch automatico.');
+      } else {
+        await this.request('/v1/orders/' + rota88OrderId, 'PUT', { driver: r88Driver.id });
+        await this.request('/v1/orders/' + rota88OrderId + '/dispatch', 'POST', {});
+        console.log('[Rota88Service] Ordem ' + rota88OrderId + ' despachada e vinculada ao entregador ' + r88Driver.name);
       }
     } catch (driverErr) {
-      console.warn(`[Rota88Service] Aviso ao associar motorista no Rota88:`, driverErr.message);
+      console.warn('[Rota88Service] Aviso ao associar motorista no Rota88:', driverErr.message);
     }
     
     // Formata o link oficial de rastreamento com o domínio do painel HTTPS
