@@ -2,7 +2,17 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const sessionManager = require('../baileys/sessionManager');
+const rota88Service = require('../services/rota88Service');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+
+// Sincroniza o motoboy com o Rota88 sem travar a resposta da API
+// (frota propria: cria/atualiza o driver correspondente no Rota88)
+function syncDriverInBackground(driverRow) {
+  if (!driverRow) return;
+  rota88Service.syncDriver(driverRow).catch((err) => {
+    console.warn('[Drivers] Sincronizacao com Rota88 falhou para ' + driverRow.name + ':', err.message);
+  });
+}
 
 // GET /api/drivers?tenant_id=1
 router.get('/', authenticateToken, (req, res) => {
@@ -28,6 +38,10 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 
     const result = insert.run(tenant_id, name, cleanPhone, vehicle, plate || '', Number(fee_amount) || 7.00);
     const driver = db.prepare('SELECT * FROM delivery_drivers WHERE id = ?').get(result.lastInsertRowid);
+
+    // Sincronizacao automatica com o Rota88 (frota propria da farmacia)
+    syncDriverInBackground(driver);
+
     res.status(201).json(driver);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao cadastrar entregador: ' + err.message });
@@ -62,6 +76,12 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     );
 
     const updated = db.prepare('SELECT * FROM delivery_drivers WHERE id = ?').get(id);
+
+    // Re-sincroniza alteracoes (nome/telefone/veiculo/placa/status) no Rota88
+    if (updated && updated.active) {
+      syncDriverInBackground(updated);
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao atualizar entregador: ' + err.message });
@@ -72,8 +92,16 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
 router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     const id = req.params.id;
+    const driver = db.prepare('SELECT * FROM delivery_drivers WHERE id = ?').get(id);
     db.prepare('UPDATE orders SET driver_id = NULL WHERE driver_id = ?').run(id);
     db.prepare('DELETE FROM delivery_drivers WHERE id = ?').run(id);
+
+    // Remove (ou inativa) o motorista correspondente no Rota88
+    if (driver) {
+      rota88Service.desyncDriver(driver).catch((err) => {
+        console.warn('[Drivers] Remocao no Rota88 falhou para ' + driver.name + ':', err.message);
+      });
+    }
     res.json({ success: true, message: 'Entregador excluído com sucesso.' });
   } catch (err) {
     console.error('Erro ao excluir entregador:', err);

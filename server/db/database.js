@@ -328,6 +328,17 @@ function initDb() {
     db.exec(`ALTER TABLE orders ADD COLUMN delivery_lng REAL`);
   } catch (e) {}
 
+  // Vinculo do motoboy do ZapFarm com o driver do Rota88 (frota propria)
+  try {
+    db.exec(`ALTER TABLE delivery_drivers ADD COLUMN rota88_driver_id TEXT`);
+  } catch (e) {}
+
+  // Modalidade de entrega: 'own_fleet' (motoboy da farmacia) ou 'rota88_fleet'
+  // (pool de entregadores do Rota88, estilo iFood - futuro)
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN delivery_mode TEXT DEFAULT 'own_fleet'`);
+  } catch (e) {}
+
   try {
     db.exec(`ALTER TABLE messages ADD COLUMN media_url TEXT`);
   } catch (e) {}

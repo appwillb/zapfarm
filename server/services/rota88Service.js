@@ -225,30 +225,25 @@ class Rota88Service {
     const trackingNumber = rota88Res.tracking_number?.tracking_number || '';
 
     // 5. Associa o ENTREGADOR CORRETO (o mesmo que o ZapFarm avisou por WhatsApp).
-    // Antes: pegava o primeiro driver da lista do Rota88 - podia ser outro motoboy,
-    // e o cliente rastreava um entregador que nao era o dele.
-    // Agora: busca o driver do Rota88 pelo telefone do motoboy do ZapFarm;
-    // sem matching, a ordem fica criada mas sem dispatch automatico (vinculo manual no painel).
+    // Ordem de resolucao do driver no Rota88:
+    //   a) vinculo salvo (rota88_driver_id) - rapido e garantido
+    //   b) matching por telefone (fallback para vinculos antigos)
+    //   c) sem driver: ordem criada sem dispatch (vinculo manual no painel)
+    // Modalidade futura 'rota88_fleet' (pool estilo iFood): nao passa driver
+    // aqui - a ordem vai pro pool do Rota88 e um entregador aceita a corrida.
     try {
       let r88Driver = null;
-      if (driver && driver.phone) {
-        const cleanPhone = String(driver.phone).replace(/\D/g, '');
-        const driversList = await this.request('/v1/drivers?limit=100', 'GET');
-        const candidates = Array.isArray(driversList) ? driversList : (driversList?.data || []);
-        r88Driver = candidates.find((d) => {
-          const dPhone = String(d.phone || '').replace(/\D/g, '');
-          return dPhone && (dPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dPhone));
-        }) || null;
-        if (r88Driver) {
-          console.log('[Rota88Service] Motorista do Rota88 localizado por telefone: ' + r88Driver.name + ' (' + r88Driver.phone + ')');
-        }
+      if (driver && driver.rota88_driver_id) {
+        r88Driver = { id: driver.rota88_driver_id, name: driver.name, phone: driver.phone };
+      } else if (driver && driver.phone) {
+        r88Driver = await this.findDriverByPhone(driver.phone);
       }
-      if (!r88Driver || !r88Driver.id) {
-        console.warn('[Rota88Service] Motorista do ZapFarm nao encontrado no Rota88 por telefone. Ordem ' + rota88OrderId + ' criada SEM dispatch automatico.');
-      } else {
+      if (r88Driver && r88Driver.id) {
         await this.request('/v1/orders/' + rota88OrderId, 'PUT', { driver: r88Driver.id });
         await this.request('/v1/orders/' + rota88OrderId + '/dispatch', 'POST', {});
-        console.log('[Rota88Service] Ordem ' + rota88OrderId + ' despachada e vinculada ao entregador ' + r88Driver.name);
+        console.log('[Rota88Service] Ordem ' + rota88OrderId + ' despachada e vinculada ao entregador ' + (r88Driver.name || r88Driver.id));
+      } else {
+        console.warn('[Rota88Service] Motorista do ZapFarm nao encontrado no Rota88. Ordem ' + rota88OrderId + ' criada SEM dispatch automatico.');
       }
     } catch (driverErr) {
       console.warn('[Rota88Service] Aviso ao associar motorista no Rota88:', driverErr.message);
@@ -278,6 +273,124 @@ class Rota88Service {
       trackingNumber,
       trackingUrl
     };
+  }
+
+  // ==========================================================================
+  // SINCRONIZACAO DE MOTORISTAS (frota propria da farmacia)
+  // Cria/atualiza/desativa o motoboy do ZapFarm no Rota88 automaticamente,
+  // usando o telefone como chave de vinculo (mesma regra do despacho).
+  // ==========================================================================
+
+  /**
+   * Lista todos os drivers do Rota88 (pagina-friendly).
+   */
+  async listDrivers() {
+    const driversList = await this.request('/v1/drivers?limit=100', 'GET');
+    return Array.isArray(driversList) ? driversList : (driversList?.data || []);
+  }
+
+  /**
+   * Encontra o driver do Rota88 pelo telefone (matching por sufixo, tolera +55).
+   */
+  async findDriverByPhone(phone) {
+    const cleanPhone = String(phone || '').replace(/\D/g, '');
+    if (!cleanPhone) return null;
+    const drivers = await this.listDrivers();
+    return drivers.find((d) => {
+      const dPhone = String(d.phone || '').replace(/\D/g, '');
+      return dPhone && (dPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dPhone));
+    }) || null;
+  }
+
+  /**
+   * Sincroniza um motoboy do ZapFarm para o Rota88 (cria ou atualiza).
+   * Retorna { created, rota88DriverId } ou lanca erro descritivo.
+   * Se a integracao nao estiver configurada (sem API key), retorna silenciosamente.
+   */
+  async syncDriver(zapfarmDriver) {
+    if (!zapfarmDriver || !zapfarmDriver.phone) {
+      throw new Error('Motoboy invalido para sincronizacao (sem telefone)');
+    }
+    if (!this.apiKey) {
+      // Integracao desabilitada: nao sincroniza, nao erro (frota local apenas)
+      return { synced: false, reason: 'rota88_integracao_desabilitada' };
+    }
+
+    const cleanPhone = String(zapfarmDriver.phone).replace(/\D/g, '');
+
+    // Payload padrao do Fleetbase para criar driver
+    const driverPayload = {
+      name: zapfarmDriver.name,
+      phone: cleanPhone,
+      email: zapfarmDriver.rota88_driver_email || null,
+      vehicleMake: 'Moto',
+      vehicleModel: zapfarmDriver.vehicle || 'Moto',
+      vehiclePlate: zapfarmDriver.plate || '',
+      status: zapfarmDriver.status === 'available' ? 'active' : 'offline',
+    };
+
+    // 1) Vinculo ja salvo (prioridade: evita busca e evita corrida de duplicacao)
+    // 2) Matching por telefone (fallback)
+    let existing = null;
+    if (zapfarmDriver.rota88_driver_id) {
+      existing = { id: zapfarmDriver.rota88_driver_id };
+    } else {
+      existing = await this.findDriverByPhone(cleanPhone);
+    }
+
+    if (existing && existing.id) {
+      // Atualiza dados do motorista existente
+      try {
+        await this.request('/v1/drivers/' + existing.id, 'PUT', driverPayload);
+        console.log('[Rota88Service] Motorista atualizado no Rota88: ' + zapfarmDriver.name + ' (' + cleanPhone + ')');
+        // Guarda o vinculo no ZapFarm (reutilizado no despacho)
+        db.prepare('UPDATE delivery_drivers SET rota88_driver_id = ? WHERE id = ?').run(existing.id, zapfarmDriver.id);
+        return { synced: true, created: false, rota88DriverId: existing.id };
+      } catch (err) {
+        throw new Error('Falha ao atualizar motorista no Rota88: ' + err.message);
+      }
+    }
+
+    // Cria novo motorista
+    try {
+      const created = await this.request('/v1/drivers', 'POST', driverPayload);
+      console.log('[Rota88Service] Motorista criado no Rota88: ' + zapfarmDriver.name + ' (' + cleanPhone + ') -> id ' + created.id);
+      db.prepare('UPDATE delivery_drivers SET rota88_driver_id = ? WHERE id = ?').run(created.id, zapfarmDriver.id);
+      return { synced: true, created: true, rota88DriverId: created.id };
+    } catch (err) {
+      throw new Error('Falha ao criar motorista no Rota88: ' + err.message);
+    }
+  }
+
+  /**
+   * Remove/inativa o motorista no Rota88 quando o motoboy e excluido no ZapFarm.
+   */
+  async desyncDriver(zapfarmDriver) {
+    if (!this.apiKey) {
+      return { synced: false, reason: 'rota88_integracao_desabilitada' };
+    }
+    const existing = zapfarmDriver.rota88_driver_id
+      ? { id: zapfarmDriver.rota88_driver_id }
+      : await this.findDriverByPhone(zapfarmDriver.phone);
+
+    if (!existing || !existing.id) {
+      return { synced: false, reason: 'nao_encontrado' };
+    }
+
+    try {
+      await this.request('/v1/drivers/' + existing.id, 'DELETE');
+      console.log('[Rota88Service] Motorista removido do Rota88: ' + zapfarmDriver.name);
+      db.prepare('UPDATE delivery_drivers SET rota88_driver_id = NULL WHERE id = ?').run(zapfarmDriver.id);
+      return { synced: true, removed: true };
+    } catch (err) {
+      // Alguns endpoints so permitem inativar; tenta PUT offline como fallback
+      try {
+        await this.request('/v1/drivers/' + existing.id, 'PUT', { status: 'offline' });
+        return { synced: true, deactivated: true };
+      } catch (err2) {
+        throw new Error('Falha ao remover motorista no Rota88: ' + err2.message);
+      }
+    }
   }
 }
 
