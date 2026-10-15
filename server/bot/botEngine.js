@@ -350,6 +350,52 @@ class BotEngine {
       return;
     }
 
+    // Direct command to view promotional products
+    if (
+      lowerText === 'ofertas' ||
+      lowerText === 'oferta' ||
+      lowerText === 'promocao' ||
+      lowerText === 'promoção' ||
+      lowerText === 'promocoes' ||
+      lowerText === 'promoções' ||
+      lowerText === 'promo' ||
+      lowerText === 'ver ofertas' ||
+      lowerText === 'ver promocoes' ||
+      lowerText === 'ver promoções'
+    ) {
+      try {
+        const promoProducts = db.prepare(`
+          SELECT * FROM products
+          WHERE tenant_id = ? AND active = 1 AND is_promotion = 1 AND stock_quantity > 0 AND original_price > sale_price
+          ORDER BY (original_price - sale_price) DESC
+          LIMIT 6
+        `).all(tenantId);
+
+        if (promoProducts.length > 0) {
+          let promoMsg = `🔥 *OFERTAS EM DESTAQUE - ${tenant.name.toUpperCase()}* 💊\n\n` +
+            `Separamos nossos melhores descontos do dia para você:\n\n`;
+
+          promoProducts.forEach((p, idx) => {
+            const available = p.stock_quantity - p.reserved_quantity;
+            promoMsg += `*[${idx + 1}]* ${p.name} - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
+              `   ↳ Preço: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por apenas R$ ${Number(p.sale_price).toFixed(2)}* 🔥 | Disp: ${available} un.\n\n`;
+          });
+
+          promoMsg += `Para pedir qualquer item, basta responder com o *número* da oferta (ex: *1*, *2*) ou digitar o nome de outro remédio:`;
+
+          this.updateConversation(tenantId, customerPhone, 'choosing_product', {
+            ...conv.context,
+            candidates: promoProducts
+          });
+
+          await this.sendReply(tenantId, customerPhone, promoMsg);
+          return;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar ofertas promocionais do bot:', err);
+      }
+    }
+
     // State Machine
     switch (conv.state) {
       case 'idle':
@@ -408,7 +454,7 @@ class BotEngine {
           `Dosagem: *${selected.dosage || 'Padrão'}*\n` +
           `📦 Apresentação: ${selected.presentation || selected.form || 'Unidade'}\n` +
           (selected.is_promotion && selected.original_price && Number(selected.original_price) > Number(selected.sale_price)
-            ? `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}* 🔥 _(Em oferta! De R$ ${Number(selected.original_price).toFixed(2)})_\n`
+            ? `💰 Valor: *De ~R$ ${Number(selected.original_price).toFixed(2)}~ por apenas R$ ${Number(selected.sale_price).toFixed(2)}* 🔥\n`
             : `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}*\n`) +
           `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
           (selected.requires_prescription ? `⚠️ *Atenção:* Medicamento com retenção de receita (${selected.prescription_type}).\n\n` : '') +
@@ -501,12 +547,17 @@ class BotEngine {
           }
 
           // Proceed to delivery selection
+          const minDelivery = Number(tenant.min_delivery_value || 0);
+          const deliveryOptionText = minDelivery > 0
+            ? `[1] 🛵 *Entrega no endereço (Delivery)* _(Pedido mín. R$ ${minDelivery.toFixed(2)})_`
+            : `[1] 🛵 *Entrega no endereço (Delivery)*`;
+
           this.updateConversation(tenantId, customerPhone, 'choosing_delivery', conv.context);
           await this.sendReply(
             tenantId,
             customerPhone,
             `Como você prefere receber o seu pedido?\n\n` +
-            `[1] 🛵 *Entrega no endereço (Delivery)*\n` +
+            `${deliveryOptionText}\n` +
             `[2] 🏪 *Retirar no balcão da farmácia*\n\n` +
             `Responda com *1* ou *2*:`
           );
@@ -523,13 +574,18 @@ class BotEngine {
           ...conv.context,
           prescription_url: mediaUrl || conv.context?.prescription_url || null,
         };
+        const minDelivery = Number(tenant.min_delivery_value || 0);
+        const deliveryOptionText = minDelivery > 0
+          ? `[1] 🛵 *Entrega no endereço (Delivery)* _(Pedido mín. R$ ${minDelivery.toFixed(2)})_`
+          : `[1] 🛵 *Entrega no endereço (Delivery)*`;
+
         this.updateConversation(tenantId, customerPhone, 'choosing_delivery', updatedContext);
         await this.sendReply(
           tenantId,
           customerPhone,
           `Receita registrada com sucesso! ✅ Nossa equipe farmacêutica validará o documento na separação.\n\n` +
           `Como você prefere receber o seu pedido?\n\n` +
-          `[1] 🛵 *Entrega no endereço (Delivery)*\n` +
+          `${deliveryOptionText}\n` +
           `[2] 🏪 *Retirar no balcão da farmácia*\n\n` +
           `Responda com *1* ou *2*:`
         );
@@ -538,6 +594,25 @@ class BotEngine {
 
       case 'choosing_delivery': {
         if (lowerText === '1' || lowerText.includes('entrega') || lowerText.includes('delivery')) {
+          const cart = conv.context.cart || [];
+          const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+          const minDelivery = Number(tenant.min_delivery_value || 0);
+
+          if (minDelivery > 0 && subtotal < minDelivery) {
+            const missing = minDelivery - subtotal;
+            await this.sendReply(
+              tenantId,
+              customerPhone,
+              `⚠️ *Pedido Mínimo para Entrega: R$ ${minDelivery.toFixed(2)}*\n\n` +
+              `O total dos produtos no seu carrinho é de *R$ ${subtotal.toFixed(2)}*.\n` +
+              `Para solicitar entrega em domicílio 🛵, faltam *R$ ${missing.toFixed(2)}* em produtos.\n\n` +
+              `👉 *O que você prefere fazer?*\n` +
+              `• Digite o nome de outro produto (ex: dipirona, sabonete, etc.) para adicionar ao carrinho\n` +
+              `• Ou responda *2* para *Retirar no Balcão* da farmácia (sem taxa e sem valor mínimo!)`
+            );
+            return;
+          }
+
           this.updateConversation(tenantId, customerPhone, 'asking_address', {
             ...conv.context,
             delivery_type: 'delivery'
@@ -647,7 +722,9 @@ class BotEngine {
 
         const cart = conv.context.cart || [];
         const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
-        let deliveryFee = tenant.delivery_fee_default || 7.00;
+        let deliveryFee = (tenant.delivery_fee_default !== null && tenant.delivery_fee_default !== undefined && tenant.delivery_fee_default !== '')
+          ? Number(tenant.delivery_fee_default)
+          : 7.00;
 
         if (tenant.free_shipping_threshold && subtotal >= tenant.free_shipping_threshold) {
           deliveryFee = 0.00;
@@ -667,6 +744,10 @@ class BotEngine {
 
         this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
 
+        const feeDisplay = deliveryFee === 0
+          ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n`
+          : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`;
+
         await this.sendReply(
           tenantId,
           customerPhone,
@@ -674,7 +755,7 @@ class BotEngine {
           `📍 *Endereço:* ${finalAddress}\n` +
           (lat && lng ? `🛰️ *GPS integrado:* Rota traçada com precisão!\n\n` : `\n`) +
           `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-          `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+          `${feeDisplay}` +
           `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
           `Qual será a forma de pagamento?\n\n` +
           `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
@@ -692,7 +773,9 @@ class BotEngine {
 
         const cart = conv.context.cart || [];
         const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
-        let deliveryFee = tenant.delivery_fee_default || 7.00;
+        let deliveryFee = (tenant.delivery_fee_default !== null && tenant.delivery_fee_default !== undefined && tenant.delivery_fee_default !== '')
+          ? Number(tenant.delivery_fee_default)
+          : 7.00;
 
         if (tenant.free_shipping_threshold && subtotal >= tenant.free_shipping_threshold) {
           deliveryFee = 0.00;
@@ -712,6 +795,10 @@ class BotEngine {
 
         this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
 
+        const feeDisplay = deliveryFee === 0
+          ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n`
+          : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`;
+
         await this.sendReply(
           tenantId,
           customerPhone,
@@ -719,7 +806,7 @@ class BotEngine {
           `📍 *Endereço completo:* ${finalAddress}\n` +
           `🛰️ *GPS:* Rota traçada com precisão!\n\n` +
           `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-          `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+          `${feeDisplay}` +
           `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
           `Qual será a forma de pagamento?\n\n` +
           `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
@@ -934,7 +1021,7 @@ class BotEngine {
         `Dosagem: *${p.dosage || 'Padrão'}*\n` +
         `📦 Apresentação: ${p.presentation || p.form || 'Unidade'}\n` +
         (p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price)
-          ? `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}* 🔥 _(Em oferta! De R$ ${Number(p.original_price).toFixed(2)})_\n`
+          ? `💰 Valor: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por apenas R$ ${Number(p.sale_price).toFixed(2)}* 🔥\n`
           : `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}*\n`) +
         `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
         (p.requires_prescription ? `⚠️ *Atenção:* Medicamento sob retenção de receita médica.\n\n` : '') +
@@ -959,7 +1046,9 @@ class BotEngine {
       const available = p.stock_quantity - p.reserved_quantity;
       const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
       listMsg += `*[${idx + 1}]* ${p.name} - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
-        `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}*${isPromo ? ' 🔥 *(PROMO)*' : ''} | Disp: ${available} un.\n\n`;
+        (isPromo
+          ? `   ↳ Preço: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por R$ ${Number(p.sale_price).toFixed(2)}* 🔥 *(OFERTA)* | Disp: ${available} un.\n\n`
+          : `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}* | Disp: ${available} un.\n\n`);
     });
 
     listMsg += `Digite o número de 1 a ${products.length}, ou digite *0* para falar com atendente:`;
@@ -994,7 +1083,9 @@ class BotEngine {
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
     const cart = context.cart || [];
     const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
-    const deliveryFee = context.delivery_fee || 0.0;
+    const deliveryFee = (context.delivery_fee !== null && context.delivery_fee !== undefined)
+      ? Number(context.delivery_fee)
+      : 0.0;
     const total = subtotal + deliveryFee;
     const paymentMethod = context.payment_method || 'PIX';
     const isPix = paymentMethod === 'PIX';
@@ -1149,7 +1240,7 @@ class BotEngine {
       });
 
       orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
-        `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`) +
         `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
         `💠 *PAGAMENTO VIA PIX:*\n` +
         `O código Pix Copia e Cola foi gerado e está sendo enviado na mensagem abaixo para você copiar facilmente. 👇`;
@@ -1202,7 +1293,7 @@ class BotEngine {
       });
 
       orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
-        `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` +
+        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`) +
         `*VALOR TOTAL A PAGAR: R$ ${total.toFixed(2)}*\n\n` +
         `${paymentLabel}\n\n` +
         `✅ *Seu pedido já foi encaminhado para separação imediata!*\n` +

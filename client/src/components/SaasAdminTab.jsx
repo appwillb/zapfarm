@@ -34,6 +34,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
     pix_key: '',
     logo_url: '',
     delivery_fee_default: '7.00',
+    min_delivery_value: '0.00',
     address: '',
     admin_name: '',
     admin_email: '',
@@ -71,6 +72,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
     address: '',
     business_hours: '',
     delivery_fee_default: '7.00',
+    min_delivery_value: '0.00',
   });
   const [savingTenant, setSavingTenant] = useState(false);
 
@@ -120,6 +122,7 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
         pix_key: '',
         logo_url: '',
         delivery_fee_default: '7.00',
+        min_delivery_value: '0.00',
         address: '',
         admin_name: '',
         admin_email: '',
@@ -143,7 +146,8 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
       pix_key: t.pix_key || '',
       address: t.address || '',
       business_hours: t.business_hours || '08:00 às 22:00',
-      delivery_fee_default: t.delivery_fee_default || '7.00',
+      delivery_fee_default: t.delivery_fee_default !== null && t.delivery_fee_default !== undefined ? String(t.delivery_fee_default) : '7.00',
+      min_delivery_value: t.min_delivery_value !== null && t.min_delivery_value !== undefined ? String(t.min_delivery_value) : '0.00',
     });
     setEditTenantModal({ open: true, tenant: t });
   };
@@ -754,6 +758,33 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Taxa de Entrega (R$)</label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={tenantFormData.delivery_fee_default}
+                    onChange={(e) => setTenantFormData({ ...tenantFormData, delivery_fee_default: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                  <span className="text-[10px] text-slate-400">0 para frete grátis</span>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Pedido Mínimo Entrega (R$)</label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    min="0"
+                    value={tenantFormData.min_delivery_value}
+                    onChange={(e) => setTenantFormData({ ...tenantFormData, min_delivery_value: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                  <span className="text-[10px] text-slate-400">0 para desativar</span>
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -859,6 +890,33 @@ export default function SaasAdminTab({ tenants, onTenantCreated }) {
                   onChange={(e) => setFormData({ ...formData, pix_key: e.target.value })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Taxa Padrão de Entrega (R$)</label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={formData.delivery_fee_default}
+                    onChange={(e) => setFormData({ ...formData, delivery_fee_default: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                  <span className="text-[10px] text-slate-400">0 para frete grátis</span>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Pedido Mínimo Entrega (R$)</label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    min="0"
+                    value={formData.min_delivery_value}
+                    onChange={(e) => setFormData({ ...formData, min_delivery_value: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                  <span className="text-[10px] text-slate-400">0 para desativar</span>
+                </div>
               </div>
 
               <div>

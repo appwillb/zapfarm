@@ -60,8 +60,9 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     logo_url: tenant?.logo_url || '',
     pix_key: tenant?.pix_key || '',
     pix_type: tenant?.pix_type || 'cnpj',
-    delivery_fee_default: tenant?.delivery_fee_default || 7.00,
-    free_shipping_threshold: tenant?.free_shipping_threshold || 100.00,
+    delivery_fee_default: tenant?.delivery_fee_default ?? 7.00,
+    free_shipping_threshold: tenant?.free_shipping_threshold ?? 100.00,
+    min_delivery_value: tenant?.min_delivery_value ?? 0.00,
     address: tenant?.address || '',
     business_hours: tenant?.business_hours || '08:00 às 22:00',
     welcome_message: tenant?.welcome_message || '',
@@ -259,6 +260,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
         pix_type: tenant.pix_type || 'cnpj',
         delivery_fee_default: tenant.delivery_fee_default ?? 7.00,
         free_shipping_threshold: tenant.free_shipping_threshold ?? 100.00,
+        min_delivery_value: tenant.min_delivery_value ?? 0.00,
         address: tenant.address || '',
         business_hours: tenant.business_hours || '08:00 às 22:00',
         welcome_message: tenant.welcome_message || '',
@@ -556,26 +558,49 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-700 block mb-1">Taxa Padrão de Entrega (R$)</label>
               <input
                 type="number"
                 step="0.50"
+                min="0"
                 value={formData.delivery_fee_default}
                 onChange={(e) => setFormData({ ...formData, delivery_fee_default: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-medium"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Caso <strong>não cobre</strong> taxa de entrega, basta colocar <strong>0,00</strong> (Entrega Grátis 🎉).
+              </p>
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Pedido Mínimo p/ Entrega (R$)</label>
+              <input
+                type="number"
+                step="1.00"
+                min="0"
+                value={formData.min_delivery_value}
+                onChange={(e) => setFormData({ ...formData, min_delivery_value: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-medium"
+                placeholder="Ex: 20.00"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                O robô só libera entrega acima deste valor (ex: R$ 20). Deixe <strong>0</strong> para desativar.
+              </p>
             </div>
             <div>
               <label className="font-bold text-slate-700 block mb-1">Frete Grátis Acima de (R$)</label>
               <input
                 type="number"
                 step="1.00"
+                min="0"
                 value={formData.free_shipping_threshold}
                 onChange={(e) => setFormData({ ...formData, free_shipping_threshold: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-medium"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Pedidos com produtos acima deste valor ganham taxa grátis automaticamente.
+              </p>
             </div>
           </div>
         </div>

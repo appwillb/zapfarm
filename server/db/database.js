@@ -31,6 +31,7 @@ function initDb() {
       pix_type TEXT DEFAULT 'cnpj',
       delivery_fee_default REAL DEFAULT 7.00,
       free_shipping_threshold REAL DEFAULT 120.00,
+      min_delivery_value REAL DEFAULT 0.00,
       address TEXT,
       business_hours TEXT DEFAULT '08:00 às 22:00',
       welcome_message TEXT DEFAULT 'Olá! Bem-vindo(a) à {nome}. Qual medicamento ou produto você procura hoje?',
@@ -349,6 +350,10 @@ function initDb() {
 
   try {
     db.exec(`ALTER TABLE suppliers ADD COLUMN manufacturers TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN min_delivery_value REAL DEFAULT 0.00`);
   } catch (e) {}
 
   try {

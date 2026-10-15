@@ -41,6 +41,8 @@ router.post('/', authenticateToken, requireSuperadmin, (req, res) => {
     pix_key,
     pix_type = 'cnpj',
     delivery_fee_default = 7.00,
+    free_shipping_threshold = 120.00,
+    min_delivery_value = 0.00,
     address,
     business_hours = '08:00 às 22:00',
     welcome_message,
@@ -52,11 +54,19 @@ router.post('/', authenticateToken, requireSuperadmin, (req, res) => {
   }
 
   try {
+    const feeDefault = delivery_fee_default !== undefined && delivery_fee_default !== null && delivery_fee_default !== ''
+      ? Number(delivery_fee_default)
+      : 7.00;
+    const minDelivery = min_delivery_value !== undefined && min_delivery_value !== null && min_delivery_value !== ''
+      ? Number(min_delivery_value)
+      : 0.00;
+
     const insert = db.prepare(`
       INSERT INTO tenants (
         name, slug, cnpj, phone, email, plan, pix_key, pix_type,
-        delivery_fee_default, address, business_hours, welcome_message, logo_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        delivery_fee_default, free_shipping_threshold, min_delivery_value,
+        address, business_hours, welcome_message, logo_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
@@ -68,7 +78,9 @@ router.post('/', authenticateToken, requireSuperadmin, (req, res) => {
       plan,
       pix_key || '',
       pix_type,
-      Number(delivery_fee_default) || 7.00,
+      feeDefault,
+      Number(free_shipping_threshold) || 120.00,
+      minDelivery,
       address || '',
       business_hours,
       welcome_message || `Olá! Bem-vindo(a) à ${name}. Qual remédio ou produto você procura hoje?`,
@@ -112,6 +124,8 @@ router.put('/:id', authenticateToken, (req, res) => {
     pix_type,
     delivery_fee_default,
     free_shipping_threshold,
+    min_delivery_value,
+    min_order_value,
     address,
     business_hours,
     welcome_message,
@@ -121,6 +135,8 @@ router.put('/:id', authenticateToken, (req, res) => {
   } = req.body;
 
   try {
+    const minVal = min_delivery_value !== undefined ? min_delivery_value : min_order_value;
+
     db.prepare(`
       UPDATE tenants SET
         name = COALESCE(?, name),
@@ -131,6 +147,7 @@ router.put('/:id', authenticateToken, (req, res) => {
         pix_type = COALESCE(?, pix_type),
         delivery_fee_default = COALESCE(?, delivery_fee_default),
         free_shipping_threshold = COALESCE(?, free_shipping_threshold),
+        min_delivery_value = COALESCE(?, min_delivery_value),
         address = COALESCE(?, address),
         business_hours = COALESCE(?, business_hours),
         welcome_message = COALESCE(?, welcome_message),
@@ -145,8 +162,9 @@ router.put('/:id', authenticateToken, (req, res) => {
       email,
       pix_key,
       pix_type,
-      delivery_fee_default !== undefined ? Number(delivery_fee_default) : null,
-      free_shipping_threshold !== undefined ? Number(free_shipping_threshold) : null,
+      delivery_fee_default !== undefined && delivery_fee_default !== '' ? Number(delivery_fee_default) : null,
+      free_shipping_threshold !== undefined && free_shipping_threshold !== '' ? Number(free_shipping_threshold) : null,
+      minVal !== undefined && minVal !== '' ? Number(minVal) : null,
       address,
       business_hours,
       welcome_message,
