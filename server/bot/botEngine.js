@@ -948,27 +948,78 @@ class BotEngine {
           customerPhone,
           `📝 *Endereço anotado:* ${rawText}\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📍 *2º Passo (Muito Importante): Envie sua Localização!*\n\n` +
+          `📍 *2º Passo (Obrigatório): Envie sua Localização!*\n\n` +
           `Para o motoboy seguir a rota certinha no GPS até a sua porta sem errar o caminho:\n\n` +
           `1. Toque no ícone de *Clipe 📎* (ou *+* no iPhone) aqui embaixo no WhatsApp.\n` +
           `2. Escolha *Localização*.\n` +
           `3. Toque em *Enviar sua localização atual*.\n\n` +
-          `*(Ou se você não estiver em casa agora, responda "Continuar" para usarmos o endereço digitado)*\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `💬 *Deseja falar com atendente?* Digite *0*`
+          `💬 *Prefere passar os dados para um atendente?* Digite *0*`
         );
         break;
       }
 
       case 'asking_location': {
-        let lat = null;
-        let lng = null;
-        let finalAddress = conv.context.written_address || rawText;
+        // If customer wants to switch to pickup at balcão
+        if (lowerText === '2' || lowerText === '[2]' || lowerText.includes('retirar') || lowerText.includes('balcão') || lowerText.includes('balcao') || lowerText.includes('loja')) {
+          const cart = conv.context.cart || [];
+          const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
+          const newContext = {
+            ...conv.context,
+            delivery_type: 'pickup',
+            address: 'Retirada no Balcão da Farmácia',
+            delivery_fee: 0.0,
+            delivery_lat: null,
+            delivery_lng: null,
+            subtotal: subtotal,
+            total: subtotal
+          };
+          this.updateConversation(tenantId, customerPhone, 'choosing_payment', newContext);
 
-        if (locationData && locationData.latitude && locationData.longitude) {
-          lat = locationData.latitude;
-          lng = locationData.longitude;
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🏪 *RETIRADA NO BALCÃO SELECIONADA!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📦 *Total dos produtos:* R$ ${formatMoney(subtotal)}\n` +
+            `🏷️ *Taxa de Entrega:* Grátis (Retirada no balcão)\n` +
+            `💰 *TOTAL A PAGAR:* *R$ ${formatMoney(subtotal)}*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `💳 *COMO VOCÊ PREFERE PAGAR?*\n\n` +
+            `[ 1 ] 💠 *Pix* (Gera código Copia e Cola para pagar agora)\n` +
+            `[ 2 ] 💳 *Cartão no Balcão* (Pagar na maquininha ao retirar)\n` +
+            `[ 3 ] 💵 *Dinheiro no Balcão* (Pagar em espécie ao retirar)\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+            `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
+          );
+          return;
         }
+
+        // STRICT LOGISTICS LOCK: Rota88 and Motoboy GPS REQUIRE exact coordinates!
+        // Do NOT allow continuing with delivery unless locationData is provided.
+        if (!locationData || !locationData.latitude || !locationData.longitude) {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `📍 *LOCALIZAÇÃO GPS OBRIGATÓRIA*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Para traçar a rota exata da entrega no GPS do motoboy, é *obrigatório* enviar a sua localização atual pelo WhatsApp:\n\n` +
+            `1. Toque no ícone de *Clipe 📎* (ou *+* no iPhone) aqui embaixo.\n` +
+            `2. Escolha a opção *Localização*.\n` +
+            `3. Toque em *Enviar sua localização atual*.\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💡 *Não está no local da entrega?*\n` +
+            `• Digite *2* para Retirar no Balcão da Farmácia\n` +
+            `• Ou digite *0* para falar com um atendente humano.`
+          );
+          return;
+        }
+
+        const lat = locationData.latitude;
+        const lng = locationData.longitude;
+        const finalAddress = conv.context.written_address || locationData.address || `Localização GPS (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
 
         const cart = conv.context.cart || [];
         const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
@@ -1004,7 +1055,7 @@ class BotEngine {
           `✅ *RESUMO DO SEU PEDIDO*\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `📍 *Endereço:* ${finalAddress}\n` +
-          (lat && lng ? `🛰️ *GPS:* Rota traçada com precisão!\n` : ``) +
+          `🛰️ *GPS:* Rota traçada com precisão!\n` +
           `📦 Subtotal: R$ ${formatMoney(subtotal)}\n` +
           `🛵 ${feeDisplay}` +
           `💰 *VALOR TOTAL: R$ ${formatMoney(total)}*\n` +
