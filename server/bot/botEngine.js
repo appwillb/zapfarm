@@ -288,7 +288,35 @@ class BotEngine {
 
     // Check if attendant has taken over human support
     if (conv.is_human_agent === 1) {
-      if (lowerText === '#bot' || lowerText === '#reiniciar' || lowerText === '#menu') {
+      const isReactivateBot =
+        lowerText === 'menu' ||
+        lowerText === '#menu' ||
+        lowerText === '#bot' ||
+        lowerText === 'bot' ||
+        lowerText === 'robo' ||
+        lowerText === 'robô' ||
+        lowerText === '#robo' ||
+        lowerText === '#robô' ||
+        lowerText === 'inicio' ||
+        lowerText === 'início' ||
+        lowerText === '#inicio' ||
+        lowerText === '#início' ||
+        lowerText === 'recomecar' ||
+        lowerText === 'recomeçar' ||
+        lowerText === '#recomecar' ||
+        lowerText === '#recomeçar' ||
+        lowerText === 'reiniciar' ||
+        lowerText === '#reiniciar' ||
+        lowerText === 'voltar' ||
+        lowerText === '#voltar' ||
+        lowerText === 'cancelar' ||
+        lowerText === '#cancelar' ||
+        lowerText === '1' ||
+        lowerText === '[1]' ||
+        lowerText === '2' ||
+        lowerText === '[2]';
+
+      if (isReactivateBot) {
         this.updateConversation(tenantId, customerPhone, 'idle', {}, 0);
         await this.sendReply(
           tenantId,
