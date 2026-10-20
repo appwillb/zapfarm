@@ -97,6 +97,12 @@ function generatePixCode({ pixKey, pixType, merchantName, merchantCity, amount, 
   return payload + crcHex;
 }
 
+// Helper to format currency in standard Brazilian format (ex: R$ 1.234,56)
+function formatMoney(val) {
+  const num = Number(val) || 0;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 class BotEngine {
   constructor() {
     this.sendWhatsAppMessageFn = null;
@@ -254,10 +260,13 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `✅ *Comprovante recebido com sucesso!* 🧾\n\n` +
-        `Nosso operador de caixa e equipe de balcão da *${tenant.name}* já receberam o seu comprovante do *Pedido #${pendingOrder.id}* (Total: *R$ ${Number(pendingOrder.total).toFixed(2)}*) no painel!\n\n` +
+        `✅ *COMPROVANTE RECEBIDO COM SUCESSO!* 🧾\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Nossa equipe de balcão da *${tenant.name}* já recebeu o seu comprovante do *Pedido #${pendingOrder.id}* (Total: *R$ ${formatMoney(pendingOrder.total)}*) no painel!\n\n` +
         `🔍 Estamos conferindo a entrada do Pix no extrato para liberar imediatamente a separação dos seus medicamentos.\n\n` +
-        `🛵 Assim que conferido pelo operador de caixa, você receberá a notificação de confirmação aqui no WhatsApp!`
+        `🛵 Assim que conferido, você receberá a notificação de confirmação aqui no WhatsApp!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0*`
       );
       return;
     }
@@ -266,20 +275,37 @@ class BotEngine {
     if (conv.is_human_agent === 1) {
       if (lowerText === '#bot' || lowerText === '#reiniciar' || lowerText === '#menu') {
         this.updateConversation(tenantId, customerPhone, 'idle', {}, 0);
-        await this.sendReply(tenantId, customerPhone, `🤖 Atendimento automático reativado!\n\n${tenant.welcome_message.replace('{nome}', tenant.name)}`);
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `🤖 *ATENDIMENTO AUTOMÁTICO REATIVADO!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Como posso te ajudar agora?\n\n` +
+          `[ 1 ] 🔍 *Buscar remédio ou produto* (digite o nome)\n` +
+          `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
+        );
         return;
       }
       // Attendant is chatting manually; bot doesn't interfere
       return;
     }
 
-    // Command to ask for human assistance (supports 0, 'atendente', 'falar com atendente', etc.)
+    // Command to ask for human assistance (supports 0, [0], 'atendente', 'falar com atendente', etc.)
     const isHumanRequest =
       lowerText === '0' ||
+      lowerText === '[0]' ||
+      lowerText === '(0)' ||
+      lowerText === '#0' ||
       lowerText === 'humano' ||
       lowerText === 'atendente' ||
+      lowerText === 'atendimento' ||
       lowerText === 'farmaceutico' ||
       lowerText === 'farmacêutico' ||
+      lowerText === 'balcao' ||
+      lowerText === 'balcão' ||
       lowerText === 'suporte' ||
       lowerText === 'ajuda' ||
       lowerText.includes('falar com atendente') ||
@@ -292,6 +318,7 @@ class BotEngine {
       lowerText.includes('preciso de atendente') ||
       lowerText.includes('passar para atendente') ||
       lowerText.includes('falar com pessoa') ||
+      lowerText.includes('atendente') ||
       /^(quero |preciso )?(falar com |chamar )?(atendente|humano|farmac[eê]utico|balc[aã]o)/i.test(lowerText);
 
     if (isHumanRequest) {
@@ -305,7 +332,12 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `👨‍⚕️ *ATENDIMENTO HUMANIZADO ACIONADO!*\n\nOlá, ${customerName}! Transferi sua conversa diretamente para nossa equipe e farmacêutico(a) no balcão da *${tenant.name}*.\n\nUm de nossos atendentes já recebeu o aviso no painel e responderá você aqui em instantes!\n\n_(Caso queira voltar ao robô automático a qualquer momento, digite *#bot* ou *MENU*)_`
+        `👨‍⚕️ *ATENDIMENTO HUMANIZADO ACIONADO!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Olá, *${customerName}*! Transferi sua conversa diretamente para nossa equipe e farmacêutico(a) no balcão da *${tenant.name}*.\n\n` +
+        `Um de nossos atendentes já recebeu o alerta no painel e responderá você aqui em instantes! 💚\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `_(Caso queira voltar ao robô automático a qualquer momento, digite *#bot* ou *MENU*)_`
       );
       return;
     }
@@ -332,20 +364,32 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `✅ *Descadastro Realizado com Sucesso!*\n\nVocê não receberá mais notificações ou promoções da *${tenant.name}*.\n\nSempre que precisar de remédios ou quiser falar conosco, basta enviar qualquer mensagem normal aqui!`
+        `✅ *Descadastro Realizado com Sucesso!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Você não receberá mais notificações ou promoções da *${tenant.name}*.\n\n` +
+        `Sempre que precisar de remédios ou quiser falar conosco, basta enviar qualquer mensagem normal aqui!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0*`
       );
       return;
     }
 
     // Reset command
-    if (lowerText === 'inicio' || lowerText === 'início' || lowerText === 'menu' || lowerText === 'cancelar') {
+    if (lowerText === 'inicio' || lowerText === 'início' || lowerText === 'menu' || lowerText === 'cancelar' || lowerText === 'recomecar' || lowerText === 'recomeçar') {
       this.updateConversation(tenantId, customerPhone, 'idle', {});
       await this.sendReply(
         tenantId,
         customerPhone,
-        `Olá, ${customerName}! 💊 Bem-vindo(a) à *${tenant.name}*.\n\n` +
-        `Qual medicamento ou produto de saúde você procura hoje?\n` +
-        `_(Digite o nome do remédio ou digite *0* para falar com o atendente)_`
+        `👋 Olá, *${customerName}*! 💊\n` +
+        `Seja muito bem-vindo(a) à *${tenant.name}*!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Como posso te ajudar agora?\n\n` +
+        `[ 1 ] 🔍 *Buscar remédio ou produto* (digite o nome)\n` +
+        `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+        `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+        `👉 Digite o *nome do remédio* que procura ou escolha uma opção!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
       );
       return;
     }
@@ -372,16 +416,23 @@ class BotEngine {
         `).all(tenantId);
 
         if (promoProducts.length > 0) {
-          let promoMsg = `🔥 *OFERTAS EM DESTAQUE - ${tenant.name.toUpperCase()}* 💊\n\n` +
+          let promoMsg = `🔥 *OFERTAS EM DESTAQUE - ${tenant.name.toUpperCase()}* 💊✨\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `Separamos nossos melhores descontos do dia para você:\n\n`;
 
           promoProducts.forEach((p, idx) => {
             const available = p.stock_quantity - p.reserved_quantity;
-            promoMsg += `*[${idx + 1}]* ${p.name} - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
-              `   ↳ Preço: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por apenas R$ ${Number(p.sale_price).toFixed(2)}* 🔥 | Disp: ${available} un.\n\n`;
+            promoMsg += `*[ ${idx + 1} ]* 🏷️ *${p.name}*\n` +
+              `      ▫️ ${p.dosage || 'Padrão'}${p.presentation ? ' (' + p.presentation + ')' : ''}\n` +
+              `      ▫️ Preço: *De ~R$ ${formatMoney(p.original_price)}~ por apenas R$ ${formatMoney(p.sale_price)}* 🔥\n` +
+              `      ▫️ Disponível: ${available} un.\n\n`;
           });
 
-          promoMsg += `Para pedir qualquer item, basta responder com o *número* da oferta (ex: *1*, *2*) ou digitar o nome de outro remédio:`;
+          promoMsg += `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 *Para pedir, responda com o NÚMERO da oferta (ex: 1, 2)*\n` +
+            `🔍 Ou digite o nome de outro produto para buscar.\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`;
 
           this.updateConversation(tenantId, customerPhone, 'choosing_product', {
             ...conv.context,
@@ -400,20 +451,81 @@ class BotEngine {
     switch (conv.state) {
       case 'idle':
       case 'searching': {
-        const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|opa)/i.test(lowerText);
+        const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|hey|alo|alô)/i.test(lowerText);
         if (isGreeting && lowerText.split(' ').length <= 3) {
           this.updateConversation(tenantId, customerPhone, 'searching', {});
           const baseWelcome = tenant.welcome_message
             ? tenant.welcome_message.replace('{nome}', tenant.name)
-            : `Olá, ${customerName}! Bem-vindo(a) à *${tenant.name}*! 💊`;
+            : `Olá, *${customerName}*! Seja muito bem-vindo(a) à *${tenant.name}*! 💊✨`;
           
-          const welcomeMsg = `${baseWelcome}\n\n` +
-            `📌 *Como posso te ajudar hoje?*\n` +
-            `• Digite o *nome do remédio ou produto* que procura (ex: *Dipirona*, *Dorflex*)\n` +
-            `• Ou digite *0* (ou *ATENDENTE*) para falar direto com nosso farmacêutico!`;
+          const welcomeMsg = `👋 ${baseWelcome}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Como posso te ajudar hoje?\n\n` +
+            `[ 1 ] 🔍 *Buscar remédio ou produto* (digite o nome)\n` +
+            `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+            `👉 *Digite o nome do remédio* que procura ou escolha uma opção acima!\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`;
 
           await this.sendReply(tenantId, customerPhone, welcomeMsg);
           return;
+        }
+
+        // If customer chose option 1 explicitly
+        if (lowerText === '1' || lowerText === '[1]') {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🔍 *Qual medicamento ou produto de saúde você procura hoje?*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Basta digitar o nome do produto aqui (ex: *Dipirona*, *Dorflex*, *Fralda*...):\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
+          return;
+        }
+
+        // If customer chose option 2 explicitly (Ofertas)
+        if (lowerText === '2' || lowerText === '[2]') {
+          try {
+            const promoProducts = db.prepare(`
+              SELECT * FROM products
+              WHERE tenant_id = ? AND active = 1 AND is_promotion = 1 AND stock_quantity > 0 AND original_price > sale_price
+              ORDER BY (original_price - sale_price) DESC
+              LIMIT 6
+            `).all(tenantId);
+
+            if (promoProducts.length > 0) {
+              let promoMsg = `🔥 *OFERTAS EM DESTAQUE - ${tenant.name.toUpperCase()}* 💊✨\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `Separamos nossos melhores descontos do dia para você:\n\n`;
+
+              promoProducts.forEach((p, idx) => {
+                const available = p.stock_quantity - p.reserved_quantity;
+                promoMsg += `*[ ${idx + 1} ]* 🏷️ *${p.name}*\n` +
+                  `      ▫️ ${p.dosage || 'Padrão'}${p.presentation ? ' (' + p.presentation + ')' : ''}\n` +
+                  `      ▫️ Preço: *De ~R$ ${formatMoney(p.original_price)}~ por apenas R$ ${formatMoney(p.sale_price)}* 🔥\n` +
+                  `      ▫️ Disponível: ${available} un.\n\n`;
+              });
+
+              promoMsg += `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `👉 *Para pedir, responda com o NÚMERO da oferta (ex: 1, 2)*\n` +
+                `🔍 Ou digite o nome de outro produto para buscar.\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `💬 *Deseja falar com atendente?* Digite *0*`;
+
+              this.updateConversation(tenantId, customerPhone, 'choosing_product', {
+                ...conv.context,
+                candidates: promoProducts
+              });
+
+              await this.sendReply(tenantId, customerPhone, promoMsg);
+              return;
+            }
+          } catch (err) {
+            console.error('Erro ao buscar ofertas promocionais do bot:', err);
+          }
         }
 
         // Perform search
@@ -422,7 +534,8 @@ class BotEngine {
       }
 
       case 'choosing_product': {
-        const choiceNum = parseInt(lowerText, 10);
+        const match = lowerText.match(/\d+/);
+        const choiceNum = match ? parseInt(match[0], 10) : NaN;
         const candidates = conv.context.candidates || [];
 
         if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > candidates.length) {
@@ -434,7 +547,11 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `Opção inválida. Por favor, digite o *número* de 1 a ${candidates.length} correspondente ao medicamento desejado, ou digite o nome de outro produto para nova busca:`
+            `⚠️ *Opção não reconhecida.*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Por favor, digite o *número* de 1 a ${candidates.length} correspondente ao medicamento desejado (ex: *1*, *2*), ou digite o nome de outro produto para nova busca.\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
           );
           return;
         }
@@ -448,17 +565,25 @@ class BotEngine {
         };
         this.updateConversation(tenantId, customerPhone, 'choosing_qty', newContext);
 
-        let msg = `Encontrei este produto:\n\n` +
+        const isPromo = selected.is_promotion && selected.original_price && Number(selected.original_price) > Number(selected.sale_price);
+        const priceText = isPromo
+          ? `💰 *Valor:* *De ~R$ ${formatMoney(selected.original_price)}~ por apenas R$ ${formatMoney(selected.sale_price)}* 🔥\n`
+          : `💰 *Valor:* *R$ ${formatMoney(selected.sale_price)}*\n`;
+
+        let msg = `✨ *PRODUTO SELECIONADO:*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `💊 *${selected.name}*\n` +
-          `🔬 Princípio Ativo: ${selected.active_ingredient || 'Não informado'}\n` +
-          `Dosagem: *${selected.dosage || 'Padrão'}*\n` +
-          `📦 Apresentação: ${selected.presentation || selected.form || 'Unidade'}\n` +
-          (selected.is_promotion && selected.original_price && Number(selected.original_price) > Number(selected.sale_price)
-            ? `💰 Valor: *De ~R$ ${Number(selected.original_price).toFixed(2)}~ por apenas R$ ${Number(selected.sale_price).toFixed(2)}* 🔥\n`
-            : `💰 Valor: *R$ ${Number(selected.sale_price).toFixed(2)}*\n`) +
-          `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
-          (selected.requires_prescription ? `⚠️ *Atenção:* Medicamento com retenção de receita (${selected.prescription_type}).\n\n` : '') +
-          `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*):`;
+          (selected.active_ingredient ? `🔬 *Princípio Ativo:* ${selected.active_ingredient}\n` : '') +
+          `⚖️ *Dosagem:* ${selected.dosage || 'Padrão'}\n` +
+          `📦 *Apresentação:* ${selected.presentation || selected.form || 'Unidade'}\n` +
+          `${priceText}` +
+          `📊 *Disponibilidade:* ${availableStock} unidades em estoque\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          (selected.requires_prescription ? `⚠️ *Atenção:* Medicamento sob retenção de receita médica (${selected.prescription_type || 'Exige receita'}).\n━━━━━━━━━━━━━━━━━━━━━━\n` : '') +
+          `🔢 *Quantas unidades você deseja levar?*\n` +
+          `_(Digite apenas a quantidade em número, ex: *1*, *2*, *3*)_\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`;
 
         await this.sendReply(tenantId, customerPhone, msg);
         break;
@@ -470,7 +595,13 @@ class BotEngine {
         const selected = conv.context.selected_product;
 
         if (isNaN(qty) || qty <= 0) {
-          await this.sendReply(tenantId, customerPhone, 'Por favor, informe a quantidade desejada em números (ex: *1*, *2*, *3*):');
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `Por favor, informe a quantidade desejada em números (ex: *1*, *2*, *3*):\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
           return;
         }
 
@@ -479,7 +610,12 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `Desculpe! No momento temos apenas *${availableStock}* unidade(s) disponível(is) de *${selected.name}* no estoque.\nQuantas você gostaria de levar?`
+            `⚠️ *Quantidade indisponível!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `No momento temos apenas *${availableStock}* unidade(s) de *${selected.name}* no estoque.\n\n` +
+            `Quantas você gostaria de levar? (Digite um número até ${availableStock}):\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
           );
           return;
         }
@@ -510,23 +646,43 @@ class BotEngine {
       }
 
       case 'in_cart': {
-        if (lowerText === '1' || lowerText.includes('adicionar') || lowerText.includes('mais')) {
+        if (lowerText === '1' || lowerText === '[1]' || lowerText.includes('adicionar') || lowerText.includes('mais') || lowerText.includes('outro')) {
           this.updateConversation(tenantId, customerPhone, 'searching', conv.context);
-          await this.sendReply(tenantId, customerPhone, 'Qual outro medicamento ou produto você procura? (Digite o nome):');
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🔍 *Qual outro medicamento ou produto você procura?*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Basta digitar o nome do produto aqui (ex: *Dipirona*, *Dorflex*, *Fralda*...):\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
           return;
         }
 
-        if (lowerText === '3' || lowerText.includes('limpar')) {
+        if (lowerText === '3' || lowerText === '[3]' || lowerText.includes('limpar') || lowerText.includes('cancelar') || lowerText.includes('esvaziar')) {
           this.updateConversation(tenantId, customerPhone, 'idle', {});
-          await this.sendReply(tenantId, customerPhone, '🗑️ Carrinho esvaziado com sucesso! Qual remédio você gostaria de consultar agora?');
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🗑️ *Carrinho esvaziado com sucesso!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Qual remédio ou produto você gostaria de consultar agora?\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
           return;
         }
 
-        if (lowerText === '2' || lowerText.includes('fechar') || lowerText.includes('finalizar')) {
+        if (lowerText === '2' || lowerText === '[2]' || lowerText.includes('fechar') || lowerText.includes('finalizar') || lowerText.includes('continuar') || lowerText.includes('pedir')) {
           const cart = conv.context.cart || [];
           if (cart.length === 0) {
             this.updateConversation(tenantId, customerPhone, 'idle', {});
-            await this.sendReply(tenantId, customerPhone, 'Seu carrinho está vazio. Qual produto você procura?');
+            await this.sendReply(
+              tenantId,
+              customerPhone,
+              `Seu carrinho está vazio. Qual produto você procura?\n\n━━━━━━━━━━━━━━━━━━━━━━\n💬 _Deseja falar com atendente? Digite *0*_`
+            );
             return;
           }
 
@@ -537,11 +693,14 @@ class BotEngine {
             await this.sendReply(
               tenantId,
               customerPhone,
-              `📋 *Validação de Receita Médica*\n\n` +
+              `📋 *VALIDAÇÃO DE RECEITA MÉDICA*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
               `Um ou mais medicamentos do seu pedido exigem retenção ou conferência de receita médica.\n\n` +
-              `📷 *Por favor, envie uma foto nítida da sua receita médica aqui no WhatsApp.*\n` +
+              `📷 *Por favor, envie uma foto legível da sua receita médica aqui no WhatsApp.*\n` +
               `Nosso farmacêutico fará a conferência antes da liberação do pedido.\n\n` +
-              `Assim que enviar ou se já tiver a receita em mãos, digite *OK* para prosseguir.`
+              `👉 Assim que enviar ou se já tiver a receita em mãos, digite *OK* para prosseguir!\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💬 *Deseja falar com o farmacêutico?* Digite *0*`
             );
             return;
           }
@@ -549,17 +708,22 @@ class BotEngine {
           // Proceed to delivery selection
           const minDelivery = Number(tenant.min_delivery_value || 0);
           const deliveryOptionText = minDelivery > 0
-            ? `[1] 🛵 *Entrega no endereço (Delivery)* _(Pedido mín. R$ ${minDelivery.toFixed(2)})_`
-            : `[1] 🛵 *Entrega no endereço (Delivery)*`;
+            ? `[ 1 ] 🛵 *Entrega em Domicílio (Delivery)* _(Pedido mín. R$ ${formatMoney(minDelivery)})_`
+            : `[ 1 ] 🛵 *Entrega em Domicílio (Delivery)*`;
 
           this.updateConversation(tenantId, customerPhone, 'choosing_delivery', conv.context);
           await this.sendReply(
             tenantId,
             customerPhone,
+            `🛵 *FORMA DE RECEBIMENTO DO PEDIDO*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `Como você prefere receber o seu pedido?\n\n` +
             `${deliveryOptionText}\n` +
-            `[2] 🏪 *Retirar no balcão da farmácia*\n\n` +
-            `Responda com *1* ou *2*:`
+            `[ 2 ] 🏪 *Retirar no Balcão da Farmácia* (Sem taxa / Rápido)\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+            `👉 Responda com *1*, *2* ou *0*:\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
           );
           return;
         }
@@ -576,24 +740,30 @@ class BotEngine {
         };
         const minDelivery = Number(tenant.min_delivery_value || 0);
         const deliveryOptionText = minDelivery > 0
-          ? `[1] 🛵 *Entrega no endereço (Delivery)* _(Pedido mín. R$ ${minDelivery.toFixed(2)})_`
-          : `[1] 🛵 *Entrega no endereço (Delivery)*`;
+          ? `[ 1 ] 🛵 *Entrega em Domicílio (Delivery)* _(Pedido mín. R$ ${formatMoney(minDelivery)})_`
+          : `[ 1 ] 🛵 *Entrega em Domicílio (Delivery)*`;
 
         this.updateConversation(tenantId, customerPhone, 'choosing_delivery', updatedContext);
         await this.sendReply(
           tenantId,
           customerPhone,
-          `Receita registrada com sucesso! ✅ Nossa equipe farmacêutica validará o documento na separação.\n\n` +
+          `✅ *Receita registrada com sucesso!*\n` +
+          `Nossa equipe farmacêutica validará o documento na separação.\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🛵 *FORMA DE RECEBIMENTO DO PEDIDO*\n` +
           `Como você prefere receber o seu pedido?\n\n` +
           `${deliveryOptionText}\n` +
-          `[2] 🏪 *Retirar no balcão da farmácia*\n\n` +
-          `Responda com *1* ou *2*:`
+          `[ 2 ] 🏪 *Retirar no Balcão da Farmácia* (Sem taxa / Rápido)\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+          `👉 Responda com *1*, *2* ou *0*:\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
         );
         break;
       }
 
       case 'choosing_delivery': {
-        if (lowerText === '1' || lowerText.includes('entrega') || lowerText.includes('delivery')) {
+        if (lowerText === '1' || lowerText === '[1]' || lowerText.includes('entrega') || lowerText.includes('delivery') || lowerText.includes('casa')) {
           const cart = conv.context.cart || [];
           const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
           const minDelivery = Number(tenant.min_delivery_value || 0);
@@ -603,12 +773,17 @@ class BotEngine {
             await this.sendReply(
               tenantId,
               customerPhone,
-              `⚠️ *Pedido Mínimo para Entrega: R$ ${minDelivery.toFixed(2)}*\n\n` +
-              `O total dos produtos no seu carrinho é de *R$ ${subtotal.toFixed(2)}*.\n` +
-              `Para solicitar entrega em domicílio 🛵, faltam *R$ ${missing.toFixed(2)}* em produtos.\n\n` +
-              `👉 *O que você prefere fazer?*\n` +
-              `• Digite o nome de outro produto (ex: dipirona, sabonete, etc.) para adicionar ao carrinho\n` +
-              `• Ou responda *2* para *Retirar no Balcão* da farmácia (sem taxa e sem valor mínimo!)`
+              `⚠️ *PEDIDO MÍNIMO PARA ENTREGA: R$ ${formatMoney(minDelivery)}*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `O total dos produtos no seu carrinho é de *R$ ${formatMoney(subtotal)}*.\n` +
+              `Para solicitar entrega em domicílio 🛵, faltam *R$ ${formatMoney(missing)}* em produtos.\n\n` +
+              `👉 *O que você prefere fazer?*\n\n` +
+              `[ 1 ] ➕ *Adicionar mais produtos* (ex: dipirona, sabonete, etc.)\n` +
+              `[ 2 ] 🏪 *Retirar no Balcão da Farmácia* (sem taxa e sem valor mínimo!)\n` +
+              `[ 0 ] 👨‍⚕️ *Falar com Atendente Humano*\n\n` +
+              `👉 Responda com *1*, *2* ou *0*:\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💬 *Deseja falar com atendente?* Digite *0*`
             );
             return;
           }
@@ -620,14 +795,17 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `🛵 *Excelente! Entregamos no conforto da sua casa.*\n\n` +
-            `📝 *1º Passo:* Digite seu *endereço completo*:\n` +
-            `(Rua, Número, Quadra/Lote, Bairro e Ponto de Referência ou Cor da casa)`
+            `🛵 *EXCELENTE! ENTREGAREMOS NO SEU ENDEREÇO.*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 *1º Passo:* Digite o seu *endereço completo*:\n\n` +
+            `Ex: *Rua das Flores, 123, Bairro Centro (Ponto de referência: ao lado do mercado)*\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Prefere passar o endereço para um atendente?* Digite *0*`
           );
           return;
         }
 
-        if (lowerText === '2' || lowerText.includes('retirar') || lowerText.includes('balcão') || lowerText.includes('balcao')) {
+        if (lowerText === '2' || lowerText === '[2]' || lowerText.includes('retirar') || lowerText.includes('balcão') || lowerText.includes('balcao') || lowerText.includes('loja')) {
           const cart = conv.context.cart || [];
           const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
           const newContext = {
@@ -643,18 +821,37 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `🏪 *Retirada no Balcão Selecionada!*\n\n` +
-            `📦 *Total dos produtos:* R$ ${subtotal.toFixed(2)}\n\n` +
-            `Como você prefere realizar o pagamento?\n\n` +
-            `*[1]* 💠 *Pix* (Gera código Copia e Cola / QR Code para pagar agora)\n` +
-            `*[2]* 💳 *Cartão no Balcão* (Pagar na maquininha ao retirar)\n` +
-            `*[3]* 💵 *Dinheiro no Balcão* (Pagar em espécie ao retirar)\n\n` +
-            `Responda com *1*, *2* ou *3*:`
+            `🏪 *RETIRADA NO BALCÃO SELECIONADA!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📦 *Total dos produtos:* R$ ${formatMoney(subtotal)}\n` +
+            `🏷️ *Taxa de Entrega:* Grátis (Retirada no balcão)\n` +
+            `💰 *TOTAL A PAGAR:* *R$ ${formatMoney(subtotal)}*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `💳 *COMO VOCÊ PREFERE PAGAR?*\n\n` +
+            `[ 1 ] 💠 *Pix* (Gera código Copia e Cola para pagar agora)\n` +
+            `[ 2 ] 💳 *Cartão no Balcão* (Pagar na maquininha ao retirar)\n` +
+            `[ 3 ] 💵 *Dinheiro no Balcão* (Pagar em espécie ao retirar)\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+            `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
           );
           return;
         }
 
-        await this.sendReply(tenantId, customerPhone, 'Por favor, responda com *1* para Entrega ou *2* para Retirada no balcão:');
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `⚠️ *Opção não reconhecida.*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `Por favor, escolha como deseja receber seu pedido:\n\n` +
+          `[ 1 ] 🛵 *Entrega em Domicílio (Delivery)*\n` +
+          `[ 2 ] 🏪 *Retirar no Balcão da Farmácia*\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `👉 Responda com *1*, *2* ou *0*:\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`
+        );
         break;
       }
 
@@ -675,8 +872,11 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            `📍 *Localização GPS recebida com sucesso!*\n\n` +
-            `Agora, por favor, digite o *número da casa, quadra/lote e complemento* (ex: *Qd 17 Lt 24, casa amarela*) para o entregador encontrar o portão exato:`
+            `📍 *LOCALIZAÇÃO GPS RECEBIDA COM SUCESSO!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Agora, por favor, digite o *número da casa, quadra/lote e complemento* (ex: *Qd 17 Lt 24, casa amarela*) para o entregador encontrar o portão exato:\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
           );
           return;
         }
@@ -685,7 +885,11 @@ class BotEngine {
           await this.sendReply(
             tenantId,
             customerPhone,
-            'Por favor, digite o endereço com rua, número/quadra e bairro para que o entregador consiga te encontrar:'
+            `⚠️ *Endereço incompleto.*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Por favor, digite o endereço completo com rua, número/quadra e bairro para que o entregador consiga te encontrar:\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
           );
           return;
         }
@@ -699,13 +903,16 @@ class BotEngine {
         await this.sendReply(
           tenantId,
           customerPhone,
-          `📝 *Endereço anotado:* ${rawText}\n\n` +
-          `📍 *2º Passo (Muito Importante): Envie sua Localização atual!*\n\n` +
-          `Para o motoboy seguir a rota certinha no GPS até a sua porta sem errar o caminho:\n` +
+          `📝 *Endereço anotado:* ${rawText}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📍 *2º Passo (Muito Importante): Envie sua Localização!*\n\n` +
+          `Para o motoboy seguir a rota certinha no GPS até a sua porta sem errar o caminho:\n\n` +
           `1. Toque no ícone de *Clipe 📎* (ou *+* no iPhone) aqui embaixo no WhatsApp.\n` +
           `2. Escolha *Localização*.\n` +
           `3. Toque em *Enviar sua localização atual*.\n\n` +
-          `*(Ou se você não estiver em casa agora, responda "Continuar" para usarmos o endereço digitado)*`
+          `*(Ou se você não estiver em casa agora, responda "Continuar" para usarmos o endereço digitado)*\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`
         );
         break;
       }
@@ -746,22 +953,27 @@ class BotEngine {
 
         const feeDisplay = deliveryFee === 0
           ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n`
-          : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`;
+          : `Taxa de Entrega: R$ ${formatMoney(deliveryFee)}\n`;
 
         await this.sendReply(
           tenantId,
           customerPhone,
-          `✅ *Tudo pronto para sua entrega!*\n` +
+          `✅ *RESUMO DO SEU PEDIDO*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `📍 *Endereço:* ${finalAddress}\n` +
-          (lat && lng ? `🛰️ *GPS integrado:* Rota traçada com precisão!\n\n` : `\n`) +
-          `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-          `${feeDisplay}` +
-          `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
-          `Qual será a forma de pagamento?\n\n` +
-          `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
-          `*[2]* 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
-          `*[3]* 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n\n` +
-          `Responda com *1*, *2* ou *3*:`
+          (lat && lng ? `🛰️ *GPS:* Rota traçada com precisão!\n` : ``) +
+          `📦 Subtotal: R$ ${formatMoney(subtotal)}\n` +
+          `🛵 ${feeDisplay}` +
+          `💰 *VALOR TOTAL: R$ ${formatMoney(total)}*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `💳 *COMO VOCÊ PREFERE PAGAR?*\n\n` +
+          `[ 1 ] 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
+          `[ 2 ] 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
+          `[ 3 ] 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
         );
         break;
       }
@@ -797,29 +1009,34 @@ class BotEngine {
 
         const feeDisplay = deliveryFee === 0
           ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n`
-          : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`;
+          : `Taxa de Entrega: R$ ${formatMoney(deliveryFee)}\n`;
 
         await this.sendReply(
           tenantId,
           customerPhone,
-          `✅ *Tudo pronto para sua entrega!*\n` +
+          `✅ *RESUMO DO SEU PEDIDO*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `📍 *Endereço completo:* ${finalAddress}\n` +
-          `🛰️ *GPS:* Rota traçada com precisão!\n\n` +
-          `Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-          `${feeDisplay}` +
-          `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
-          `Qual será a forma de pagamento?\n\n` +
-          `*[1]* 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
-          `*[2]* 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
-          `*[3]* 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n\n` +
-          `Responda com *1*, *2* ou *3*:`
+          `🛰️ *GPS:* Rota traçada com precisão!\n` +
+          `📦 Subtotal: R$ ${formatMoney(subtotal)}\n` +
+          `🛵 ${feeDisplay}` +
+          `💰 *VALOR TOTAL: R$ ${formatMoney(total)}*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `💳 *COMO VOCÊ PREFERE PAGAR?*\n\n` +
+          `[ 1 ] 💠 *Pix* (Aprovação rápida via Copia e Cola)\n` +
+          `[ 2 ] 💳 *Cartão na Entrega* (O motoboy leva a maquininha 🛵)\n` +
+          `[ 3 ] 💵 *Dinheiro na Entrega* (Pagar ao entregador)\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
         );
         break;
       }
 
       case 'choosing_payment': {
         const isPickup = conv.context.delivery_type === 'pickup';
-        if (lowerText === '1' || lowerText.includes('pix')) {
+        if (lowerText === '1' || lowerText === '[1]' || lowerText.includes('pix')) {
           await this.createOrder(tenantId, customerPhone, customerName, {
             ...conv.context,
             payment_method: 'PIX'
@@ -829,6 +1046,7 @@ class BotEngine {
 
         if (
           lowerText === '2' ||
+          lowerText === '[2]' ||
           lowerText.includes('cartao') ||
           lowerText.includes('cartão') ||
           lowerText.includes('credito') ||
@@ -851,6 +1069,7 @@ class BotEngine {
 
         if (
           lowerText === '3' ||
+          lowerText === '[3]' ||
           lowerText.includes('dinheiro') ||
           lowerText.includes('especie') ||
           lowerText.includes('espécie')
@@ -867,9 +1086,12 @@ class BotEngine {
             await this.sendReply(
               tenantId,
               customerPhone,
-              `💵 *Pagamento em Dinheiro selecionado!*\n\n` +
-              `Você vai precisar de troco para quanto?\n` +
-              `(Ex: *Troco para 50*, *Troco para 100*, ou digite *Não* se tiver o valor exato trocado):`
+              `💵 *PAGAMENTO EM DINHEIRO SELECIONADO*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `Você vai precisar de troco para quanto?\n\n` +
+              `Ex: *Troco para 50*, *Troco para 100*, ou digite *Não* se tiver o valor exato trocado.\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💬 *Deseja falar com atendente?* Digite *0*`
             );
             return;
           }
@@ -878,11 +1100,16 @@ class BotEngine {
         await this.sendReply(
           tenantId,
           customerPhone,
+          `⚠️ *Opção de pagamento não reconhecida.*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `Por favor, escolha uma opção válida de pagamento:\n\n` +
-          `*[1]* 💠 Pix\n` +
-          `*[2]* 💳 Cartão ${isPickup ? 'no Balcão' : 'na Entrega (Levar maquininha)'}\n` +
-          `*[3]* 💵 Dinheiro ${isPickup ? 'no Balcão' : 'na Entrega'}\n\n` +
-          `Digite *1*, *2* ou *3*:`
+          `[ 1 ] 💠 *Pix* (Copia e Cola)\n` +
+          `[ 2 ] 💳 *Cartão ${isPickup ? 'no Balcão' : 'na Entrega (Levar maquininha)'}*\n` +
+          `[ 3 ] 💵 *Dinheiro ${isPickup ? 'no Balcão' : 'na Entrega'}*\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`
         );
         break;
       }
@@ -928,7 +1155,9 @@ class BotEngine {
               await this.sendReply(
                 tenantId,
                 customerPhone,
-                `Olá! O seu Pedido *#${orderId}* ${statusTranslations[order.status] || order.status}.\n\nSe precisar de ajuda adicional, digite *0* para falar com o atendente!`
+                `👋 Olá! O seu Pedido *#${orderId}* ${statusTranslations[order.status] || order.status}.\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `💬 *Deseja falar com atendente?* Digite *0*`
               );
               return;
             }
@@ -955,11 +1184,26 @@ class BotEngine {
         if (wantsPixAgain && orderId) {
           const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
           if (order && order.pix_code) {
-            await this.sendReply(tenantId, customerPhone, `Aqui está novamente o seu código Pix Copia e Cola do Pedido #${orderId} (Total: *R$ ${Number(order.total).toFixed(2)}*):`);
+            await this.sendReply(
+              tenantId,
+              customerPhone,
+              `💠 *CÓDIGO PIX COPIA E COLA*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `Pedido: *#${orderId}*\n` +
+              `Total: *R$ ${formatMoney(order.total)}*\n\n` +
+              `Segue o código abaixo para você copiar e colar no seu banco:`
+            );
             await new Promise((r) => setTimeout(r, 400));
             await this.sendReply(tenantId, customerPhone, order.pix_code);
             await new Promise((r) => setTimeout(r, 400));
-            await this.sendReply(tenantId, customerPhone, `📱 *Basta tocar/segurar na mensagem acima para copiar o código Pix e colar no aplicativo do seu banco!*\n\nAssim que conferirmos o recebimento, liberamos seu pedido. 💚`);
+            await this.sendReply(
+              tenantId,
+              customerPhone,
+              `📱 *Basta tocar/segurar na mensagem acima para copiar o código Pix e colar no aplicativo do seu banco!*\n\n` +
+              `Assim que conferirmos o recebimento, liberamos seu pedido. 💚\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💬 *Deseja falar com atendente?* Digite *0*`
+            );
             return;
           }
         }
@@ -969,17 +1213,33 @@ class BotEngine {
         await this.sendReply(
           tenantId,
           customerPhone,
-          `Recebemos sua mensagem! ⏳\n\n` +
-          `Nossa equipe financeira e o sistema bancário estão conferindo a confirmação do pagamento em nossa conta.\n\n` +
+          `⏳ *MENSAGEM RECEBIDA!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Nossa equipe da farmácia e o sistema bancário estão conferindo a confirmação do pagamento em nossa conta.\n\n` +
           `🔒 *Segurança:* Por normas da farmácia, a liberação e o envio do motoboy ocorrem logo após a conciliação bancária do Pix e a conferência farmacêutica dos itens.\n\n` +
-          `Assim que confirmarmos, você receberá a notificação instantânea aqui no WhatsApp!`
+          `Assim que confirmarmos, você receberá a notificação instantânea aqui no WhatsApp!\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`
         );
         break;
       }
 
       default: {
         this.updateConversation(tenantId, customerPhone, 'idle', {});
-        await this.sendReply(tenantId, customerPhone, tenant.welcome_message.replace('{nome}', tenant.name));
+        const defaultWelcome = tenant.welcome_message
+          ? tenant.welcome_message.replace('{nome}', tenant.name)
+          : `Olá! Bem-vindo(a) à *${tenant.name}*!`;
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `${defaultWelcome}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `[ 1 ] 🔍 *Buscar remédio ou produto*\n` +
+          `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 *Deseja falar com atendente?* Digite *0*`
+        );
       }
     }
   }
@@ -998,9 +1258,12 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
+        `🔍 *PRODUTO NÃO ENCONTRADO*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `Não encontrei nenhum produto para "*${queryText}*" no momento. 😕\n\n` +
         `Tente buscar por outro termo ou pelo princípio ativo (ex: *Dipirona*, *Paracetamol*, *Ibuprofeno*).\n\n` +
-        `👉 Ou digite *0* (ou *ATENDENTE*) para falar diretamente com nosso farmacêutico no balcão.`
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0* para falar diretamente com nosso farmacêutico no balcão.`
       );
       return;
     }
@@ -1015,18 +1278,23 @@ class BotEngine {
       };
       this.updateConversation(tenantId, customerPhone, 'choosing_qty', newContext);
 
-      let msg = `Encontrei este produto no nosso estoque:\n\n` +
-        `💊 *${p.name}*\n` +
-        `🔬 Princípio Ativo: ${p.active_ingredient || 'Não informado'}\n` +
-        `Dosagem: *${p.dosage || 'Padrão'}*\n` +
-        `📦 Apresentação: ${p.presentation || p.form || 'Unidade'}\n` +
-        (p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price)
-          ? `💰 Valor: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por apenas R$ ${Number(p.sale_price).toFixed(2)}* 🔥\n`
-          : `💰 Valor: *R$ ${Number(p.sale_price).toFixed(2)}*\n`) +
-        `📊 Disponível para compra: *${availableStock} unidades*\n\n` +
-        (p.requires_prescription ? `⚠️ *Atenção:* Medicamento sob retenção de receita médica.\n\n` : '') +
-        `Quantas unidades você deseja? (Digite a quantidade em número, ex: *1*, *2*)\n` +
-        `_(Ou digite *0* para falar com o atendente)_`;
+      const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
+
+      let msg = `💊 *PRODUTO ENCONTRADO!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `*${p.name}*\n` +
+        `🔬 Princípio Ativo: *${p.active_ingredient || 'Não informado'}*\n` +
+        `📏 Dosagem: *${p.dosage || 'Padrão'}*\n` +
+        `📦 Apresentação: *${p.presentation || p.form || 'Unidade'}*\n` +
+        (isPromo
+          ? `💰 Preço: *De ~R$ ${formatMoney(p.original_price)}~ por apenas R$ ${formatMoney(p.sale_price)}* 🔥\n`
+          : `💰 Preço: *R$ ${formatMoney(p.sale_price)}*\n`) +
+        `📊 Disponível: *${availableStock} unidades*\n` +
+        (p.requires_prescription ? `\n⚠️ *Atenção:* Medicamento sob retenção de receita médica.\n` : '') +
+        `\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👉 *Quantas unidades você deseja?* (Digite o número, ex: *1*, *2*)\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0*`;
 
       await this.sendReply(tenantId, customerPhone, msg);
       return;
@@ -1039,19 +1307,23 @@ class BotEngine {
     };
     this.updateConversation(tenantId, customerPhone, 'choosing_product', newContext);
 
-    let listMsg = `Encontrei ${products.length} opções para "*${queryText}*".\n` +
+    let listMsg = `🔍 *ENCONTREI ${products.length} OPÇÕES PARA "*${queryText}*":*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Por favor, responda com o *número* da opção desejada:\n\n`;
 
     products.forEach((p, idx) => {
       const available = p.stock_quantity - p.reserved_quantity;
       const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
-      listMsg += `*[${idx + 1}]* ${p.name} - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
+      listMsg += `*[ ${idx + 1} ]* 💊 *${p.name}* - ${p.dosage || ''} (${p.presentation || p.form || ''})\n` +
         (isPromo
-          ? `   ↳ Preço: *De ~R$ ${Number(p.original_price).toFixed(2)}~ por R$ ${Number(p.sale_price).toFixed(2)}* 🔥 *(OFERTA)* | Disp: ${available} un.\n\n`
-          : `   ↳ Preço: *R$ ${Number(p.sale_price).toFixed(2)}* | Disp: ${available} un.\n\n`);
+          ? `   ↳ *De ~R$ ${formatMoney(p.original_price)}~ por apenas R$ ${formatMoney(p.sale_price)}* 🔥 *(OFERTA)*\n` +
+            `   ↳ Disp: ${available} un.\n\n`
+          : `   ↳ *R$ ${formatMoney(p.sale_price)}* | Disp: ${available} un.\n\n`);
     });
 
-    listMsg += `Digite o número de 1 a ${products.length}, ou digite *0* para falar com atendente:`;
+    listMsg += `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👉 Responda de *1* a *${products.length}* para escolher:\n\n` +
+      `💬 *Deseja falar com atendente?* Digite *0*`;
     await this.sendReply(tenantId, customerPhone, listMsg);
   }
 
@@ -1059,18 +1331,24 @@ class BotEngine {
     const cart = context.cart || [];
     const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
 
-    let msg = `🛒 *SEU CARRINHO DE COMPRAS:*\n\n`;
+    let msg = `🛒 *SEU CARRINHO DE COMPRAS:*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     cart.forEach((item, idx) => {
-      msg += `• ${item.quantity}x *${item.name}* (${item.dosage || ''})\n` +
-        `  Valor: R$ ${item.total_price.toFixed(2)} (R$ ${item.unit_price.toFixed(2)} un.)\n`;
+      msg += `• *${item.quantity}x* ${item.name} (${item.dosage || ''})\n` +
+        `  ↳ *R$ ${formatMoney(item.total_price)}* (R$ ${formatMoney(item.unit_price)} un.)\n\n`;
     });
 
-    msg += `\n💰 *Subtotal: R$ ${subtotal.toFixed(2)}*\n\n` +
-      `O que você deseja fazer agora?\n` +
-      `*[1]* ➕ Adicionar outro remédio/produto\n` +
-      `*[2]* 🚀 Finalizar Pedido (Pix, Cartão ou Dinheiro)\n` +
-      `*[3]* 🗑️ Limpar carrinho e cancelar\n\n` +
-      `Digite *1*, *2* ou *3*:`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💰 *Subtotal: R$ ${formatMoney(subtotal)}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `👉 *O que você deseja fazer agora?*\n\n` +
+      `[ 1 ] ➕ *Adicionar outro produto*\n` +
+      `[ 2 ] 🚀 *Finalizar Pedido* (Pix, Cartão ou Dinheiro)\n` +
+      `[ 3 ] 🗑️ *Limpar carrinho e cancelar*\n` +
+      `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+      `👉 Responda com *1*, *2*, *3* ou *0*:\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`;
 
     await this.sendReply(tenantId, customerPhone, msg);
   }
@@ -1099,11 +1377,14 @@ class BotEngine {
       await this.sendReply(
         tenantId,
         customerPhone,
-        `⚠️ *Pagamento via Pix indisponivel no momento*\n\n` +
-        `Parece que nossa chave Pix ainda nao foi configurada. Para nao te deixar sem seus medicamentos, voce pode pagar na entrega:\n\n` +
-        `*[1]* 💳 Cartao na Entrega (o motoboy leva a maquininha)\n` +
-        `*[2]* 💵 Dinheiro na Entrega\n\n` +
-        `Ou digite *0* para falar com um atendente que resolve na hora!`
+        `⚠️ *Pagamento via Pix indisponível no momento*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Nossa chave Pix ainda não foi configurada no sistema. Para você não ficar sem seus medicamentos, escolha pagar na entrega:\n\n` +
+        `[ 1 ] 💳 *Cartão na Entrega* (o motoboy leva a maquininha)\n` +
+        `[ 2 ] 💵 *Dinheiro na Entrega*\n` +
+        `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0*`
       );
       console.error(`[BotEngine] BLOQUEADO: tenant ${tenantId} tentou gerar Pix sem pix_key configurada.`);
       return null;
@@ -1229,19 +1510,22 @@ class BotEngine {
 
       // 1. Mensagem de Resumo do Pedido
       let orderMsg = `📋 *PEDIDO #${orderId} GERADO COM SUCESSO!*\n` +
-        `-----------------------------------------\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🏪 *Farmácia:* ${tenant.name}\n` +
         `👤 *Cliente:* ${customerName}\n` +
-        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n\n` +
+        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📦 *ITENS DO PEDIDO:*\n`;
 
       cart.forEach(item => {
-        orderMsg += `• ${item.quantity}x ${item.name} (${item.dosage || ''}) - R$ ${item.total_price.toFixed(2)}\n`;
+        orderMsg += `• *${item.quantity}x* ${item.name} (${item.dosage || ''}) - R$ ${formatMoney(item.total_price)}\n`;
       });
 
-      orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
-        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`) +
-        `*VALOR TOTAL: R$ ${total.toFixed(2)}*\n\n` +
+      orderMsg += `\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Subtotal: R$ ${formatMoney(subtotal)}\n` +
+        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${formatMoney(deliveryFee)}\n`) +
+        `💰 *VALOR TOTAL: R$ ${formatMoney(total)}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `💠 *PAGAMENTO VIA PIX:*\n` +
         `O código Pix Copia e Cola foi gerado e está sendo enviado na mensagem abaixo para você copiar facilmente. 👇`;
 
@@ -1251,16 +1535,19 @@ class BotEngine {
       await this.sendReply(tenantId, customerPhone, pixCode);
       await new Promise((r) => setTimeout(r, 400));
 
-      let instructionsMsg = `👆 *CÓDIGO PIX COPIA E COLA ENVIADO ACIMA!*\n\n` +
+      let instructionsMsg = `👆 *CÓDIGO PIX COPIA E COLA ENVIADO ACIMA!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📱 *Como pagar no seu banco:*\n` +
         `1. Toque e segure a mensagem acima para *COPIAR* o código Pix.\n` +
         `2. Abra o aplicativo do seu banco (Nubank, Inter, Caixa, Itaú, BB, etc.).\n` +
         `3. Escolha a opção *Pix > Copia e Cola*.\n` +
-        `4. Cole o código e confirme o valor de *R$ ${total.toFixed(2)}*.\n\n` +
+        `4. Cole o código e confirme o valor de *R$ ${formatMoney(total)}*.\n\n` +
         `⏱️ *Liberação do Pedido:*\n` +
         `Assim que o banco confirmar a transferência e nossa equipe conferir no sistema, seu pedido entrará em separação e ` +
         (context.delivery_type === 'delivery' ? 'o motoboy será acionado para a entrega! 🛵' : 'avisaremos para você retirar no balcão! 🏪') +
-        `\n\nMuito obrigado pela confiança! 💚`;
+        `\n\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.\n` +
+        `Muito obrigado pela confiança! 💚`;
 
       await this.sendReply(tenantId, customerPhone, instructionsMsg);
     } else {
@@ -1282,24 +1569,29 @@ class BotEngine {
       }
 
       let orderMsg = `📋 *PEDIDO #${orderId} CONFIRMADO COM SUCESSO!* 🎉\n` +
-        `-----------------------------------------\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🏪 *Farmácia:* ${tenant.name}\n` +
         `👤 *Cliente:* ${customerName}\n` +
-        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n\n` +
+        `📍 *${context.delivery_type === 'delivery' ? 'Entrega em' : 'Modo'}:* ${context.address}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📦 *ITENS DO PEDIDO:*\n`;
 
       cart.forEach(item => {
-        orderMsg += `• ${item.quantity}x ${item.name} (${item.dosage || ''}) - R$ ${item.total_price.toFixed(2)}\n`;
+        orderMsg += `• *${item.quantity}x* ${item.name} (${item.dosage || ''}) - R$ ${formatMoney(item.total_price)}\n`;
       });
 
-      orderMsg += `\nSubtotal: R$ ${subtotal.toFixed(2)}\n` +
-        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n`) +
-        `*VALOR TOTAL A PAGAR: R$ ${total.toFixed(2)}*\n\n` +
+      orderMsg += `\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Subtotal: R$ ${formatMoney(subtotal)}\n` +
+        (deliveryFee === 0 ? `Taxa de Entrega: R$ 0,00 (Grátis 🎉)\n` : `Taxa de Entrega: R$ ${formatMoney(deliveryFee)}\n`) +
+        `💰 *VALOR TOTAL A PAGAR: R$ ${formatMoney(total)}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `${paymentLabel}\n\n` +
         `✅ *Seu pedido já foi encaminhado para separação imediata!*\n` +
         (context.delivery_type === 'delivery'
           ? `🛵 Assim que o pacote for retirado pelo motoboy, você receberá a notificação aqui com os dados do entregador!`
-          : `🏪 Assim que estiver separado e embalado, te avisaremos para retirar no balcão!`);
+          : `🏪 Assim que estiver separado e embalado, te avisaremos para retirar no balcão!`) +
+        `\n\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`;
 
       await this.sendReply(tenantId, customerPhone, orderMsg);
     }
@@ -1346,16 +1638,19 @@ class BotEngine {
     db.prepare(`
       INSERT INTO audit_logs (tenant_id, user_name, action, details)
       VALUES (?, ?, 'PAGAMENTO_CONFIRMADO', ?)
-    `).run(order.tenant_id, confirmedByUser, `Pagamento do Pedido #${orderId} de R$ ${order.total.toFixed(2)} confirmado.`);
+    `).run(order.tenant_id, confirmedByUser, `Pagamento do Pedido #${orderId} de R$ ${formatMoney(order.total)} confirmado.`);
 
     // Send WhatsApp notification to customer
     await this.sendReply(
       order.tenant_id,
       order.customer_phone,
-      `✅ *PAGAMENTO CONFIRMADO!* 🎉\n\n` +
-      `Olá, seu pagamento referente ao *Pedido #${order.id}* (R$ ${order.total.toFixed(2)}) foi confirmado com sucesso!\n\n` +
+      `✅ *PAGAMENTO CONFIRMADO!* 🎉\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `Olá! Seu pagamento referente ao *Pedido #${order.id}* (R$ ${formatMoney(order.total)}) foi confirmado com sucesso!\n\n` +
       `Nossa equipe da *${tenant.name}* já está separando e embalando seus medicamentos com todo o cuidado.\n` +
-      `Em breve avisaremos assim que sair para entrega!`
+      `Em breve avisaremos assim que sair para entrega!\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💬 *Deseja falar com atendente?* Digite *0*`
     );
 
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -1375,9 +1670,12 @@ class BotEngine {
       await this.sendReply(
         order.tenant_id,
         order.customer_phone,
-        `📦 *SEU PEDIDO ESTÁ PRONTO PARA RETIRADA!*\n\n` +
+        `📦 *SEU PEDIDO ESTÁ PRONTO PARA RETIRADA!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `Olá! Seu pedido *#${order.id}* já foi separado e está aguardando você no balcão da *${tenant.name}* (${tenant.address}).\n` +
-        `Horário de atendimento: ${tenant.business_hours}. Até logo!`
+        `Horário de atendimento: ${tenant.business_hours}.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💬 *Deseja falar com atendente?* Digite *0*`
       );
 
       return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -1424,13 +1722,13 @@ class BotEngine {
     if (order.payment_method === 'CARD_ON_DELIVERY') {
       paymentInstruction = `💳 *FINANCEIRO / COBRANÇA:*\n` +
         `🚨 *ATENÇÃO: LEVAR MAQUININHA DE CARTÃO!* 💳\n` +
-        `*COBRAR DO CLIENTE NA ENTREGA:* R$ ${order.total.toFixed(2)}`;
+        `*COBRAR DO CLIENTE NA ENTREGA:* R$ ${formatMoney(order.total)}`;
     } else if (order.payment_method === 'CASH_ON_DELIVERY') {
       paymentInstruction = `💵 *FINANCEIRO / COBRANÇA:*\n` +
-        `*RECEBER EM DINHEIRO DO CLIENTE:* R$ ${order.total.toFixed(2)}\n` +
+        `*RECEBER EM DINHEIRO DO CLIENTE:* R$ ${formatMoney(order.total)}\n` +
         (order.notes ? `*OBS / TROCO:* ${order.notes}\n` : '');
     } else {
-      paymentInstruction = `✅ *STATUS FINANCEIRO:* PAGO VIA PIX (R$ ${order.total.toFixed(2)})\n` +
+      paymentInstruction = `✅ *STATUS FINANCEIRO:* PAGO VIA PIX (R$ ${formatMoney(order.total)})\n` +
         `*(NÃO COBRAR NADA DO CLIENTE - JÁ FOI PAGO)*`;
     }
 
@@ -1478,7 +1776,7 @@ class BotEngine {
       `${gpsLinks}\n` +
       `*Itens do Pacote:*\n${itemsList}\n\n` +
       `${paymentInstruction}\n` +
-      `*Sua Taxa de Entrega:* R$ ${order.delivery_fee.toFixed(2)}\n` +
+      `*Sua Taxa de Entrega:* R$ ${formatMoney(order.delivery_fee)}\n` +
       (order.notes && order.payment_method !== 'CASH_ON_DELIVERY' ? `*Observações:* ${order.notes}\n` : '') +
       (rota88Dispatch?.trackingUrl ? `🗺️ *Painel Rota88:* ${rota88Dispatch.trackingUrl}\n` : '') +
       `\n👉 Por favor, retire o pacote na bancada da farmácia e leve com cuidado ao cliente!`;
@@ -1488,21 +1786,24 @@ class BotEngine {
     // Customer payment reminder if in-person
     let customerPaymentReminder = '';
     if (order.payment_method === 'CARD_ON_DELIVERY') {
-      customerPaymentReminder = `\n💳 *Pagamento:* Tenha seu cartão em mãos para passar na maquininha com o entregador (Total: R$ ${order.total.toFixed(2)}).`;
+      customerPaymentReminder = `\n💳 *Pagamento:* Tenha seu cartão em mãos para passar na maquininha com o entregador (Total: R$ ${formatMoney(order.total)}).`;
     } else if (order.payment_method === 'CASH_ON_DELIVERY') {
-      customerPaymentReminder = `\n💵 *Pagamento:* Tenha o valor em dinheiro em mãos para pagar ao entregador (Total: R$ ${order.total.toFixed(2)}${order.notes ? ` - ${order.notes}` : ''}).`;
+      customerPaymentReminder = `\n💵 *Pagamento:* Tenha o valor em dinheiro em mãos para pagar ao entregador (Total: R$ ${formatMoney(order.total)}${order.notes ? ` - ${order.notes}` : ''}).`;
     }
 
     // Notify customer
     await this.sendReply(
       order.tenant_id,
       order.customer_phone,
-      `🛵💨 *SEU PEDIDO SAIU PARA ENTREGA!*\n\n` +
-      `O entregador *${driver.name}* (${driver.vehicle || 'Moto'} placa: ${driver.plate || '---'}) já retirou seus medicamentos e está a caminho do seu endereço!\n` +
-      `Endereço de entrega: ${order.delivery_address}\n` +
+      `🛵💨 *SEU PEDIDO SAIU PARA ENTREGA!*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `O entregador *${driver.name}* (${driver.vehicle || 'Moto'} placa: ${driver.plate || '---'}) já retirou seus medicamentos e está a caminho do seu endereço!\n\n` +
+      `📍 *Endereço de entrega:* ${order.delivery_address}\n` +
       customerPaymentReminder +
       trackingLinkMsg +
-      `\nFique atento ao interfone ou telefone. Logo ele chegará!`
+      `\nFique atento(a) ao interfone ou telefone. Logo ele chegará!\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💬 *Deseja falar com atendente?* Digite *0*`
     );
 
     return { order: db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId), driver, rota88: rota88Dispatch };
@@ -1527,9 +1828,12 @@ class BotEngine {
     await this.sendReply(
       order.tenant_id,
       order.customer_phone,
-      `🎉 *PEDIDO ENTREGUE COM SUCESSO!*\n\n` +
+      `🎉 *PEDIDO ENTREGUE COM SUCESSO!*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Seu pedido *#${order.id}* foi finalizado. Esperamos que tenha tido uma ótima experiência com a *${tenant.name}*!\n\n` +
-      `💚 Cuide bem da sua saúde. Qualquer dúvida ou nova necessidade, estamos sempre por aqui no WhatsApp!`
+      `💚 Cuide bem da sua saúde. Qualquer dúvida ou nova necessidade, estamos sempre por aqui no WhatsApp!\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💬 *Deseja falar com atendente?* Digite *0*`
     );
 
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
