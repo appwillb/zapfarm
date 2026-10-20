@@ -621,4 +621,213 @@ router.post('/:id/test-whatsapp', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+// GET /api/suppliers/:id/sales-report - Gera relatório de vendas e giro de estoque de uma distribuidora / vendedor
+router.get('/:id/sales-report', authenticateToken, (req, res) => {
+  const supplierId = req.params.id;
+  const days = parseInt(req.query.days, 10) || 30; // 7, 15, 30, etc.
+
+  try {
+    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(supplierId);
+    if (!supplier) return res.status(404).json({ error: 'Distribuidora / Vendedor não encontrado.' });
+
+    const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(supplier.tenant_id);
+
+    // Buscar produtos fornecidos por este fornecedor
+    const products = db.prepare(`
+      SELECT p.id, p.name, p.barcode, p.manufacturer, p.cost_price, p.sale_price, p.stock_quantity, p.min_stock
+      FROM products p
+      WHERE p.tenant_id = ? AND (
+        p.supplier_id = ? OR 
+        p.id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = ?)
+      ) AND p.active = 1
+      ORDER BY p.name ASC
+    `).all(supplier.tenant_id, supplier.id, supplier.id);
+
+    const productIds = products.map(p => p.id);
+
+    let salesStats = [];
+    if (productIds.length > 0) {
+      const placeholders = productIds.map(() => '?').join(',');
+      salesStats = db.prepare(`
+        SELECT 
+          oi.product_id,
+          SUM(oi.quantity) as total_sold,
+          SUM(oi.subtotal) as total_revenue
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.tenant_id = ? 
+          AND o.status IN ('delivered', 'in_transit', 'paid', 'ready_for_delivery')
+          AND o.created_at >= datetime('now', '-' || ? || ' days')
+          AND oi.product_id IN (${placeholders})
+        GROUP BY oi.product_id
+      `).all(supplier.tenant_id, days, ...productIds);
+    }
+
+    const salesMap = {};
+    for (const s of salesStats) {
+      salesMap[s.product_id] = {
+        total_sold: Number(s.total_sold) || 0,
+        total_revenue: Number(s.total_revenue) || 0
+      };
+    }
+
+    let grandTotalSold = 0;
+    let grandTotalRevenue = 0;
+    let lowStockCount = 0;
+
+    const reportItems = products.map(p => {
+      const sold = salesMap[p.id]?.total_sold || 0;
+      const rev = salesMap[p.id]?.total_revenue || 0;
+      grandTotalSold += sold;
+      grandTotalRevenue += rev;
+      const isLow = p.stock_quantity <= p.min_stock;
+      if (isLow) lowStockCount++;
+
+      return {
+        id: p.id,
+        name: p.name,
+        barcode: p.barcode,
+        manufacturer: p.manufacturer,
+        stock_quantity: p.stock_quantity,
+        min_stock: p.min_stock,
+        is_low_stock: isLow,
+        units_sold: sold,
+        revenue_sold: Number(rev.toFixed(2)),
+        suggested_restock: isLow ? Math.max(p.min_stock * 2 - p.stock_quantity, 10) : 0
+      };
+    });
+
+    res.json({
+      success: true,
+      periodDays: days,
+      supplier: {
+        id: supplier.id,
+        name: supplier.name,
+        company: supplier.company,
+        phone: supplier.phone,
+        email: supplier.email
+      },
+      pharmacy: {
+        id: tenant.id,
+        name: tenant.name,
+        phone: tenant.phone
+      },
+      summary: {
+        totalProducts: products.length,
+        totalUnitsSold: grandTotalSold,
+        totalRevenue: Number(grandTotalRevenue.toFixed(2)),
+        itemsNeedingRestock: lowStockCount
+      },
+      items: reportItems
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar relatório de vendas: ' + err.message });
+  }
+});
+
+// POST /api/suppliers/:id/send-sales-report - Envia o relatório de vendas formatado direto no WhatsApp do vendedor / distribuidora
+router.post('/:id/send-sales-report', authenticateToken, requireAdmin, async (req, res) => {
+  const supplierId = req.params.id;
+  const days = parseInt(req.body.days, 10) || 7;
+
+  try {
+    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(supplierId);
+    if (!supplier) return res.status(404).json({ error: 'Distribuidora / Vendedor não encontrado.' });
+    if (!supplier.phone) return res.status(400).json({ error: 'Este fornecedor não possui WhatsApp cadastrado.' });
+
+    const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(supplier.tenant_id);
+
+    // Buscar estatísticas
+    const products = db.prepare(`
+      SELECT p.id, p.name, p.stock_quantity, p.min_stock
+      FROM products p
+      WHERE p.tenant_id = ? AND (
+        p.supplier_id = ? OR 
+        p.id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = ?)
+      ) AND p.active = 1
+    `).all(supplier.tenant_id, supplier.id, supplier.id);
+
+    const productIds = products.map(p => p.id);
+    let salesMap = {};
+    if (productIds.length > 0) {
+      const placeholders = productIds.map(() => '?').join(',');
+      const salesStats = db.prepare(`
+        SELECT oi.product_id, SUM(oi.quantity) as total_sold
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.tenant_id = ? 
+          AND o.status IN ('delivered', 'in_transit', 'paid', 'ready_for_delivery')
+          AND o.created_at >= datetime('now', '-' || ? || ' days')
+          AND oi.product_id IN (${placeholders})
+        GROUP BY oi.product_id
+      `).all(supplier.tenant_id, days, ...productIds);
+
+      for (const s of salesStats) {
+        salesMap[s.product_id] = Number(s.total_sold) || 0;
+      }
+    }
+
+    const itemsToRestock = [];
+    const topSelling = [];
+
+    products.forEach(p => {
+      const sold = salesMap[p.id] || 0;
+      if (sold > 0) topSelling.push({ name: p.name, sold, stock: p.stock_quantity });
+      if (p.stock_quantity <= p.min_stock) itemsToRestock.push({ name: p.name, stock: p.stock_quantity, min: p.min_stock });
+    });
+
+    topSelling.sort((a, b) => b.sold - a.sold);
+
+    let reportMsg = `📊 *RELATÓRIO DE GIRO E VENDAS (${days} DIAS)* 📦\n\n` +
+      `Olá, *${supplier.name}* (${supplier.company || 'Distribuidora'})!\n\n` +
+      `Aqui está o resumo de vendas dos seus itens na *${tenant.name}*:\n\n`;
+
+    if (topSelling.length > 0) {
+      reportMsg += `🔥 *MAIS VENDIDOS NO PERÍODO:*\n`;
+      topSelling.slice(0, 5).forEach((item, i) => {
+        reportMsg += `${i + 1}. ${item.name} (${item.sold} un. vendidas | Estoque atual: ${item.stock})\n`;
+      });
+      reportMsg += `\n`;
+    }
+
+    if (itemsToRestock.length > 0) {
+      reportMsg += `🚨 *ITENS EM NÍVEL CRÍTICO (NECESSITAM REPOSIÇÃO):*\n`;
+      itemsToRestock.slice(0, 8).forEach(item => {
+        reportMsg += `• ${item.name} (Restam: ${item.stock} un | Mín: ${item.min})\n`;
+      });
+      reportMsg += `\n👉 *Total precisando de reposição:* ${itemsToRestock.length} medicamento(s).\n\n`;
+    } else {
+      reportMsg += `✅ *Estoque regular:* Nenhum item abaixo do estoque mínimo no momento.\n\n`;
+    }
+
+    reportMsg += `Favor nos enviar propostas ou cotações atualizadas para reposição.\n\n` +
+      `Atenciosamente,\n*${tenant.name}*\nWhatsApp: ${tenant.phone || ''}`;
+
+    const sent = await botEngine.sendReply(supplier.tenant_id, supplier.phone, reportMsg);
+
+    if (!sent) {
+      return res.json({
+        success: false,
+        whatsappConnected: false,
+        error: 'O WhatsApp da farmácia não está conectado no momento.',
+      });
+    }
+
+    try {
+      db.prepare(`
+        INSERT INTO audit_logs (tenant_id, user_name, action, details)
+        VALUES (?, ?, 'RELATORIO_VENDAS_FORNECEDOR_WHATSAPP', ?)
+      `).run(supplier.tenant_id, req.body.sent_by || 'Farmacêutico', `Relatório de vendas (${days} dias) enviado para ${supplier.name} (${supplier.phone}).`);
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      whatsappConnected: true,
+      message: `Relatório de vendas de ${days} dias entregue com sucesso no WhatsApp de ${supplier.name}!`,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao enviar relatório de vendas: ' + err.message });
+  }
+});
+
 module.exports = router;

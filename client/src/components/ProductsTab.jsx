@@ -185,10 +185,11 @@ export default function ProductsTab({
           )}
           <button
             onClick={onOpenImportCsv}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-2xs"
+            title="Importar catálogo em lote via PDF ou CSV"
           >
-            <Upload size={14} />
-            <span className="hidden xs:inline">Importar</span> CSV
+            <Upload size={14} className="text-emerald-600" />
+            <span>Importar PDF / Planilha</span>
           </button>
           <button
             onClick={onOpenAddProduct}

@@ -16,7 +16,7 @@ import CampaignsTab from './components/CampaignsTab';
 import ProductModal from './components/ProductModal';
 import DriverModal from './components/DriverModal';
 import SupplierModal from './components/SupplierModal';
-import CsvImportModal from './components/CsvImportModal';
+import CatalogImportModal from './components/CatalogImportModal';
 import OrderDetailsModal from './components/OrderDetailsModal';
 import SimulatorModal from './components/SimulatorModal';
 import SuppliersTab from './components/SuppliersTab';
@@ -611,7 +611,7 @@ export default function App() {
         onSaved={loadTenantData}
       />
 
-      <CsvImportModal
+      <CatalogImportModal
         isOpen={csvModalOpen}
         onClose={() => setCsvModalOpen(false)}
         tenantId={selectedTenant?.id || 1}

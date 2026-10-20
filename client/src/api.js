@@ -66,11 +66,21 @@ export const api = {
       body: JSON.stringify(data),
     }).then((r) => r.json()),
   deleteProduct: (id) => authFetch(`${API_BASE}/products/${id}`, { method: 'DELETE' }).then((r) => r.json()),
-  importProducts: (tenantId, products, supplierId = null) =>
+  importProducts: (tenantId, products, supplierId = null, updateExisting = true) =>
     authFetch(`${API_BASE}/products/batch-import`, {
       method: 'POST',
-      body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId }),
+      body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId, update_existing: updateExisting }),
     }).then((r) => r.json()),
+  parsePdfCatalog: (formData) => {
+    const token = localStorage.getItem('zapfarm_token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${API_BASE}/products/parse-pdf`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    }).then((r) => r.json());
+  },
 
   // Suppliers / Representantes
   getSuppliers: (tenantId) => authFetch(`${API_BASE}/suppliers?tenant_id=${tenantId}`).then((r) => r.json()),
@@ -107,6 +117,13 @@ export const api = {
     authFetch(`${API_BASE}/suppliers/${supplierId}/test-whatsapp`, {
       method: 'POST',
       body: JSON.stringify({ sent_by: sentBy }),
+    }).then((r) => r.json()),
+  getSupplierSalesReport: (supplierId, days = 30) =>
+    authFetch(`${API_BASE}/suppliers/${supplierId}/sales-report?days=${days}`).then((r) => r.json()),
+  sendSupplierSalesReport: (supplierId, days = 7, sentBy = 'Farmacêutico') =>
+    authFetch(`${API_BASE}/suppliers/${supplierId}/send-sales-report`, {
+      method: 'POST',
+      body: JSON.stringify({ days, sent_by: sentBy }),
     }).then((r) => r.json()),
 
   // Orders

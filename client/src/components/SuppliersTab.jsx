@@ -15,7 +15,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Factory,
-  Sparkles
+  Sparkles,
+  BarChart3,
+  Send,
+  X
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -33,6 +36,56 @@ export default function SuppliersTab({
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [testingId, setTestingId] = useState(null);
+  const [reportSupplier, setReportSupplier] = useState(null);
+  const [reportPeriod, setReportPeriod] = useState(30);
+  const [reportData, setReportData] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
+
+  const handleOpenReport = async (supplier) => {
+    setReportSupplier(supplier);
+    setLoadingReport(true);
+    setReportData(null);
+    try {
+      const data = await api.getSupplierSalesReport(supplier.id, reportPeriod);
+      setReportData(data);
+    } catch (err) {
+      alert('Erro ao carregar relatório de vendas: ' + err.message);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const handlePeriodChange = async (days) => {
+    setReportPeriod(days);
+    if (!reportSupplier) return;
+    setLoadingReport(true);
+    try {
+      const data = await api.getSupplierSalesReport(reportSupplier.id, days);
+      setReportData(data);
+    } catch (err) {
+      alert('Erro ao filtrar relatório: ' + err.message);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const handleSendReportWhatsApp = async () => {
+    if (!reportSupplier) return;
+    setSendingReport(true);
+    try {
+      const res = await api.sendSupplierSalesReport(reportSupplier.id, reportPeriod);
+      if (res.success) {
+        alert(`✅ Relatório de ${reportPeriod} dias enviado com sucesso no WhatsApp de ${reportSupplier.name}!`);
+      } else {
+        alert(res.error || 'Erro ao enviar relatório');
+      }
+    } catch (err) {
+      alert('Erro ao enviar relatório via WhatsApp: ' + err.message);
+    } finally {
+      setSendingReport(false);
+    }
+  };
 
   const loadSuppliers = async () => {
     if (!tenantId) return;
@@ -483,6 +536,16 @@ export default function SuppliersTab({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReport(s)}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                            title="Ver Relatório de Vendas e Giro deste Fornecedor"
+                          >
+                            <BarChart3 size={13} className="text-indigo-600" />
+                            <span className="hidden xl:inline">Relatório</span>
+                          </button>
+
                           {s.phone && (
                             <button
                               type="button"
@@ -523,6 +586,153 @@ export default function SuppliersTab({
           </table>
         </div>
       </div>
+
+      {/* Modal de Relatório de Vendas e Giro para a Distribuidora */}
+      {reportSupplier && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <BarChart3 size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base">
+                    Relatório de Vendas & Giro: {reportSupplier.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {reportSupplier.company ? `Distribuidora: ${reportSupplier.company} • ` : ''}WhatsApp: {reportSupplier.phone}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReportSupplier(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filter by Period (7, 15, 30, 90 days) */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                {[7, 15, 30, 90].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handlePeriodChange(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      reportPeriod === d
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {d === 7 ? 'Últimos 7 dias (Semanal)' : d === 30 ? 'Últimos 30 dias (Mensal)' : `${d} dias`}
+                  </button>
+                ))}
+              </div>
+
+              {reportSupplier.phone && (
+                <button
+                  type="button"
+                  onClick={handleSendReportWhatsApp}
+                  disabled={sendingReport}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
+                  title="Enviar resumo formatado direto no WhatsApp do vendedor"
+                >
+                  <Send size={13} />
+                  <span>{sendingReport ? 'Enviando...' : 'Enviar Relatório no WhatsApp'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Summary Cards */}
+            {reportData && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-[11px] text-slate-500 block font-medium">Produtos Vinculados</span>
+                  <span className="text-lg font-black text-slate-800">{reportData.summary.totalProducts}</span>
+                </div>
+                <div className="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100">
+                  <span className="text-[11px] text-indigo-700 block font-medium">Unidades Vendidas</span>
+                  <span className="text-lg font-black text-indigo-900">{reportData.summary.totalUnitsSold}</span>
+                </div>
+                <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100">
+                  <span className="text-[11px] text-emerald-700 block font-medium">Faturamento Giro</span>
+                  <span className="text-lg font-black text-emerald-900">R$ {reportData.summary.totalRevenue.toFixed(2)}</span>
+                </div>
+                <div className="bg-amber-50/60 p-3.5 rounded-2xl border border-amber-100">
+                  <span className="text-[11px] text-amber-700 block font-medium">Precisam Reposição</span>
+                  <span className="text-lg font-black text-amber-900">{reportData.summary.itemsNeedingRestock}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Products Table */}
+            {loadingReport ? (
+              <div className="py-12 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                <RefreshCw size={14} className="animate-spin text-indigo-600" />
+                <span>Calculando vendas e estoque...</span>
+              </div>
+            ) : reportData && reportData.items.length > 0 ? (
+              <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="p-2.5">Medicamento</th>
+                      <th className="p-2.5">Fabricante</th>
+                      <th className="p-2.5 text-center">Estoque Atual</th>
+                      <th className="p-2.5 text-center">Qtd. Vendida</th>
+                      <th className="p-2.5 text-right">Faturamento</th>
+                      <th className="p-2.5 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {reportData.items.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="p-2.5 font-medium text-slate-800">{item.name}</td>
+                        <td className="p-2.5 text-slate-500">{item.manufacturer || '—'}</td>
+                        <td className="p-2.5 text-center font-bold text-slate-700">{item.stock_quantity} un.</td>
+                        <td className="p-2.5 text-center font-bold text-indigo-700">
+                          {item.units_sold > 0 ? `${item.units_sold} un.` : '0'}
+                        </td>
+                        <td className="p-2.5 text-right font-medium text-slate-700">R$ {item.revenue_sold.toFixed(2)}</td>
+                        <td className="p-2.5 text-center">
+                          {item.is_low_stock ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              ⚠️ Repor ({item.suggested_restock} un)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Normal
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Nenhum produto cadastrado para este fornecedor.
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setReportSupplier(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
