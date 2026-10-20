@@ -9,6 +9,18 @@ const { WebSocketServer, WebSocket } = require('ws');
 // Initialize Database
 const db = require('./db/database');
 
+// Auto-heal orphaned awaiting_payment conversations where order is not pending
+try {
+  db.prepare(`
+    UPDATE conversations 
+    SET state = 'idle', context_data = '{}'
+    WHERE state = 'awaiting_payment' 
+      AND customer_phone NOT IN (SELECT customer_phone FROM orders WHERE status = 'pending_payment')
+  `).run();
+} catch (e) {
+  console.error('Error auto-healing conversations on startup:', e);
+}
+
 // Ensure uploads directory exists
 const uploadsDir = process.env.UPLOADS_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
 if (!fs.existsSync(uploadsDir)) {

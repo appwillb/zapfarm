@@ -153,6 +153,21 @@ class BotEngine {
       `).run(tenantId, phone);
       conv = db.prepare('SELECT * FROM conversations WHERE tenant_id = ? AND customer_phone = ?').get(tenantId, phone);
     }
+
+    // Auto-heal: If conversation is in awaiting_payment but there is NO pending_payment order, reset to idle!
+    if (conv.state === 'awaiting_payment') {
+      const activePending = db.prepare(`
+        SELECT id, created_at FROM orders 
+        WHERE tenant_id = ? AND customer_phone = ? AND status = 'pending_payment'
+      `).get(tenantId, phone);
+
+      if (!activePending) {
+        db.prepare(`UPDATE conversations SET state = 'idle', context_data = '{}' WHERE id = ?`).run(conv.id);
+        conv.state = 'idle';
+        conv.context_data = '{}';
+      }
+    }
+
     return {
       ...conv,
       context: JSON.parse(conv.context_data || '{}')
@@ -1132,6 +1147,29 @@ class BotEngine {
       case 'order_confirmed': {
         const orderId = conv.context.active_order_id;
         const lower = lowerText;
+        const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|hey|alo|alô)/i.test(lower);
+
+        if (isGreeting) {
+          this.updateConversation(tenantId, customerPhone, 'idle', {});
+          const baseWelcome = tenant.welcome_message
+            ? tenant.welcome_message.replace('{nome}', tenant.name)
+            : `Olá, *${customerName}*! Seja muito bem-vindo(a) à *${tenant.name}*! 💊✨`;
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `👋 ${baseWelcome}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Como posso te ajudar agora?\n\n` +
+            `[ 1 ] 🔍 *Buscar remédio ou produto* (digite o nome)\n` +
+            `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+            `👉 *Digite o nome do remédio* que procura ou escolha uma opção!\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
+          );
+          return;
+        }
+
         if (
           lower.includes('status') ||
           lower.includes('pedido') ||
@@ -1172,7 +1210,74 @@ class BotEngine {
 
       case 'awaiting_payment': {
         const orderId = conv.context.active_order_id;
-        const wantsPixAgain = lowerText.includes('pix') ||
+        const order = orderId ? db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) : null;
+
+        // If the order was already paid, delivered, cancelled or doesn't exist anymore, release conversation to idle!
+        if (!order || order.status !== 'pending_payment') {
+          this.updateConversation(tenantId, customerPhone, 'idle', {});
+          const baseWelcome = tenant.welcome_message
+            ? tenant.welcome_message.replace('{nome}', tenant.name)
+            : `Olá, *${customerName}*! Seja muito bem-vindo(a) à *${tenant.name}*! 💊✨`;
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `👋 ${baseWelcome}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Como posso te ajudar hoje?\n\n` +
+            `[ 1 ] 🔍 *Buscar remédio ou produto* (digite o nome)\n` +
+            `[ 2 ] 🔥 *Ver Melhores Ofertas do Dia*\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente / Farmacêutico*\n\n` +
+            `👉 *Digite o nome do remédio* que procura ou escolha uma opção!\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0* a qualquer momento.`
+          );
+          return;
+        }
+
+        const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|hey|alo|alô)/i.test(lowerText);
+        if (isGreeting) {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `👋 Olá, *${customerName}*! 💊\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Identificamos que você possui o *Pedido #${orderId}* no valor de *R$ ${formatMoney(order.total)}* aguardando pagamento via Pix.\n\n` +
+            `👉 *O que você deseja fazer agora?*\n\n` +
+            `[ 1 ] 💠 *Ver código Pix para pagar agora*\n` +
+            `[ 2 ] 🛒 *Fazer um novo pedido* (cancela o anterior)\n` +
+            `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
+          return;
+        }
+
+        if (lowerText === '2' || lowerText === '[2]' || lowerText.includes('novo pedido') || lowerText.includes('cancelar')) {
+          // Cancel previous pending order and release reserved stock
+          try {
+            const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+            const restoreStock = db.prepare('UPDATE products SET reserved_quantity = MAX(0, reserved_quantity - ?) WHERE id = ?');
+            for (const item of items) {
+              restoreStock.run(item.quantity, item.product_id);
+            }
+            db.prepare("UPDATE orders SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(orderId);
+          } catch (e) {}
+          this.updateConversation(tenantId, customerPhone, 'idle', {});
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `🗑️ *Pedido #${orderId} cancelado!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Vamos iniciar um novo pedido para você! 💊\n\n` +
+            `Qual medicamento ou produto de saúde você procura hoje?\n` +
+            `_(Digite o nome do remédio ou digite *0* para falar com o atendente)_`
+          );
+          return;
+        }
+
+        const wantsPixAgain = lowerText === '1' ||
+          lowerText === '[1]' ||
+          lowerText.includes('pix') ||
           lowerText.includes('codigo') ||
           lowerText.includes('código') ||
           lowerText.includes('copia') ||
@@ -1181,43 +1286,68 @@ class BotEngine {
           lowerText.includes('reenvia') ||
           lowerText.includes('manda');
 
-        if (wantsPixAgain && orderId) {
-          const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-          if (order && order.pix_code) {
-            await this.sendReply(
-              tenantId,
-              customerPhone,
-              `💠 *CÓDIGO PIX COPIA E COLA*\n` +
-              `━━━━━━━━━━━━━━━━━━━━━━\n` +
-              `Pedido: *#${orderId}*\n` +
-              `Total: *R$ ${formatMoney(order.total)}*\n\n` +
-              `Segue o código abaixo para você copiar e colar no seu banco:`
-            );
-            await new Promise((r) => setTimeout(r, 400));
-            await this.sendReply(tenantId, customerPhone, order.pix_code);
-            await new Promise((r) => setTimeout(r, 400));
-            await this.sendReply(
-              tenantId,
-              customerPhone,
-              `📱 *Basta tocar/segurar na mensagem acima para copiar o código Pix e colar no aplicativo do seu banco!*\n\n` +
-              `Assim que conferirmos o recebimento, liberamos seu pedido. 💚\n\n` +
-              `━━━━━━━━━━━━━━━━━━━━━━\n` +
-              `💬 *Deseja falar com atendente?* Digite *0*`
-            );
-            return;
-          }
+        if (wantsPixAgain && order.pix_code) {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `💠 *CÓDIGO PIX COPIA E COLA*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Pedido: *#${orderId}*\n` +
+            `Total: *R$ ${formatMoney(order.total)}*\n\n` +
+            `Segue o código abaixo para você copiar e colar no seu banco:`
+          );
+          await new Promise((r) => setTimeout(r, 400));
+          await this.sendReply(tenantId, customerPhone, order.pix_code);
+          await new Promise((r) => setTimeout(r, 400));
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `📱 *Basta tocar/segurar na mensagem acima para copiar o código Pix e colar no aplicativo do seu banco!*\n\n` +
+            `Assim que conferirmos o recebimento, liberamos seu pedido. 💚\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
+          return;
         }
 
-        // Customer says "já paguei" or sends proof
-        // STRICT RULE: "O entregador só será acionado depois da confirmação real do pagamento e da liberação do pedido pela farmácia. Foto de comprovante ou mensagem dizendo 'já paguei' não poderá liberar a entrega."
+        // Only treat as payment confirmation if user explicitly says they paid or sent proof
+        const saysPaid = lowerText.includes('comprovante') ||
+          lowerText.includes('paguei') ||
+          lowerText.includes('pagamento') ||
+          lowerText.includes('fiz o pix') ||
+          lowerText.includes('pix feito') ||
+          lowerText.includes('ta pago') ||
+          lowerText.includes('tá pago') ||
+          lowerText.includes('transferi') ||
+          lowerText.includes('enviei') ||
+          lowerText.includes('ja paguei') ||
+          lowerText.includes('já paguei') ||
+          Boolean(mediaUrl);
+
+        if (saysPaid) {
+          await this.sendReply(
+            tenantId,
+            customerPhone,
+            `⏳ *MENSAGEM RECEBIDA!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Nossa equipe da farmácia e o sistema bancário estão conferindo a confirmação do pagamento em nossa conta.\n\n` +
+            `🔒 *Segurança:* Por normas da farmácia, a liberação e o envio do motoboy ocorrem logo após a conciliação bancária do Pix e a conferência farmacêutica dos itens.\n\n` +
+            `Assim que confirmarmos, você receberá a notificação instantânea aqui no WhatsApp!\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💬 *Deseja falar com atendente?* Digite *0*`
+          );
+          return;
+        }
+
+        // Fallback in awaiting_payment if text is something else
         await this.sendReply(
           tenantId,
           customerPhone,
-          `⏳ *MENSAGEM RECEBIDA!*\n` +
+          `ℹ️ *Você possui o Pedido #${orderId} aguardando pagamento Pix (R$ ${formatMoney(order.total)}).*\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `Nossa equipe da farmácia e o sistema bancário estão conferindo a confirmação do pagamento em nossa conta.\n\n` +
-          `🔒 *Segurança:* Por normas da farmácia, a liberação e o envio do motoboy ocorrem logo após a conciliação bancária do Pix e a conferência farmacêutica dos itens.\n\n` +
-          `Assim que confirmarmos, você receberá a notificação instantânea aqui no WhatsApp!\n\n` +
+          `[ 1 ] 💠 *Ver código Pix para pagar*\n` +
+          `[ 2 ] 🛒 *Cancelar e fazer novo pedido*\n` +
+          `[ 0 ] 👨‍⚕️ *Falar com Atendente*\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `💬 *Deseja falar com atendente?* Digite *0*`
         );
@@ -1653,6 +1783,13 @@ class BotEngine {
       `💬 *Deseja falar com atendente?* Digite *0*`
     );
 
+    // Reset conversation to idle so customer can make new purchases normally
+    try {
+      this.updateConversation(order.tenant_id, order.customer_phone, 'idle', {});
+    } catch (e) {
+      console.error('Error resetting conversation after payment confirmation:', e);
+    }
+
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   }
 
@@ -1835,6 +1972,13 @@ class BotEngine {
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
       `💬 *Deseja falar com atendente?* Digite *0*`
     );
+
+    // Reset conversation to idle so customer can make new purchases normally
+    try {
+      this.updateConversation(order.tenant_id, order.customer_phone, 'idle', {});
+    } catch (e) {
+      console.error('Error resetting conversation after delivery:', e);
+    }
 
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   }

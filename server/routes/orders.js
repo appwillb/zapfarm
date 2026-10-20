@@ -155,6 +155,11 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
       db.prepare("UPDATE delivery_drivers SET status = 'available' WHERE id = ?").run(order.driver_id);
     }
 
+    // Reset customer conversation to idle so they can talk to the bot normally
+    try {
+      botEngine.updateConversation(order.tenant_id, order.customer_phone, 'idle', {});
+    } catch (e) {}
+
     // Notify customer
     await botEngine.sendReply(
       order.tenant_id,
@@ -190,6 +195,11 @@ router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
     // Delete order items and order
     db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
     db.prepare('DELETE FROM orders WHERE id = ?').run(orderId);
+
+    // Reset customer conversation to idle
+    try {
+      botEngine.updateConversation(order.tenant_id, order.customer_phone, 'idle', {});
+    } catch (e) {}
 
     // Free driver if was assigned
     if (order.driver_id && (order.status === 'in_transit' || order.status === 'ready_for_delivery')) {
