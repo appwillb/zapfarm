@@ -126,6 +126,17 @@ export default function ProductsTab({
     return matchesSearch && matchesCategory && matchesSupplier;
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // Resetar para página 1 se mudar filtros de busca
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedSupplier]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedProducts = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="space-y-5">
       {/* Top Header Controls */}
@@ -210,7 +221,7 @@ export default function ProductsTab({
               Nenhum medicamento encontrado para essa busca.
             </div>
           ) : (
-            filtered.map((prod) => {
+            paginatedProducts.map((prod) => {
               const available = prod.stock_quantity - (prod.reserved_quantity || 0);
               const isLow = prod.stock_quantity <= prod.min_stock;
 
@@ -389,7 +400,7 @@ export default function ProductsTab({
                 <th className="py-3 px-4">Reservado</th>
                 <th className="py-3 px-4">Disponível Bot</th>
                 <th className="py-3 px-4">Receita Médica</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="py-3 px-4 text-right sticky right-0 bg-slate-50 shadow-[-5px_0_10px_rgba(0,0,0,0.03)] z-10">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -400,7 +411,7 @@ export default function ProductsTab({
                   </td>
                 </tr>
               ) : (
-                filtered.map((prod) => {
+                paginatedProducts.map((prod) => {
                   const available = prod.stock_quantity - (prod.reserved_quantity || 0);
                   const isLow = prod.stock_quantity <= prod.min_stock;
 
@@ -509,7 +520,7 @@ export default function ProductsTab({
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-5px_0_10px_rgba(0,0,0,0.03)] z-10">
                         <div className="flex items-center justify-end gap-1.5">
                           {isLow && (
                             <button
@@ -564,6 +575,53 @@ export default function ProductsTab({
             </tbody>
           </table>
         </div>
+
+        {/* Barra de Paginação e Totalizador Inteligente */}
+        {filtered.length > 0 && (
+          <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span>
+                Mostrando <b>{(currentPage - 1) * pageSize + 1}</b> a <b>{Math.min(currentPage * pageSize, filtered.length)}</b> de <b>{filtered.length}</b> medicamentos
+              </span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium ml-2"
+              >
+                <option value={25}>25 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={100}>100 por página</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+              >
+                Anterior
+              </button>
+
+              <span className="px-3 py-1 font-bold text-slate-800">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
