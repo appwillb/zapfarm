@@ -129,13 +129,13 @@ export default function ProductsTab({
   return (
     <div className="space-y-5">
       {/* Top Header Controls */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
-          <div className="relative w-full sm:w-72">
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full lg:w-auto flex-1 min-w-0">
+          <div className="relative w-full sm:w-64 lg:w-72 shrink-0">
             <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por nome, princípio, EAN ou vendedor..."
+              placeholder="Buscar por nome, princípio, EAN..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
@@ -145,7 +145,7 @@ export default function ProductsTab({
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full sm:w-auto p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none"
+            className="w-full sm:w-auto p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none shrink-0"
           >
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -157,10 +157,10 @@ export default function ProductsTab({
           <select
             value={selectedSupplier}
             onChange={(e) => setSelectedSupplier(e.target.value)}
-            className="w-full sm:w-auto p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none font-medium"
+            className="w-full sm:w-auto p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none font-medium max-w-[200px] truncate shrink-0"
           >
-            <option value="Todos">👤 Todos os Vendedores</option>
-            <option value="com_vendedor">✅ Com Vendedor Vinculado</option>
+            <option value="Todos">👤 Vendedores</option>
+            <option value="com_vendedor">✅ Com Vendedor</option>
             <option value="sem_vendedor">⚠️ Sem Vendedor</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
@@ -170,13 +170,13 @@ export default function ProductsTab({
           </select>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto justify-end shrink-0">
           {onRefresh && (
             <button
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs shrink-0"
               title="Atualizar catálogo de medicamentos"
             >
               <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
@@ -185,7 +185,7 @@ export default function ProductsTab({
           )}
           <button
             onClick={onOpenImportCsv}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-2xs"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
             title="Importar catálogo em lote via PDF ou CSV"
           >
             <Upload size={14} className="text-emerald-600" />
@@ -193,10 +193,10 @@ export default function ProductsTab({
           </button>
           <button
             onClick={onOpenAddProduct}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-xs"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-xs shrink-0 whitespace-nowrap"
           >
             <Plus size={14} />
-            Novo Remédio
+            <span>Novo Remédio</span>
           </button>
         </div>
       </div>
