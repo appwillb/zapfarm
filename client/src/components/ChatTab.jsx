@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt } from 'lucide-react';
 import { api } from '../api';
 import { wsClient } from '../services/websocket';
@@ -16,6 +16,15 @@ function formatPhone(phone) {
   return phone;
 }
 
+function isSamePhone(p1, p2) {
+  if (!p1 || !p2) return false;
+  if (p1 === p2) return true;
+  const c1 = String(p1).replace(/[^\d]/g, '');
+  const c2 = String(p2).replace(/[^\d]/g, '');
+  if (c1 && c2 && (c1 === c2 || c1.endsWith(c2) || c2.endsWith(c1))) return true;
+  return false;
+}
+
 export default function ChatTab({
   tenantId,
   initialPhone,
@@ -30,23 +39,51 @@ export default function ChatTab({
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState(null);
-
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Refs to avoid stale closures in intervals/WebSockets and enable smooth auto-scrolling
+  const selectedPhoneRef = useRef(selectedPhone);
+  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
   useEffect(() => {
-    if (initialPhone) {
+    selectedPhoneRef.current = selectedPhone;
+  }, [selectedPhone]);
+
+  useEffect(() => {
+    if (initialPhone && initialPhone !== selectedPhoneRef.current) {
       setSelectedPhone(initialPhone);
+      selectedPhoneRef.current = initialPhone;
       setMobileView('chat');
     }
   }, [initialPhone]);
+
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+    } else if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Scroll to bottom whenever messages change or user switches conversation
+  useEffect(() => {
+    if (activeChat.messages?.length > 0) {
+      scrollToBottom('auto');
+      const timer = setTimeout(() => scrollToBottom('smooth'), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeChat.messages?.length, selectedPhone]);
 
   const loadConversations = async () => {
     try {
       const data = await api.getConversations(tenantId);
       setConversations(data);
-      if (!selectedPhone && data.length > 0) {
+      // Only default to first conversation if user hasn't selected ANY conversation yet
+      if (!selectedPhoneRef.current && data.length > 0) {
         const first = initialPhone || data[0].customer_phone;
         setSelectedPhone(first);
+        selectedPhoneRef.current = first;
         if (onPhoneSelected) onPhoneSelected(first);
       }
     } catch (e) {
@@ -55,13 +92,22 @@ export default function ChatTab({
   };
 
   const loadMessages = async (phone) => {
-    if (!phone) return;
+    const target = phone || selectedPhoneRef.current;
+    if (!target) return;
     try {
-      const data = await api.getMessages(tenantId, phone);
+      const data = await api.getMessages(tenantId, target);
       setActiveChat(data);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleSelectConversation = (phone) => {
+    setSelectedPhone(phone);
+    selectedPhoneRef.current = phone;
+    if (onPhoneSelected) onPhoneSelected(phone);
+    setMobileView('chat');
+    loadMessages(phone);
   };
 
   const handleRefresh = async () => {
@@ -69,7 +115,7 @@ export default function ChatTab({
     try {
       await Promise.all([
         loadConversations(),
-        selectedPhone ? loadMessages(selectedPhone) : Promise.resolve(),
+        selectedPhoneRef.current ? loadMessages(selectedPhoneRef.current) : Promise.resolve(),
       ]);
     } catch (e) {
       console.error('Error refreshing chat:', e);
@@ -78,16 +124,22 @@ export default function ChatTab({
     }
   };
 
+  // Periodic poll of conversations list
   useEffect(() => {
     loadConversations();
     const interval = setInterval(loadConversations, 5000);
     return () => clearInterval(interval);
   }, [tenantId]);
 
+  // Periodic poll of active conversation messages
   useEffect(() => {
     if (selectedPhone) {
       loadMessages(selectedPhone);
-      const interval = setInterval(() => loadMessages(selectedPhone), 4000);
+      const interval = setInterval(() => {
+        if (selectedPhoneRef.current) {
+          loadMessages(selectedPhoneRef.current);
+        }
+      }, 4000);
       return () => clearInterval(interval);
     }
   }, [selectedPhone, tenantId]);
@@ -96,24 +148,27 @@ export default function ChatTab({
   useEffect(() => {
     const unsub = wsClient.subscribe('new_chat_message', (payload) => {
       loadConversations();
-      if (selectedPhone && payload.customerPhone === selectedPhone) {
-        loadMessages(selectedPhone);
+      const current = selectedPhoneRef.current;
+      if (current && payload?.customerPhone && isSamePhone(payload.customerPhone, current)) {
+        loadMessages(current);
       }
     });
     return unsub;
-  }, [selectedPhone, tenantId]);
+  }, [tenantId]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedPhone) return;
+    const current = selectedPhoneRef.current || selectedPhone;
+    if (!messageInput.trim() || !current) return;
 
     const text = messageInput;
     setMessageInput('');
 
     try {
-      const res = await api.sendChatMessage(tenantId, selectedPhone, text);
-      await loadMessages(selectedPhone);
+      const res = await api.sendChatMessage(tenantId, current, text);
+      await loadMessages(current);
       await loadConversations();
+      setTimeout(() => scrollToBottom('smooth'), 50);
       if (res && res.warning) {
         alert(res.warning);
       }
@@ -125,9 +180,10 @@ export default function ChatTab({
   const handleToggleHuman = async () => {
     if (!activeChat.conversation) return;
     const currentIsHuman = activeChat.conversation.is_human_agent === 1;
+    const current = selectedPhoneRef.current || selectedPhone;
     try {
-      await api.toggleHumanSupport(tenantId, selectedPhone, !currentIsHuman);
-      await loadMessages(selectedPhone);
+      await api.toggleHumanSupport(tenantId, current, !currentIsHuman);
+      await loadMessages(current);
       await loadConversations();
     } catch (err) {
       alert('Erro: ' + err.message);
@@ -135,7 +191,7 @@ export default function ChatTab({
   };
 
   const handleDeleteConversation = async (phoneToDelete, customerName) => {
-    const targetPhone = phoneToDelete || selectedPhone;
+    const targetPhone = phoneToDelete || selectedPhoneRef.current || selectedPhone;
     if (!targetPhone) return;
 
     const displayName = customerName || formatPhone(targetPhone);
@@ -146,8 +202,9 @@ export default function ChatTab({
 
     // Optimistic UI update: remove immediately
     setConversations((prev) => prev.filter((c) => c.customer_phone !== targetPhone));
-    if (selectedPhone === targetPhone) {
+    if (selectedPhoneRef.current === targetPhone) {
       setSelectedPhone(null);
+      selectedPhoneRef.current = null;
       setActiveChat({ conversation: null, messages: [] });
     }
 
@@ -195,11 +252,7 @@ export default function ChatTab({
               return (
                 <div
                   key={c.id || c.customer_phone}
-                  onClick={() => {
-                    setSelectedPhone(c.customer_phone);
-                    if (onPhoneSelected) onPhoneSelected(c.customer_phone);
-                    setMobileView('chat');
-                  }}
+                  onClick={() => handleSelectConversation(c.customer_phone)}
                   className={`group relative w-full p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                     isSelected ? 'bg-white shadow-xs border-l-4 border-emerald-500' : 'hover:bg-slate-100/60'
                   }`}
@@ -349,7 +402,10 @@ export default function ChatTab({
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-slate-50/40">
+            <div 
+              ref={messagesContainerRef}
+              className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-slate-50/40 scroll-smooth"
+            >
               {activeChat.messages?.map((m) => {
                 const isMe = m.from_me === 1;
                 const isPixCode = m.text && m.text.startsWith('000201');
@@ -435,6 +491,7 @@ export default function ChatTab({
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} className="h-1" />
             </div>
 
             {/* Input Bar */}
