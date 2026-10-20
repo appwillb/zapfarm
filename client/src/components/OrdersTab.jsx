@@ -114,6 +114,15 @@ export default function OrdersTab({
     setDispatchModalOrder(null);
   };
 
+  const statusMap = {
+    pending_payment: { label: 'Aguardando Pagamento', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    paid: { label: 'Pago & Em Separação', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    ready_for_delivery: { label: 'Pronto / Aguardando Motoboy', color: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+    in_transit: { label: 'Em Rota com Entregador', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    delivered: { label: 'Entregue / Concluído', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    cancelled: { label: 'Cancelado', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+  };
+
   return (
     <div className="space-y-5">
       {/* Top Controls Bar */}
