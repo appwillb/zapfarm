@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone, Download } from 'lucide-react';
+import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone, Download, Factory } from 'lucide-react';
 import { api } from '../api';
+import BulkManufacturerModal from './BulkManufacturerModal';
 
 export default function ProductsTab({
   products,
@@ -19,6 +20,13 @@ export default function ProductsTab({
   const [suppliers, setSuppliers] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notifyingId, setNotifyingId] = useState(null);
+  const [isBulkMfrOpen, setIsBulkMfrOpen] = useState(false);
+  const [bulkMfrTarget, setBulkMfrTarget] = useState(null);
+
+  const handleOpenBulkMfr = (mfrName = null) => {
+    setBulkMfrTarget(mfrName);
+    setIsBulkMfrOpen(true);
+  };
 
   useEffect(() => {
     if (!tenantId) return;
@@ -261,6 +269,16 @@ export default function ProductsTab({
 
           <button
             type="button"
+            onClick={() => handleOpenBulkMfr(null)}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
+            title="Vincular múltiplos fabricantes/laboratórios de uma vez aos vendedores ou distribuidoras"
+          >
+            <Factory size={14} className="text-indigo-600" />
+            <span>🏭 Vincular Fabricantes em Massa</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleExportCsv}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
             title="Baixar planilha completa em Excel/CSV com todos os medicamentos, estoques e preços para conferência"
@@ -401,10 +419,16 @@ export default function ProductsTab({
                       !prod.supplier_id && (
                         <button
                           type="button"
-                          onClick={() => onOpenEditProduct(prod)}
-                          className="text-[10px] text-emerald-600 font-semibold hover:underline"
+                          onClick={() => {
+                            if (prod.manufacturer) {
+                              handleOpenBulkMfr(prod.manufacturer);
+                            } else {
+                              onOpenEditProduct(prod);
+                            }
+                          }}
+                          className="text-[10px] text-indigo-600 font-semibold hover:underline"
                         >
-                          + Vincular
+                          + Vincular {prod.manufacturer ? `(${prod.manufacturer})` : ''}
                         </button>
                       )
                     )}
@@ -511,7 +535,19 @@ export default function ProductsTab({
                       </td>
                       <td className="py-3.5 px-4">
                         <p className="font-medium text-slate-700">{prod.active_ingredient || '—'}</p>
-                        <p className="text-[10px] text-slate-400">{prod.manufacturer || '—'}</p>
+                        {prod.manufacturer ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenBulkMfr(prod.manufacturer)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 transition-colors mt-0.5 group/mfr text-left"
+                            title={`Vincular todos os produtos da ${prod.manufacturer} a um vendedor em 1 clique`}
+                          >
+                            <span>🏭 {prod.manufacturer}</span>
+                            <span className="text-[9px] text-indigo-400 group-hover/mfr:text-indigo-600 underline">em massa</span>
+                          </button>
+                        ) : (
+                          <p className="text-[10px] text-slate-400">—</p>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         {prod.supplier_name ? (
@@ -529,14 +565,31 @@ export default function ProductsTab({
                             )}
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => onOpenEditProduct(prod)}
-                            className="text-[11px] text-slate-400 hover:text-emerald-600 hover:underline flex items-center gap-1"
-                            title="Clique para vincular um vendedor"
-                          >
-                            + Vincular vendedor
-                          </button>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (prod.manufacturer) {
+                                  handleOpenBulkMfr(prod.manufacturer);
+                                } else {
+                                  onOpenEditProduct(prod);
+                                }
+                              }}
+                              className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-semibold"
+                              title={
+                                prod.manufacturer
+                                  ? `Clique para vincular todos os produtos do laboratório ${prod.manufacturer} a um vendedor`
+                                  : 'Clique para vincular um vendedor'
+                              }
+                            >
+                              + Vincular vendedor
+                            </button>
+                            {prod.manufacturer && (
+                              <span className="text-[9px] text-slate-400">
+                                Lab: {prod.manufacturer}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
@@ -699,6 +752,20 @@ export default function ProductsTab({
           </div>
         )}
       </div>
+
+      <BulkManufacturerModal
+        isOpen={isBulkMfrOpen}
+        onClose={() => {
+          setIsBulkMfrOpen(false);
+          setBulkMfrTarget(null);
+        }}
+        tenantId={tenantId}
+        suppliers={suppliers}
+        initialManufacturer={bulkMfrTarget}
+        onSaved={async () => {
+          await handleRefresh();
+        }}
+      />
     </div>
   );
 }

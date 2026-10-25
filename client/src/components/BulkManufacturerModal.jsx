@@ -21,6 +21,7 @@ export default function BulkManufacturerModal({
   onClose,
   tenantId,
   suppliers = [],
+  initialManufacturer = null,
   onSaved
 }) {
   const [manufacturers, setManufacturers] = useState([]);
@@ -50,14 +51,15 @@ export default function BulkManufacturerModal({
   useEffect(() => {
     if (isOpen) {
       loadManufacturers();
-      setSelectedMfrs([]);
-      setSearch('');
+      const initMfr = initialManufacturer ? String(initialManufacturer).trim() : '';
+      setSelectedMfrs(initMfr ? [initMfr] : []);
+      setSearch(initMfr);
       setFilterMode('all');
       if (suppliers && suppliers.length > 0) {
         setTargetSupplierId(String(suppliers[0].id));
       }
     }
-  }, [isOpen, tenantId, suppliers]);
+  }, [isOpen, tenantId, suppliers, initialManufacturer]);
 
   // Filtered list based on search and assignment status
   const filteredList = useMemo(() => {
@@ -85,8 +87,8 @@ export default function BulkManufacturerModal({
 
   const toggleSelect = (name) => {
     const trimmed = name.trim();
-    if (selectedMfrs.includes(trimmed)) {
-      setSelectedMfrs(selectedMfrs.filter((m) => m !== trimmed));
+    if (selectedMfrs.some((m) => m.toUpperCase() === trimmed.toUpperCase())) {
+      setSelectedMfrs(selectedMfrs.filter((m) => m.toUpperCase() !== trimmed.toUpperCase()));
     } else {
       setSelectedMfrs([...selectedMfrs, trimmed]);
     }
@@ -290,7 +292,7 @@ export default function BulkManufacturerModal({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {filteredList.map((m) => {
-                const isSelected = selectedMfrs.includes(m.name);
+                const isSelected = selectedMfrs.some((s) => s.toUpperCase() === m.name.toUpperCase());
                 const hasAssigned = m.assigned_suppliers && m.assigned_suppliers.length > 0;
 
                 return (

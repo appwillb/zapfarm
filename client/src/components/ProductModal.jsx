@@ -28,6 +28,7 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
   const [newSuppPhone, setNewSuppPhone] = useState('');
   const [newSuppCompany, setNewSuppCompany] = useState('');
   const [creatingSupplier, setCreatingSupplier] = useState(false);
+  const [applyToAllFromManufacturer, setApplyToAllFromManufacturer] = useState(false);
 
   useEffect(() => {
     if (isOpen && tenantId) {
@@ -82,6 +83,7 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
         supplier_id: '',
       });
     }
+    setApplyToAllFromManufacturer(false);
   }, [product, isOpen]);
 
   const handleQuickCreateSupplier = async (e) => {
@@ -136,6 +138,19 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
           ...payload,
           tenant_id: tenantId,
         });
+      }
+
+      if (applyToAllFromManufacturer && formData.manufacturer && formData.supplier_id) {
+        try {
+          await api.bindSupplierManufacturers({
+            tenant_id: tenantId,
+            supplier_id: Number(formData.supplier_id),
+            manufacturers: [formData.manufacturer.trim()],
+            strategy: 'overwrite'
+          });
+        } catch (mfrErr) {
+          console.error('Erro ao vincular em massa por laboratório:', mfrErr);
+        }
       }
       onSaved();
       onClose();
@@ -252,23 +267,39 @@ export default function ProductModal({ isOpen, onClose, product, tenantId, onSav
             </div>
 
             {!showQuickAddSupplier ? (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <select
-                  value={formData.supplier_id}
-                  onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                  className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs"
-                >
-                  <option value="">Nenhum vendedor vinculado</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      👤 {s.name} {s.company ? `(${s.company})` : ''} - 📱 {s.phone}
-                    </option>
-                  ))}
-                </select>
-                {selectedSupplier && (
-                  <span className="text-[11px] font-semibold text-blue-800 bg-blue-100/80 px-3 py-1.5 rounded-xl border border-blue-200 shrink-0">
-                    🔔 Alerta via WhatsApp em: {selectedSupplier.phone}
-                  </span>
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <select
+                    value={formData.supplier_id}
+                    onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                    className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs"
+                  >
+                    <option value="">Nenhum vendedor vinculado</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        👤 {s.name} {s.company ? `(${s.company})` : ''} - 📱 {s.phone}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedSupplier && (
+                    <span className="text-[11px] font-semibold text-blue-800 bg-blue-100/80 px-3 py-1.5 rounded-xl border border-blue-200 shrink-0">
+                      🔔 Alerta via WhatsApp em: {selectedSupplier.phone}
+                    </span>
+                  )}
+                </div>
+
+                {formData.manufacturer && formData.supplier_id && (
+                  <label className="flex items-center gap-2.5 p-2 bg-indigo-50 border border-indigo-200 rounded-xl cursor-pointer text-xs font-semibold text-indigo-950 transition-colors hover:bg-indigo-100/70 select-none">
+                    <input
+                      type="checkbox"
+                      checked={applyToAllFromManufacturer}
+                      onChange={(e) => setApplyToAllFromManufacturer(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    <span>
+                      🏭 Vincular este vendedor a <strong>TODOS</strong> os remédios da <strong>{formData.manufacturer}</strong> em 1 clique
+                    </span>
+                  </label>
                 )}
               </div>
             ) : (
