@@ -3,9 +3,11 @@
  * Extrator e normalizador inteligente de catálogos e listas de preços de farmácias / distribuidoras em formato PDF
  */
 
+const fs = require('fs');
+const path = require('path');
 const { PDFParse } = require('pdf-parse');
 
-const KNOWN_LABS = [
+const BASE_KNOWN_LABS = [
   'KLEY HERTZ', 'BIOLAB SAN', 'TEUTO SIMILA', 'TEUTO GENERI', 'PRATI-DONADU', 'PRATI-', 'PRATI',
   'NEO QUIMICA', 'MEDLEY - GEN', 'MEDLEY FARMA', 'MEDLEY', 'EUROFARMA ET', 'EUROFARMA', 'EMS INDUST',
   'EMS GENERICO', 'EMS ETICO', 'EMS', 'UNIAO QUIMIC', 'UNIAO', 'CIMED GENERI', 'CIMED', 'ACHE FARMA',
@@ -15,12 +17,40 @@ const KNOWN_LABS = [
   'SANDOZ', 'APSEN', 'TORRENT', 'LIBBS', 'MERCK SHAR', 'MERCK GENERI', 'MERCK', 'PHARLAB GEN',
   'PHARLAB', 'MULTILAB SIM', 'MULTILAB GEN', 'MULTILAB', 'PROBIOTICA', 'MAX TITANIUM', 'ABNAT',
   'FARMOQUIMICA', 'BIOSINT.GENE', 'BIOSINTETICA', 'DELTA GENERI', 'DELTA', 'SERVIER', 'ARTE NATIVA',
-  'GROSS', 'INTENDIS B', 'WHITEHALL', 'KRESS', 'CATARINENS', 'CAZI', 'BYK', 'PFIZER', 'ALTANA BYK',
-  'BRAVIR', 'HYPER-FARMAS', 'HYPER-DM', 'HYPER-', 'NATUBRAS', 'GENOM', 'FARMACO', 'BALDACCI',
-  'MAKROFARMA', 'NATULAB', 'HEBRON', 'CRISTALIA', 'ZAMBON', 'ROCHE', 'DIFFUCAP', 'ALLERGAN',
-  'ZODIAC', 'CELLERA FAR', 'BELFAR SIMIL', 'BELFAR', 'RECKITT BENC', 'MAXINUTRI', 'FORTLIFE',
-  'NEWMIX SUPLE', 'NEWMIX', 'DUOM', 'SOLARIS', 'KNOLL PROD', 'HERBAMED', 'DIVCOM PHA', 'MARJAN'
+  'ARTE NATIV', 'GROSS', 'INTENDIS B', 'WHITEHALL', 'KRESS', 'CATARINENS', 'CATARINENSE', 'CAZI',
+  'BYK', 'PFIZER', 'ALTANA BYK', 'BRAVIR', 'HYPER-FARMAS', 'HYPER-DM', 'HYPER-', 'NATUBRAS', 'GENOM',
+  'FARMACO', 'BALDACCI', 'MAKROFARMA', 'NATULAB', 'HEBRON', 'CRISTALIA', 'ZAMBON', 'ROCHE',
+  'DIFFUCAP', 'ALLERGAN', 'ZODIAC', 'CELLERA FAR', 'BELFAR SIMIL', 'BELFAR', 'RECKITT BENC',
+  'MAXINUTRI', 'FORTLIFE', 'NEWMIX SUPLE', 'NEWMIX', 'DUOM', 'SOLARIS', 'KNOLL PROD', 'HERBAMED',
+  'DIVCOM PHA', 'MARJAN', 'T&J IMP.EX', 'VIDORA', 'MYLAN', 'CONVATEC', 'VICHY', 'SUPERA',
+  'BRASTERAPICA', 'APISNUTRI', 'RANBAXY-GE', 'RANBAXY', 'NOVOTERAPI', 'APIS-FLORA', 'LEGRARI IN'
 ];
+
+let _cachedSortedLabs = null;
+
+function getSortedLabs() {
+  if (_cachedSortedLabs) return _cachedSortedLabs;
+
+  const labsSet = new Set(BASE_KNOWN_LABS.map(l => l.trim()));
+
+  try {
+    const jsonPath = path.join(__dirname, '../db/drogarosa_products.json');
+    if (fs.existsSync(jsonPath)) {
+      const list = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      for (const item of list) {
+        if (item.manufacturer && typeof item.manufacturer === 'string') {
+          const m = item.manufacturer.trim();
+          if (m.length >= 2) labsSet.add(m);
+        }
+      }
+    }
+  } catch (e) {
+    // Silently continue with base labs
+  }
+
+  _cachedSortedLabs = Array.from(labsSet).sort((a, b) => b.length - a.length);
+  return _cachedSortedLabs;
+}
 
 /**
  * Limpa e converte strings monetárias brasileiras (ex: "1.234,50" ou "23,90") para Number float
@@ -43,7 +73,8 @@ function parsePrice(str) {
 function splitNameAndLab(str) {
   let clean = str.trim();
   let lab = '';
-  for (const known of KNOWN_LABS) {
+  const sortedLabs = getSortedLabs();
+  for (const known of sortedLabs) {
     const escaped = known.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const regex = new RegExp(`(?:\\s+|-)${escaped}$`, 'i');
     if (regex.test(clean)) {

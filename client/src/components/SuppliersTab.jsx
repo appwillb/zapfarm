@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { api } from '../api';
+import BulkManufacturerModal from './BulkManufacturerModal';
 
 export default function SuppliersTab({
   tenantId,
@@ -41,6 +42,7 @@ export default function SuppliersTab({
   const [reportData, setReportData] = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
+  const [isBulkMfrOpen, setIsBulkMfrOpen] = useState(false);
 
   const handleOpenReport = async (supplier) => {
     setReportSupplier(supplier);
@@ -282,6 +284,16 @@ export default function SuppliersTab({
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
             <span className="hidden sm:inline ml-1.5">{loading ? 'Atualizando...' : 'Atualizar'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsBulkMfrOpen(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors shadow-xs"
+            title="Vincular múltiplos fabricantes da farmácia a um vendedor de uma só vez"
+          >
+            <Factory size={14} className="text-indigo-600" />
+            <span>Vincular Fabricantes em Massa</span>
           </button>
 
           <button
@@ -733,6 +745,15 @@ export default function SuppliersTab({
           </div>
         </div>
       )}
+
+      {/* Modal de Vinculação em Massa de Fabricantes */}
+      <BulkManufacturerModal
+        isOpen={isBulkMfrOpen}
+        onClose={() => setIsBulkMfrOpen(false)}
+        tenantId={tenantId}
+        suppliers={suppliers}
+        onSaved={handleRefresh}
+      />
     </div>
   );
 }

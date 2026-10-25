@@ -115,7 +115,20 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
     return m.name.toLowerCase().includes(mfrSearch.toLowerCase());
   });
 
-  const topManufacturers = allManufacturers.slice(0, 10);
+  const topManufacturers = allManufacturers.slice(0, 15);
+
+  const handleSelectAllFiltered = () => {
+    const filteredNames = filteredMfrList.map((m) => m.name.trim());
+    const combined = Array.from(new Set([...selectedManufacturers, ...filteredNames]));
+    setSelectedManufacturers(combined);
+  };
+
+  const handleDeselectAllFiltered = () => {
+    const filteredSet = new Set(filteredMfrList.map((m) => m.name.trim().toUpperCase()));
+    setSelectedManufacturers(
+      selectedManufacturers.filter((name) => !filteredSet.has(name.trim().toUpperCase()))
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -286,7 +299,7 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
                   <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Buscar ou digitar outro fabricante..."
+                    placeholder="Filtrar ou adicionar fabricante (ex: CIMED, EMS, TEUTO)..."
                     value={mfrSearch}
                     onChange={(e) => setMfrSearch(e.target.value)}
                     onKeyDown={(e) => {
@@ -309,45 +322,87 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
                 )}
               </div>
 
-              {/* Scrollable list of matched manufacturers if search is typed */}
-              {mfrSearch.trim() && (
-                <div className="max-h-36 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 p-1">
-                  {filteredMfrList.length === 0 ? (
-                    <div className="p-2 text-center text-[11px] text-slate-400">
-                      Nenhum fabricante cadastrado com esse nome. Clique em "+ Adicionar" acima para incluir.
-                    </div>
-                  ) : (
-                    filteredMfrList.map((m) => {
-                      const isSelected = selectedManufacturers.includes(m.name);
-                      return (
-                        <div
-                          key={m.name}
-                          onClick={() => toggleManufacturer(m.name)}
-                          className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer rounded-lg text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="rounded text-emerald-600 focus:ring-0"
-                            />
-                            <span className="font-semibold text-slate-700">{m.name}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {m.product_count} {m.product_count === 1 ? 'produto' : 'produtos'}
-                            {m.assigned_suppliers && m.assigned_suppliers.length > 0 && (
-                              <span className="ml-1 text-amber-600 text-[10px]">
-                                (com {m.assigned_suppliers.map((s) => s.name).join(', ')})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+              {/* Mass selection controls */}
+              <div className="flex items-center justify-between text-[11px] px-1 text-slate-500">
+                <span>
+                  {loadingMfrs ? 'Carregando lista de fabricantes...' : `${filteredMfrList.length} fabricante(s) encontrado(s)`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllFiltered}
+                    className="text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                  >
+                    Marcar todos ({filteredMfrList.length})
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllFiltered}
+                    className="text-slate-500 hover:text-slate-700 hover:underline"
+                  >
+                    Desmarcar filtrados
+                  </button>
                 </div>
-              )}
+              </div>
+
+              {/* Scrollable list of ALL manufacturers in pharmacy */}
+              <div className="max-h-48 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 p-1 shadow-inner">
+                {filteredMfrList.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    Nenhum fabricante encontrado para "{mfrSearch}".
+                    {mfrSearch.trim() && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={handleAddCustomManufacturer}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold"
+                        >
+                          Adicionar "{mfrSearch.toUpperCase()}" agora
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  filteredMfrList.map((m) => {
+                    const isSelected = selectedManufacturers.includes(m.name);
+                    return (
+                      <div
+                        key={m.name}
+                        onClick={() => toggleManufacturer(m.name)}
+                        className={`flex items-center justify-between p-2 hover:bg-indigo-50/50 cursor-pointer rounded-lg text-xs transition-colors ${
+                          isSelected ? 'bg-indigo-50/70' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="rounded text-emerald-600 focus:ring-0 shrink-0"
+                          />
+                          <span className={`font-semibold truncate ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>
+                            {m.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
+                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-mono text-[10px]">
+                            {m.product_count} {m.product_count === 1 ? 'item' : 'itens'}
+                          </span>
+                          {m.assigned_suppliers && m.assigned_suppliers.length > 0 && (
+                            <span
+                              className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] max-w-[130px] truncate"
+                              title={`Atualmente vinculado a: ${m.assigned_suppliers.map((s) => s.name).join(', ')}`}
+                            >
+                              {m.assigned_suppliers.map((s) => s.name).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
 
               {/* Selected Badges */}
               {selectedManufacturers.length > 0 && (
