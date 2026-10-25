@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone, Download, Factory } from 'lucide-react';
+import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone, Download, Factory, AlertTriangle } from 'lucide-react';
 import { api } from '../api';
 import BulkManufacturerModal from './BulkManufacturerModal';
 
@@ -17,6 +17,7 @@ export default function ProductsTab({
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedSupplier, setSelectedSupplier] = useState('Todos');
   const [onlyPromotions, setOnlyPromotions] = useState(false);
+  const [onlyCriticalStock, setOnlyCriticalStock] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notifyingId, setNotifyingId] = useState(null);
@@ -64,10 +65,13 @@ export default function ProductsTab({
       'Nome do Medicamento',
       'Laboratório/Fabricante',
       'Estoque Físico',
+      'Estoque Mínimo',
+      'Status Estoque',
       'Preço Venda (R$)',
       'Preço Original (R$)',
       'Em Promoção',
       'Vendedor Atribuído',
+      'Último Alerta ao Vendedor',
       'Categoria'
     ];
 
@@ -76,10 +80,13 @@ export default function ProductsTab({
       `"${(p.name || '').replace(/"/g, '""')}"`,
       `"${(p.manufacturer || '').replace(/"/g, '""')}"`,
       p.stock_quantity ?? 0,
+      p.min_stock ?? 5,
+      (p.stock_quantity <= p.min_stock) ? 'CRÍTICO / REPOR' : 'NORMAL',
       (Number(p.sale_price) || 0).toFixed(2).replace('.', ','),
       (Number(p.original_price) || Number(p.sale_price) || 0).toFixed(2).replace('.', ','),
       p.is_promotion ? 'SIM' : 'NÃO',
       `"${(p.supplier_name || 'Sem Vendedor').replace(/"/g, '""')}"`,
+      p.last_stock_alert_at ? `"${new Date(p.last_stock_alert_at).toLocaleString('pt-BR')}"` : '"Nunca alertado"',
       `"${(p.category || 'Medicamentos').replace(/"/g, '""')}"`
     ]);
 
@@ -160,6 +167,8 @@ export default function ProductsTab({
     (p) => p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price)
   ).length;
 
+  const criticalCount = products.filter((p) => p.stock_quantity <= p.min_stock).length;
+
   const filtered = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,8 +187,9 @@ export default function ProductsTab({
       String(p.supplier_id) === String(selectedSupplier);
 
     const matchesPromo = !onlyPromotions || (p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price));
+    const matchesCritical = !onlyCriticalStock || p.stock_quantity <= p.min_stock;
 
-    return matchesSearch && matchesCategory && matchesSupplier && matchesPromo;
+    return matchesSearch && matchesCategory && matchesSupplier && matchesPromo && matchesCritical;
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -188,7 +198,7 @@ export default function ProductsTab({
   // Resetar para página 1 se mudar filtros de busca
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedSupplier, onlyPromotions]);
+  }, [searchTerm, selectedCategory, selectedSupplier, onlyPromotions, onlyCriticalStock]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedProducts = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -239,7 +249,10 @@ export default function ProductsTab({
 
           <button
             type="button"
-            onClick={() => setOnlyPromotions(!onlyPromotions)}
+            onClick={() => {
+              setOnlyPromotions(!onlyPromotions);
+              if (!onlyPromotions) setOnlyCriticalStock(false);
+            }}
             className={`p-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border shrink-0 whitespace-nowrap ${
               onlyPromotions
                 ? 'bg-amber-500 text-white border-amber-600 shadow-xs ring-1 ring-amber-300'
@@ -249,6 +262,23 @@ export default function ProductsTab({
           >
             <span>🔥</span>
             <span>Promoções {promoCount > 0 ? `(${promoCount})` : ''}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOnlyCriticalStock(!onlyCriticalStock);
+              if (!onlyCriticalStock) setOnlyPromotions(false);
+            }}
+            className={`p-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border shrink-0 whitespace-nowrap ${
+              onlyCriticalStock
+                ? 'bg-rose-600 text-white border-rose-700 shadow-xs ring-1 ring-rose-300'
+                : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border-rose-200'
+            }`}
+            title="Filtrar apenas medicamentos com estoque crítico (zerados ou abaixo do mínimo)"
+          >
+            <AlertTriangle size={13} className={onlyCriticalStock ? 'text-white' : 'text-rose-600'} />
+            <span>Estoque Crítico {criticalCount > 0 ? `(${criticalCount})` : ''}</span>
           </button>
         </div>
 
@@ -406,6 +436,11 @@ export default function ProductsTab({
                             +{prod.suppliers_count - 1} rep(s)
                           </span>
                         )}
+                        {prod.last_stock_alert_at && (
+                          <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[9px] font-semibold shrink-0">
+                            ✓ Avisado
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-[10px] text-slate-400 italic">Sem vendedor vinculado</span>
@@ -561,6 +596,14 @@ export default function ProductsTab({
                             {prod.suppliers_count > 1 && (
                               <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[9px] font-bold">
                                 +{prod.suppliers_count - 1} outro(s) rep(s)
+                              </span>
+                            )}
+                            {prod.last_stock_alert_at && (
+                              <span
+                                className="inline-block mt-0.5 ml-1 px-1.5 py-0.2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[9px] font-semibold"
+                                title={`Alerta de reposição enviado ao vendedor em: ${new Date(prod.last_stock_alert_at).toLocaleString('pt-BR')}`}
+                              >
+                                ✓ Avisado {new Date(prod.last_stock_alert_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </span>
                             )}
                           </div>
