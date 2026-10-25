@@ -277,19 +277,22 @@ router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('file')
 // POST /api/products/batch-import - Import array of items (from CSV or PDF parsing) with sync/update mode support
 router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
   try {
-    const { tenant_id = 1, products, supplier_id = null, update_existing = true } = req.body;
+    const { tenant_id = 1, products, supplier_id = null, update_existing = true, file_type = 'generic' } = req.body;
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ error: 'Nenhum produto enviado para importação.' });
     }
 
     const defaultSupplierId = supplier_id ? Number(supplier_id) : null;
+    const isPromoBatch = file_type === 'promotions' || products.some(p => p.is_promotion === 1 && p.original_price > p.sale_price);
 
-    const checkByBarcode = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND barcode = ? AND barcode != \'\' LIMIT 1');
-    const checkByName = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?)) LIMIT 1');
+    const checkByBarcode = db.prepare('SELECT id, name, sale_price, original_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND barcode = ? AND barcode != \'\' LIMIT 1');
+    const checkByName = db.prepare('SELECT id, name, sale_price, original_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?)) LIMIT 1');
 
-    const updateProd = db.prepare(`
+    // Atualização para Estoque Geral e Preços Normais
+    const updateStockProd = db.prepare(`
       UPDATE products 
       SET sale_price = CASE WHEN ? > 0 THEN ? ELSE sale_price END,
+          original_price = CASE WHEN is_promotion = 0 OR is_promotion IS NULL THEN (CASE WHEN ? > 0 THEN ? ELSE sale_price END) ELSE original_price END,
           cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
           stock_quantity = CASE WHEN ? >= 0 THEN ? ELSE stock_quantity END,
           manufacturer = CASE WHEN ? != '' THEN ? ELSE manufacturer END,
@@ -299,12 +302,23 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
       WHERE id = ?
     `);
 
-    const insert = db.prepare(`
+    // Atualização para Ofertas / Promoções (Preço De / Preço Por)
+    const updatePromoProd = db.prepare(`
+      UPDATE products 
+      SET original_price = ?,
+          sale_price = ?,
+          is_promotion = 1,
+          active = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    const insertProd = db.prepare(`
       INSERT INTO products (
         tenant_id, name, active_ingredient, manufacturer, dosage, form, presentation, barcode,
-        cost_price, sale_price, stock_quantity, min_stock, reserved_quantity, requires_prescription,
+        cost_price, sale_price, original_price, is_promotion, stock_quantity, min_stock, reserved_quantity, requires_prescription,
         prescription_type, category, supplier_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
     `);
 
     const upsertProductSupplier = db.prepare(`
@@ -316,6 +330,7 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
     const processMany = db.transaction((items) => {
       let createdCount = 0;
       let updatedCount = 0;
+      let promosUpdatedCount = 0;
 
       for (const item of items) {
         if (!item.name || !item.sale_price) continue;
@@ -325,24 +340,36 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
         if (item.barcode && String(item.barcode).trim()) {
           existing = checkByBarcode.get(tenant_id, String(item.barcode).trim());
         }
+        if (!existing && item.code && String(item.code).trim()) {
+          existing = checkByBarcode.get(tenant_id, String(item.code).trim());
+        }
         if (!existing && item.name) {
           existing = checkByName.get(tenant_id, item.name);
         }
 
         if (existing && update_existing) {
-          // Atualiza preço, estoque e fornecedor do produto existente
-          updateProd.run(
-            Number(item.sale_price) || 0,
-            Number(item.sale_price) || 0,
-            Number(item.cost_price) || 0,
-            Number(item.cost_price) || 0,
-            item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-            item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-            item.manufacturer || '',
-            item.manufacturer || '',
-            itemSupplierId,
-            existing.id
-          );
+          if (item.is_promotion === 1 && item.original_price > 0) {
+            updatePromoProd.run(
+              Number(item.original_price),
+              Number(item.sale_price),
+              existing.id
+            );
+            promosUpdatedCount++;
+          } else {
+            updateStockProd.run(
+              Number(item.sale_price) || 0,
+              Number(item.sale_price) || 0,
+              Number(item.sale_price) || 0,
+              Number(item.cost_price) || 0,
+              Number(item.cost_price) || 0,
+              item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
+              item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
+              item.manufacturer || '',
+              item.manufacturer || '',
+              itemSupplierId,
+              existing.id
+            );
+          }
 
           if (itemSupplierId) {
             try {
@@ -352,8 +379,7 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
 
           updatedCount++;
         } else if (!existing) {
-          // Insere novo produto
-          const res = insert.run(
+          const res = insertProd.run(
             tenant_id,
             item.name,
             item.active_ingredient || '',
@@ -361,9 +387,11 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
             item.dosage || '',
             item.form || 'Comprimido',
             item.presentation || '',
-            item.barcode || '',
+            item.barcode || item.code || '',
             Number(item.cost_price) || 0,
             Number(item.sale_price) || 0,
+            item.original_price ? Number(item.original_price) : Number(item.sale_price) || 0,
+            item.is_promotion ? 1 : 0,
             Number(item.stock_quantity) || 10,
             Number(item.min_stock) || 5,
             item.requires_prescription ? 1 : 0,
@@ -381,7 +409,13 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
           createdCount++;
         }
       }
-      return { created: createdCount, updated: updatedCount, total: createdCount + updatedCount };
+      return { 
+        created: createdCount, 
+        updated: updatedCount, 
+        promos_updated: promosUpdatedCount, 
+        total: createdCount + updatedCount,
+        is_promotions: isPromoBatch
+      };
     });
 
     const stats = processMany(products);

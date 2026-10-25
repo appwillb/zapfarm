@@ -164,10 +164,12 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
     setLoading(true);
     try {
       const supplierIdToSend = selectedSupplierId ? Number(selectedSupplierId) : null;
-      const res = await api.importProducts(tenantId, itemsToImport, supplierIdToSend, updateExisting);
+      const fileType = activeTab === 'pdf' ? (parsedPdfResult?.fileType || 'generic') : 'generic';
+      const res = await api.importProducts(tenantId, itemsToImport, supplierIdToSend, updateExisting, fileType);
       
       const supplierName = suppliers.find(s => s.id === Number(selectedSupplierId))?.name;
-      alert(`✅ Processamento Concluído com Sucesso!\n\n• Novos Medicamentos Inseridos: ${res.created || 0}\n• Medicamentos Atualizados (Preço/Estoque): ${res.updated || 0}\n• Total Processado: ${res.total || res.imported || 0}${supplierName ? `\n• Vendedor Vinculado: ${supplierName}` : ''}`);
+      const promoMsg = res.promos_updated > 0 ? `\n• Ofertas Promocionais Ativadas (WhatsApp): ${res.promos_updated}` : '';
+      alert(`✅ Processamento Concluído com Sucesso!\n\n• Novos Medicamentos Inseridos: ${res.created || 0}\n• Medicamentos Atualizados: ${res.updated || 0}${promoMsg}\n• Total Processado: ${res.total || res.imported || 0}${supplierName ? `\n• Vendedor Vinculado: ${supplierName}` : ''}`);
       
       onImported();
       onClose();
@@ -348,19 +350,46 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  {pdfFile ? pdfFile.name : 'Clique para selecionar o PDF do Catálogo / Tabela de Preços'}
+                  {pdfFile ? pdfFile.name : 'Clique para selecionar o PDF (Balanço de Estoque ou Lista de Promoções)'}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  O sistema reconhece automaticamente nomes, dosagens, códigos de barras e preços!
+                  O sistema reconhece automaticamente se é o <b>Balanço Geral de Estoque</b> ou a <b>Lista de Promoções</b>!
                 </p>
               </div>
               {pdfParsing && (
                 <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-700 pt-2">
                   <RefreshCw size={14} className="animate-spin" />
-                  <span>Analisando páginas do PDF e extraindo produtos...</span>
+                  <span>Analisando páginas do PDF e identificando produtos com precisão...</span>
                 </div>
               )}
             </div>
+
+            {/* Banner Informativo do Tipo de Arquivo Reconhecido */}
+            {parsedPdfResult && (
+              <div className={`p-3 rounded-2xl flex items-center gap-3 border transition-all ${
+                parsedPdfResult.fileType === 'promotions' 
+                  ? 'bg-amber-50 border-amber-200 text-amber-900' 
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              }`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-xs ${
+                  parsedPdfResult.fileType === 'promotions' ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'
+                }`}>
+                  {parsedPdfResult.fileType === 'promotions' ? '🔥' : '📦'}
+                </div>
+                <div className="text-xs flex-1">
+                  <p className="font-bold">
+                    {parsedPdfResult.fileType === 'promotions' 
+                      ? 'Lista de Promoções da Semana Identificada!' 
+                      : 'Balanço de Estoque Geral Identificado!'}
+                  </p>
+                  <p className="text-[11px] opacity-80">
+                    {parsedPdfResult.fileType === 'promotions' 
+                      ? `Detectamos ${parsedPdfResult.totalExtracted} produtos em oferta com Preço De / Preço Por. Eles serão ativados nas Ofertas da Semana do WhatsApp!` 
+                      : `Detectamos ${parsedPdfResult.totalExtracted} medicamentos com as quantidades exatas em estoque e preços de venda.`}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -401,27 +430,58 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
                 </span>
               )}
             </div>
-            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl">
+            <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left text-[11px]">
                 <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 sticky top-0">
-                  <tr>
-                    <th className="p-2">Nome</th>
-                    <th className="p-2">EAN</th>
-                    <th className="p-2">Preço</th>
-                    <th className="p-2">Estoque</th>
-                    <th className="p-2">Fabricante</th>
-                    <th className="p-2">Vendedor</th>
-                  </tr>
+                  {parsedPdfResult?.fileType === 'promotions' ? (
+                    <tr>
+                      <th className="p-2">Nome</th>
+                      <th className="p-2">Código</th>
+                      <th className="p-2">Preço Tabela (De)</th>
+                      <th className="p-2">Preço Promoção (Por)</th>
+                      <th className="p-2">Desconto</th>
+                      <th className="p-2">Fabricante</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th className="p-2">Nome</th>
+                      <th className="p-2">Código/EAN</th>
+                      <th className="p-2">Preço Venda</th>
+                      <th className="p-2">Estoque Físico</th>
+                      <th className="p-2">Fabricante</th>
+                      <th className="p-2">Vendedor</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {currentItems.slice(0, 100).map((r, i) => (
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="p-2 font-medium text-slate-800">{r.name}</td>
-                      <td className="p-2 text-slate-500 font-mono text-[10px]">{r.barcode || '—'}</td>
-                      <td className="p-2 font-bold text-slate-800">R$ {Number(r.sale_price).toFixed(2)}</td>
-                      <td className="p-2 text-slate-600">{r.stock_quantity} un.</td>
-                      <td className="p-2 text-slate-500">{r.manufacturer || '—'}</td>
-                      <td className="p-2 text-blue-700 font-semibold">{currentSupplier ? currentSupplier.name : '—'}</td>
+                      <td className="p-2 text-slate-500 font-mono text-[10px]">{r.barcode || r.code || '—'}</td>
+                      
+                      {parsedPdfResult?.fileType === 'promotions' ? (
+                        <>
+                          <td className="p-2 text-slate-400 line-through">
+                            R$ {Number(r.original_price).toFixed(2)}
+                          </td>
+                          <td className="p-2 font-bold text-emerald-700">
+                            R$ {Number(r.sale_price).toFixed(2)}
+                          </td>
+                          <td className="p-2">
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              -{r.discount_percent || Math.round(((r.original_price - r.sale_price)/r.original_price)*100)}%
+                            </span>
+                          </td>
+                          <td className="p-2 text-slate-500">{r.manufacturer || '—'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-2 font-bold text-slate-800">R$ {Number(r.sale_price).toFixed(2)}</td>
+                          <td className="p-2 font-semibold text-emerald-700">{r.stock_quantity} un.</td>
+                          <td className="p-2 text-slate-500">{r.manufacturer || '—'}</td>
+                          <td className="p-2 text-blue-700 font-semibold">{currentSupplier ? currentSupplier.name : '—'}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -447,15 +507,21 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
             type="button"
             onClick={handleImport}
             disabled={currentItems.length === 0 || loading || pdfParsing}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5 ${
+              parsedPdfResult?.fileType === 'promotions'
+                ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+            }`}
           >
             {loading ? (
               <>
                 <RefreshCw size={14} className="animate-spin" />
                 <span>Processando...</span>
               </>
+            ) : parsedPdfResult?.fileType === 'promotions' ? (
+              `🔥 Ativar ${currentItems.length} Promoções no Bot`
             ) : (
-              `Processar ${currentItems.length} Medicamento(s)`
+              `📦 Atualizar Estoque de ${currentItems.length} Medicamento(s)`
             )}
           </button>
         </div>

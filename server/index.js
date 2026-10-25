@@ -9,6 +9,21 @@ const { WebSocketServer, WebSocket } = require('ws');
 // Initialize Database
 const db = require('./db/database');
 
+// Auto-heal corrupted products from previous broken PDF imports (where sale_price was overwritten by ICMS percentage 17/19)
+try {
+  const corruptedCount = db.prepare(`
+    SELECT COUNT(*) as count FROM products 
+    WHERE tenant_id = 1 AND (sale_price = 17.00 OR sale_price = 19.00) AND original_price > 25.00 AND is_promotion = 0
+  `).get()?.count || 0;
+  if (corruptedCount > 5) {
+    console.log(`[Auto-heal] Detectados ${corruptedCount} produtos com preço corrompido por importação anterior. Restaurando catálogo oficial DrogaRosa...`);
+    const { importDrogarosaCatalog } = require('./db/importDrogarosa');
+    importDrogarosaCatalog(1, db);
+  }
+} catch (e) {
+  console.error('Error auto-healing products on startup:', e);
+}
+
 // Auto-heal orphaned awaiting_payment conversations where order is not pending
 try {
   db.prepare(`

@@ -5,6 +5,23 @@
 
 const { PDFParse } = require('pdf-parse');
 
+const KNOWN_LABS = [
+  'KLEY HERTZ', 'BIOLAB SAN', 'TEUTO SIMILA', 'TEUTO GENERI', 'PRATI-DONADU', 'PRATI-', 'PRATI',
+  'NEO QUIMICA', 'MEDLEY - GEN', 'MEDLEY FARMA', 'MEDLEY', 'EUROFARMA ET', 'EUROFARMA', 'EMS INDUST',
+  'EMS GENERICO', 'EMS ETICO', 'EMS', 'UNIAO QUIMIC', 'UNIAO', 'CIMED GENERI', 'CIMED', 'ACHE FARMA',
+  'ACHE', 'SANOFI AVENT', 'SANOFI CHC', 'SANOFI', 'GEOLAB SIMIL', 'GEOLAB', 'GLAXOWELLC', 'GLAXOSMITH',
+  'BAYER-SCHE', 'BAYER S/A', 'BAYER', 'NOVARTIS ETI', 'NOVARTIS', 'TAKEDA', 'MANTECORP', 'MOMENTA',
+  'LEGRAND SIMI', 'LEGRAND ETIC', 'LEGRAND', 'GERMED ETICO', 'GERMED', 'NOVA QUIMICA', 'NOVA',
+  'SANDOZ', 'APSEN', 'TORRENT', 'LIBBS', 'MERCK SHAR', 'MERCK GENERI', 'MERCK', 'PHARLAB GEN',
+  'PHARLAB', 'MULTILAB SIM', 'MULTILAB GEN', 'MULTILAB', 'PROBIOTICA', 'MAX TITANIUM', 'ABNAT',
+  'FARMOQUIMICA', 'BIOSINT.GENE', 'BIOSINTETICA', 'DELTA GENERI', 'DELTA', 'SERVIER', 'ARTE NATIVA',
+  'GROSS', 'INTENDIS B', 'WHITEHALL', 'KRESS', 'CATARINENS', 'CAZI', 'BYK', 'PFIZER', 'ALTANA BYK',
+  'BRAVIR', 'HYPER-FARMAS', 'HYPER-DM', 'HYPER-', 'NATUBRAS', 'GENOM', 'FARMACO', 'BALDACCI',
+  'MAKROFARMA', 'NATULAB', 'HEBRON', 'CRISTALIA', 'ZAMBON', 'ROCHE', 'DIFFUCAP', 'ALLERGAN',
+  'ZODIAC', 'CELLERA FAR', 'BELFAR SIMIL', 'BELFAR', 'RECKITT BENC', 'MAXINUTRI', 'FORTLIFE',
+  'NEWMIX SUPLE', 'NEWMIX', 'DUOM', 'SOLARIS', 'KNOLL PROD', 'HERBAMED', 'DIVCOM PHA', 'MARJAN'
+];
+
 /**
  * Limpa e converte strings monetárias brasileiras (ex: "1.234,50" ou "23,90") para Number float
  */
@@ -12,13 +29,30 @@ function parsePrice(str) {
   if (!str) return 0;
   const clean = String(str).replace(/[R$\s]/g, '').trim();
   if (clean.includes(',') && clean.includes('.')) {
-    // Ex: 1.250,90
     return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
   }
   if (clean.includes(',')) {
     return parseFloat(clean.replace(',', '.')) || 0;
   }
   return parseFloat(clean) || 0;
+}
+
+/**
+ * Separa de forma inteligente o nome do medicamento e o laboratório/fabricante
+ */
+function splitNameAndLab(str) {
+  let clean = str.trim();
+  let lab = '';
+  for (const known of KNOWN_LABS) {
+    const escaped = known.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(?:\\s+|-)${escaped}$`, 'i');
+    if (regex.test(clean)) {
+      lab = known;
+      clean = clean.replace(regex, '').trim();
+      break;
+    }
+  }
+  return { name: clean, manufacturer: lab };
 }
 
 /**
@@ -37,102 +71,66 @@ async function extractTextFromPdf(pdfBuffer) {
 }
 
 /**
- * Analisa as linhas do PDF e extrai os itens (nome, ean, fabricante, preco, estoque)
+ * Parser de alta precisão para relatório de "Balanço de Estoque" (DROGAROSA e padrões similares)
+ * Colunas reais do relatório: Código | Descrição | Fabricante | Qtde (Estoque) | Preço Uni.Venda | Subtotal | Perc%
  */
-function parseCatalogLines(text) {
-  if (!text || typeof text !== 'string') return [];
-
-  const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+function parseBalancoLines(rawLines) {
   const items = [];
-
-  // Padrões de cabeçalho comuns para ignorar
-  const headerRegex = /^(página|pagina|page|relatório|relatorio|tabela|emissão|emissao|data|hora|descrição|descricao|produto|medicamento|código|codigo|ean|laboratório|laboratorio|fabr|preco|preço|estoque|qtde|qtd|valor|total|subtotal|filtro)/i;
+  let pendingDesc = [];
 
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i];
-    if (headerRegex.test(line) && line.length < 50) continue;
-    if (/^--\s*\d+\s+of\s+\d+\s*--$/i.test(line)) continue; // Separadores do PDF
+    if (
+      line.includes('Balanço para') ||
+      line.includes('Empresa :') ||
+      line.includes('Estoque existente em') ||
+      line.includes('Insc. Estadual') ||
+      line.includes('Impresso') ||
+      line.includes('Página') ||
+      line.includes('Qtde.Registros') ||
+      line.includes('Total Geral')
+    ) {
+      continue;
+    }
+    if (line.includes('Descrição') && line.includes('Fabricante')) continue;
+    if (line === 'Preço') continue;
 
-    // 1. Procurar código de barras ou código interno (sequência de 7 a 14 dígitos)
-    const barcodeMatch = line.match(/\b(\d{7,14})\b/);
+    const tabIdx = line.indexOf('\t');
+    if (tabIdx !== -1) {
+      const beforeTab = line.substring(0, tabIdx).trim();
+      const afterTab = line.substring(tabIdx + 1).trim();
 
-    // 2. Procurar por valores em R$ ou padrão monetário com vírgula ou ponto (ex: 25,90 ou 9.90 ou R$ 12,50)
-    // Usamos regex mais específica para não confundir com números inteiros
-    const priceMatches = [...line.matchAll(/(?:R\$\s*)?(\d{1,5}[,\.]\d{2})\b/g)];
+      // Padrão: Código (7 a 14 dígitos) + Qtde (inteiro) + Preço Uni.Venda (decimal) + Subtotal (decimal)
+      const match = afterTab.match(/^(\d{7,14})\s+(\d+)\s+([\d\.,]+)\s+([\d\.,]+)/);
+      if (match) {
+        const code = match[1];
+        const stock = parseInt(match[2], 10);
+        const salePrice = parsePrice(match[3]);
 
-    if (priceMatches.length > 0) {
-      // Pelo menos um preço foi identificado nesta linha
-      const lastPriceMatch = priceMatches[priceMatches.length - 1];
-      const priceVal = parsePrice(lastPriceMatch[1]);
+        const rawFullName = [...pendingDesc, beforeTab].join(' ').trim();
+        pendingDesc = [];
 
-      let costPriceVal = 0;
-      if (priceMatches.length >= 2) {
-        costPriceVal = parsePrice(priceMatches[0][1]);
-      }
-
-      // 3. Procurar estoque explícito (ex: "30un", "15 cx", "qtd: 50" ou número isolado após o preço)
-      let stockVal = 10;
-      const stockExplicit = line.match(/(?:qtd|qtde|estoque|quant)?\s*[:=]?\s*(\d{1,4})\s*(?:un|cx|fr|unidades?|cxs?|latas?|potes?)\b/i);
-      if (stockExplicit && (!barcodeMatch || stockExplicit[1] !== barcodeMatch[1])) {
-        const parsed = parseInt(stockExplicit[1], 10);
-        if (parsed > 0) stockVal = parsed;
-      }
-
-      // Limpar a linha para extrair o Nome do Produto
-      let namePart = line;
-
-      // Remover o código de barras
-      if (barcodeMatch) {
-        namePart = namePart.replace(barcodeMatch[0], ' ');
-      }
-
-      // Remover todos os preços identificados
-      priceMatches.forEach(pm => {
-        namePart = namePart.replace(pm[0], ' ');
-      });
-
-      // Remover a menção de estoque explícita se houver
-      if (stockExplicit) {
-        namePart = namePart.replace(stockExplicit[0], ' ');
-      }
-
-      // Limpar termos residuais e pontuações no início/fim
-      namePart = namePart
-        .replace(/R\$/g, ' ')
-        .replace(/\s+/g, ' ')
-        .replace(/^[\s\-–;:\.,|]+|[\s\-–;:\.,|]+$/g, '')
-        .trim();
-
-      // Se o nome tiver mais de 3 caracteres, temos um item válido
-      if (namePart.length >= 3 && priceVal > 0) {
-        // Tentar identificar dosagem e apresentação
-        const dosageMatch = namePart.match(/(\d+(?:[,\.]\d+)?\s*(?:mg|g|mcg|ml|ui|%))/i);
-        const dosage = dosageMatch ? dosageMatch[0] : '';
-
-        // Tentar identificar laboratório famoso se presente no texto
-        let manufacturer = '';
-        const labs = ['EMS', 'NEO QUIMICA', 'MEDLEY', 'ACHE', 'EUROFARMA', 'SANDOZ', 'TEVA', 'GERMED', 'LEGRAND', 'CIMED', 'PRATI', 'HIPOLABOR', 'GLAXO', 'PFIZER', 'BAYER', 'NOVARTIS', 'TAKEDA', 'BIOLAB', 'MANTECORP', 'MOMENTA', 'KLEY HERTZ', 'PROBIOTICA', 'MAX TITANIUM'];
-        for (const lab of labs) {
-          const labRegex = new RegExp(`\\b${lab}\\b`, 'i');
-          if (labRegex.test(namePart)) {
-            manufacturer = lab;
-            namePart = namePart.replace(labRegex, ' ').replace(/\s+/g, ' ').trim();
-            break;
-          }
-        }
+        const { name, manufacturer } = splitNameAndLab(rawFullName);
 
         items.push({
-          name: namePart.toUpperCase(),
-          barcode: barcodeMatch ? barcodeMatch[1] : '',
-          dosage: dosage,
-          manufacturer: manufacturer,
-          cost_price: costPriceVal > 0 ? Number(costPriceVal.toFixed(2)) : Number((priceVal * 0.7).toFixed(2)),
-          sale_price: Number(priceVal.toFixed(2)),
-          stock_quantity: stockVal,
+          barcode: code,
+          code: code,
+          name: name.toUpperCase(),
+          manufacturer: manufacturer || '',
+          sale_price: salePrice,
+          original_price: salePrice,
+          cost_price: Number((salePrice * 0.7).toFixed(2)),
+          stock_quantity: stock,
           min_stock: 5,
-          category: 'Medicamentos'
+          category: 'Medicamentos',
+          is_promotion: 0
         });
+        continue;
       }
+    }
+
+    if (!line.match(/^\d{7,14}/)) {
+      pendingDesc.push(line);
     }
   }
 
@@ -140,12 +138,148 @@ function parseCatalogLines(text) {
 }
 
 /**
- * Função principal para analisar um arquivo PDF
+ * Parser de alta precisão para relatório de "Lista de Preços de Tabela e Preços de Promoção"
+ * Colunas reais do relatório: Descrição | Fabricante | Código | Preço Promoção (Por) | Preço Tabela (De)
+ */
+function parsePromoLines(rawLines) {
+  const items = [];
+  let pendingDesc = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (
+      line.includes('DROGAROSA') ||
+      line.includes('Lista de Preços') ||
+      line.includes('Somente produtos') ||
+      line.includes('Promoção :') ||
+      line.includes('Impresso') ||
+      line.includes('Página') ||
+      line.includes('Qtde.Registros')
+    ) {
+      continue;
+    }
+    if (line.includes('Descrição') && line.includes('Fabricante')) continue;
+    if (line === 'Preços') continue;
+
+    const tabIdx = line.indexOf('\t');
+    if (tabIdx !== -1) {
+      const beforeTab = line.substring(0, tabIdx).trim();
+      const afterTab = line.substring(tabIdx + 1).trim();
+
+      // Padrão: Código (7 a 14 dígitos) + Preço 1 + Preço 2
+      const match = afterTab.match(/^(\d{7,14})\s+([\d\.,]+)[\s\t]+([\d\.,]+)/);
+      if (match) {
+        const code = match[1];
+        const val1 = parsePrice(match[2]);
+        const val2 = parsePrice(match[3]);
+        const promoPrice = Math.min(val1, val2);
+        const originalPrice = Math.max(val1, val2);
+
+        const rawFullName = [...pendingDesc, beforeTab].join(' ').trim();
+        pendingDesc = [];
+
+        const { name, manufacturer } = splitNameAndLab(rawFullName);
+
+        items.push({
+          barcode: code,
+          code: code,
+          name: name.toUpperCase(),
+          manufacturer: manufacturer || '',
+          original_price: originalPrice,
+          sale_price: promoPrice,
+          discount_percent: originalPrice > 0 ? Math.round(((originalPrice - promoPrice) / originalPrice) * 100) : 0,
+          is_promotion: 1
+        });
+        continue;
+      }
+    }
+
+    if (!line.match(/^\d{7,14}/)) {
+      pendingDesc.push(line);
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Parser de fallback para listas e catálogos genéricos
+ */
+function parseGenericCatalogLines(rawLines) {
+  const items = [];
+  const headerRegex = /^(página|pagina|relatório|relatorio|tabela|emissão|emissao|data|hora|descrição|descricao|produto|medicamento|código|codigo|ean|laboratório|laboratorio|fabr|preco|preço|estoque|qtde|qtd|valor|total|subtotal)/i;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (headerRegex.test(line) && line.length < 50) continue;
+
+    const barcodeMatch = line.match(/\b(\d{7,14})\b/);
+    const priceMatches = [...line.matchAll(/(?:R\$\s*)?(\d{1,5}[,\.]\d{2})\b/g)];
+
+    // Se tiver preços, descarta o último se for a alíquota de ICMS (12%, 17%, 18%, 19%)
+    if (priceMatches.length > 0) {
+      let chosenPriceMatch = priceMatches[0];
+      if (priceMatches.length >= 2) {
+        const lastVal = parsePrice(priceMatches[priceMatches.length - 1][1]);
+        if ([7, 12, 17, 18, 19, 20].includes(Math.round(lastVal))) {
+          // Último é alíquota de ICMS, pega o anterior
+          chosenPriceMatch = priceMatches[priceMatches.length - 2];
+        } else {
+          chosenPriceMatch = priceMatches[priceMatches.length - 1];
+        }
+      }
+
+      const priceVal = parsePrice(chosenPriceMatch[1]);
+      if (priceVal > 0) {
+        let namePart = line
+          .replace(barcodeMatch ? barcodeMatch[0] : '', ' ')
+          .replace(/R\$/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (namePart.length >= 3) {
+          const { name, manufacturer } = splitNameAndLab(namePart);
+          items.push({
+            barcode: barcodeMatch ? barcodeMatch[1] : '',
+            name: name.toUpperCase(),
+            manufacturer: manufacturer || '',
+            sale_price: priceVal,
+            original_price: priceVal,
+            cost_price: Number((priceVal * 0.7).toFixed(2)),
+            stock_quantity: 10,
+            min_stock: 5,
+            category: 'Medicamentos',
+            is_promotion: 0
+          });
+        }
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Função principal para analisar um arquivo PDF com auto-detecção de formato
  */
 async function parsePdfCatalog(pdfBuffer) {
   const fullText = await extractTextFromPdf(pdfBuffer);
-  const items = parseCatalogLines(fullText);
+  const rawLines = fullText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  let fileType = 'generic';
+  let items = [];
+
+  if (fullText.includes('Lista de Preços de Tabela e Preços de Promoção') || fullText.includes('Preços de Promoção')) {
+    fileType = 'promotions';
+    items = parsePromoLines(rawLines);
+  } else if (fullText.includes('Balanço para') || (fullText.includes('Uni.Venda') && fullText.includes('Qtde'))) {
+    fileType = 'stock_balance';
+    items = parseBalancoLines(rawLines);
+  } else {
+    items = parseGenericCatalogLines(rawLines);
+  }
+
   return {
+    fileType,
     totalExtracted: items.length,
     items,
     rawTextPreview: fullText.slice(0, 1000)
@@ -154,7 +288,7 @@ async function parsePdfCatalog(pdfBuffer) {
 
 module.exports = {
   extractTextFromPdf,
-  parseCatalogLines,
   parsePdfCatalog,
-  parsePrice
+  parsePrice,
+  splitNameAndLab
 };

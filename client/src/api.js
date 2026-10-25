@@ -90,10 +90,10 @@ export const api = {
       body: JSON.stringify(data),
     }).then((r) => r.json()),
   deleteProduct: (id) => authFetch(`${API_BASE}/products/${id}`, { method: 'DELETE' }).then((r) => r.json()),
-  importProducts: (tenantId, products, supplierId = null, updateExisting = true) =>
+  importProducts: (tenantId, products, supplierId = null, updateExisting = true, fileType = 'generic') =>
     authFetch(`${API_BASE}/products/batch-import`, {
       method: 'POST',
-      body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId, update_existing: updateExisting }),
+      body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId, update_existing: updateExisting, file_type: fileType }),
     }).then((r) => r.json()),
   parsePdfCatalog: (formData) =>
     authFetch(`${API_BASE}/products/parse-pdf`, {
