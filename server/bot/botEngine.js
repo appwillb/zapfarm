@@ -2072,7 +2072,8 @@ class BotEngine {
 
       const placeholders = productIds.map(() => '?').join(',');
       const products = db.prepare(`
-        SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company
+        SELECT p.*, s.name as supplier_name, s.phone as supplier_phone, s.company as supplier_company,
+               COALESCE(s.type, 'representative') as supplier_type
         FROM products p
         JOIN suppliers s ON p.supplier_id = s.id
         WHERE p.tenant_id = ? AND p.id IN (${placeholders})
@@ -2082,6 +2083,12 @@ class BotEngine {
 
       for (const prod of products) {
         if (!prod.supplier_phone) {
+          skipped++;
+          continue;
+        }
+
+        // Distribuidoras recebem relatórios consolidados semanais de giro e vendas, e NÃO mensagens automáticas avulsas por remédio!
+        if (prod.supplier_type === 'distributor') {
           skipped++;
           continue;
         }

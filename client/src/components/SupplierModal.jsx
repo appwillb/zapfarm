@@ -24,6 +24,7 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
     phone: '',
     email: '',
     notes: '',
+    type: 'representative',
     active: 1,
   });
 
@@ -54,6 +55,7 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
         phone: supplier.phone || '',
         email: supplier.email || '',
         notes: supplier.notes || '',
+        type: supplier.type || 'representative',
         active: supplier.active ?? 1,
       });
 
@@ -76,6 +78,7 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
         phone: '',
         email: '',
         notes: '',
+        type: 'representative',
         active: 1,
       });
       setSelectedManufacturers([]);
@@ -197,15 +200,59 @@ export default function SupplierModal({ isOpen, onClose, supplier, tenantId, onS
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          {/* Tipo de Fornecedor: Vendedor vs Distribuidora */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Tipo de Cadastro:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'representative' })}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-start gap-1 transition-all text-left ${
+                  formData.type !== 'distributor'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <UserCheck size={14} className="text-emerald-600" />
+                  <span>Vendedor / Representante</span>
+                </div>
+                <span className="text-[10px] font-normal text-slate-500">
+                  Recebe cotação imediata quando o estoque do remédio baixa
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'distributor' })}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-start gap-1 transition-all text-left ${
+                  formData.type === 'distributor'
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Building size={14} className="text-indigo-600" />
+                  <span>Distribuidora</span>
+                </div>
+                <span className="text-[10px] font-normal text-slate-500">
+                  Recebe Relatório Semanal consolidado de vendas e giro
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Main Info */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <span>Nome do Representante / Vendedor *</span>
+              <span>{formData.type === 'distributor' ? 'Nome da Distribuidora / Contato *' : 'Nome do Representante / Vendedor *'}</span>
             </label>
             <input
               type="text"
               required
-              placeholder="Ex: João Silva ou Carlos Representante"
+              placeholder={formData.type === 'distributor' ? 'Ex: Panpharma Distribuidora' : 'Ex: João Silva ou Carlos Representante'}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"

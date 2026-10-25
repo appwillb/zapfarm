@@ -358,6 +358,10 @@ function initDb() {
   } catch (e) {}
 
   try {
+    db.exec(`ALTER TABLE suppliers ADD COLUMN type TEXT DEFAULT 'representative'`);
+  } catch (e) {}
+
+  try {
     db.exec(`ALTER TABLE suppliers ADD COLUMN manufacturers TEXT`);
   } catch (e) {}
 

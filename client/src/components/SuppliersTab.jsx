@@ -327,7 +327,18 @@ export default function SuppliersTab({
                         <UserCheck size={18} />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="font-bold text-slate-800 text-xs leading-tight">{s.name}</h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-slate-800 text-xs leading-tight">{s.name}</h4>
+                          {s.type === 'distributor' ? (
+                            <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[9px] font-bold">
+                              Distribuidora
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-bold">
+                              Vendedor
+                            </span>
+                          )}
+                        </div>
                         {s.company && (
                           <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                             <Building size={11} className="text-slate-400" />
@@ -464,9 +475,20 @@ export default function SuppliersTab({
                             <UserCheck size={16} />
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800">{s.name}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-slate-800">{s.name}</p>
+                              {s.type === 'distributor' ? (
+                                <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[9px] font-bold">
+                                  Distribuidora (Semanal)
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-bold">
+                                  Vendedor (Imediato)
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-emerald-600 font-medium">
-                              {s.active ? '🟢 Ativo para Cotações' : '🔴 Inativo'}
+                              {s.active ? '🟢 Ativo' : '🔴 Inativo'}
                             </span>
                           </div>
                         </div>

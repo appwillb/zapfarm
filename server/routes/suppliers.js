@@ -271,7 +271,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 
 // POST /api/suppliers
 router.post('/', authenticateToken, requireAdmin, (req, res) => {
-  const { tenant_id = 1, name, phone, company, email, notes, manufacturers = [], binding_strategy = 'overwrite' } = req.body;
+  const { tenant_id = 1, name, phone, company, email, notes, type = 'representative', manufacturers = [], binding_strategy = 'overwrite' } = req.body;
 
   if (!name || !phone) {
     return res.status(400).json({ error: 'Nome e telefone/WhatsApp do vendedor são obrigatórios.' });
@@ -285,8 +285,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 
   try {
     const insert = db.prepare(`
-      INSERT INTO suppliers (tenant_id, name, phone, company, email, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO suppliers (tenant_id, name, phone, company, email, notes, type)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
@@ -295,7 +295,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
       formattedPhone,
       company ? company.trim() : '',
       email ? email.trim() : '',
-      notes ? notes.trim() : ''
+      notes ? notes.trim() : '',
+      type === 'distributor' ? 'distributor' : 'representative'
     );
 
     const supplierId = result.lastInsertRowid;
@@ -333,7 +334,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 // PUT /api/suppliers/:id
 router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const id = req.params.id;
-  const { name, phone, company, email, notes, active, manufacturers, binding_strategy = 'overwrite' } = req.body;
+  const { name, phone, company, email, notes, active, type, manufacturers, binding_strategy = 'overwrite' } = req.body;
 
   let formattedPhone = phone;
   if (phone) {
@@ -354,7 +355,8 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
         company = COALESCE(?, company),
         email = COALESCE(?, email),
         notes = COALESCE(?, notes),
-        active = COALESCE(?, active)
+        active = COALESCE(?, active),
+        type = COALESCE(?, type)
       WHERE id = ?
     `).run(
       name !== undefined ? name.trim() : null,
@@ -363,6 +365,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
       email !== undefined ? email.trim() : null,
       notes !== undefined ? notes.trim() : null,
       active !== undefined ? (active ? 1 : 0) : null,
+      type !== undefined ? (type === 'distributor' ? 'distributor' : 'representative') : null,
       id
     );
 
