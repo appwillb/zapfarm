@@ -293,7 +293,8 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
     // Atualização para Estoque Geral e Preços Normais (Parâmetros nomeados para imunidade total a falhas de contagem)
     const updateStockProd = db.prepare(`
       UPDATE products 
-      SET sale_price = CASE WHEN @sale_price > 0 THEN @sale_price ELSE sale_price END,
+      SET name = CASE WHEN @name != '' AND LENGTH(@name) >= 3 THEN @name ELSE name END,
+          sale_price = CASE WHEN @sale_price > 0 THEN @sale_price ELSE sale_price END,
           original_price = CASE 
             WHEN is_promotion = 1 THEN original_price
             WHEN @original_price > 0 THEN @original_price
@@ -312,7 +313,8 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
     // Atualização para Ofertas / Promoções (Preço De / Preço Por)
     const updatePromoProd = db.prepare(`
       UPDATE products 
-      SET original_price = @original_price,
+      SET name = CASE WHEN @name != '' AND LENGTH(@name) >= 3 THEN @name ELSE name END,
+          original_price = @original_price,
           sale_price = @sale_price,
           is_promotion = 1,
           active = 1,
@@ -361,6 +363,7 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
         if (existing && update_existing) {
           if (item.is_promotion === 1 && item.original_price > 0) {
             updatePromoProd.run({
+              name: item.name || '',
               original_price: Number(item.original_price),
               sale_price: Number(item.sale_price),
               id: existing.id
@@ -368,6 +371,7 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
             promosUpdatedCount++;
           } else {
             updateStockProd.run({
+              name: item.name || '',
               sale_price: Number(item.sale_price) || 0,
               original_price: Number(item.original_price) || Number(item.sale_price) || 0,
               cost_price: Number(item.cost_price) || 0,

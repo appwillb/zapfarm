@@ -9,8 +9,25 @@ const { WebSocketServer, WebSocket } = require('ws');
 // Initialize Database
 const db = require('./db/database');
 
-// Auto-heal corrupted products from previous broken PDF imports (where sale_price was overwritten by ICMS percentage 17/19)
+// Auto-heal corrupted products from previous broken PDF imports (where sale_price was overwritten by ICMS percentage 17/19 or names like '1 UNI')
 try {
+  // 1. Purge bogus/corrupted product records with names like '1 UNI', 'UNI', 'TUB' left over from old broken parser
+  const purged = db.prepare(`
+    DELETE FROM products 
+    WHERE tenant_id = 1 AND (
+      TRIM(name) = '1 UNI' 
+      OR TRIM(name) = 'UN' 
+      OR TRIM(name) = 'UNI' 
+      OR TRIM(name) = 'TUB' 
+      OR TRIM(name) = '1'
+      OR (LENGTH(TRIM(name)) <= 5 AND (name LIKE '%UNI%' OR name LIKE '%TUB%' OR name LIKE '%UN%'))
+    )
+  `).run();
+  if (purged.changes > 0) {
+    console.log(`[Auto-clean] Removidos ${purged.changes} produtos com nome corrompido ('1 UNI', etc.) da base.`);
+  }
+
+  // 2. Check for ICMS percentage corruption
   const corruptedCount = db.prepare(`
     SELECT COUNT(*) as count FROM products 
     WHERE tenant_id = 1 AND (sale_price = 17.00 OR sale_price = 19.00) AND original_price > 25.00 AND is_promotion = 0
