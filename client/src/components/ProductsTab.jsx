@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone } from 'lucide-react';
+import { Plus, Upload, Search, Pill, ShieldAlert, Edit, Trash2, CheckCircle2, RefreshCw, Bell, User, Phone, Download } from 'lucide-react';
 import { api } from '../api';
 
 export default function ProductsTab({
@@ -43,6 +43,47 @@ export default function ProductsTab({
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
+  };
+
+  const handleExportCsv = () => {
+    if (!products || products.length === 0) {
+      alert('Nenhum produto cadastrado para exportar.');
+      return;
+    }
+
+    const headers = [
+      'Código/EAN',
+      'Nome do Medicamento',
+      'Laboratório/Fabricante',
+      'Estoque Físico',
+      'Preço Venda (R$)',
+      'Preço Original (R$)',
+      'Em Promoção',
+      'Vendedor Atribuído',
+      'Categoria'
+    ];
+
+    const rows = products.map((p) => [
+      `"${p.barcode || ''}"`,
+      `"${(p.name || '').replace(/"/g, '""')}"`,
+      `"${(p.manufacturer || '').replace(/"/g, '""')}"`,
+      p.stock_quantity ?? 0,
+      (Number(p.sale_price) || 0).toFixed(2).replace('.', ','),
+      (Number(p.original_price) || Number(p.sale_price) || 0).toFixed(2).replace('.', ','),
+      p.is_promotion ? 'SIM' : 'NÃO',
+      `"${(p.supplier_name || 'Sem Vendedor').replace(/"/g, '""')}"`,
+      `"${(p.category || 'Medicamentos').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `conferencia_estoque_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleNotifySupplier = async (product, forceMulti = false) => {
@@ -217,6 +258,16 @@ export default function ProductsTab({
               <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
+            title="Baixar planilha completa em Excel/CSV com todos os medicamentos, estoques e preços para conferência"
+          >
+            <Download size={14} className="text-slate-500" />
+            <span>Baixar Planilha (Excel)</span>
+          </button>
 
           <button
             onClick={onOpenImportCsv}
