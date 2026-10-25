@@ -15,6 +15,7 @@ export default function ProductsTab({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedSupplier, setSelectedSupplier] = useState('Todos');
+  const [onlyPromotions, setOnlyPromotions] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notifyingId, setNotifyingId] = useState(null);
@@ -106,6 +107,10 @@ export default function ProductsTab({
     'Conveniência',
   ];
 
+  const promoCount = products.filter(
+    (p) => p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price)
+  ).length;
+
   const filtered = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -123,7 +128,9 @@ export default function ProductsTab({
       p.supplier_id === Number(selectedSupplier) ||
       String(p.supplier_id) === String(selectedSupplier);
 
-    return matchesSearch && matchesCategory && matchesSupplier;
+    const matchesPromo = !onlyPromotions || (p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price));
+
+    return matchesSearch && matchesCategory && matchesSupplier && matchesPromo;
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,7 +139,7 @@ export default function ProductsTab({
   // Resetar para página 1 se mudar filtros de busca
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedSupplier]);
+  }, [searchTerm, selectedCategory, selectedSupplier, onlyPromotions]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedProducts = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -179,6 +186,20 @@ export default function ProductsTab({
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => setOnlyPromotions(!onlyPromotions)}
+            className={`p-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border shrink-0 ${
+              onlyPromotions
+                ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                : 'bg-amber-50/80 text-amber-800 hover:bg-amber-100 border-amber-200'
+            }`}
+            title="Filtrar apenas produtos com preço promocional ativo"
+          >
+            <span>🔥</span>
+            <span>Promoções {promoCount > 0 ? `(${promoCount})` : ''}</span>
+          </button>
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto justify-end shrink-0">
