@@ -288,29 +288,34 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
     const checkByBarcode = db.prepare('SELECT id, name, sale_price, original_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND barcode = ? AND barcode != \'\' LIMIT 1');
     const checkByName = db.prepare('SELECT id, name, sale_price, original_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?)) LIMIT 1');
 
-    // Atualização para Estoque Geral e Preços Normais
+    // Atualização para Estoque Geral e Preços Normais (Parâmetros nomeados para imunidade total a falhas de contagem)
     const updateStockProd = db.prepare(`
       UPDATE products 
-      SET sale_price = CASE WHEN ? > 0 THEN ? ELSE sale_price END,
-          original_price = CASE WHEN is_promotion = 0 OR is_promotion IS NULL THEN (CASE WHEN ? > 0 THEN ? ELSE sale_price END) ELSE original_price END,
-          cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
-          stock_quantity = CASE WHEN ? >= 0 THEN ? ELSE stock_quantity END,
-          manufacturer = CASE WHEN ? != '' THEN ? ELSE manufacturer END,
-          supplier_id = COALESCE(?, supplier_id),
+      SET sale_price = CASE WHEN @sale_price > 0 THEN @sale_price ELSE sale_price END,
+          original_price = CASE 
+            WHEN is_promotion = 1 THEN original_price
+            WHEN @original_price > 0 THEN @original_price
+            WHEN @sale_price > 0 THEN @sale_price
+            ELSE original_price
+          END,
+          cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END,
+          stock_quantity = CASE WHEN @stock_quantity >= 0 THEN @stock_quantity ELSE stock_quantity END,
+          manufacturer = CASE WHEN @manufacturer != '' THEN @manufacturer ELSE manufacturer END,
+          supplier_id = COALESCE(@supplier_id, supplier_id),
           active = 1,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = @id
     `);
 
     // Atualização para Ofertas / Promoções (Preço De / Preço Por)
     const updatePromoProd = db.prepare(`
       UPDATE products 
-      SET original_price = ?,
-          sale_price = ?,
+      SET original_price = @original_price,
+          sale_price = @sale_price,
           is_promotion = 1,
           active = 1,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = @id
     `);
 
     const insertProd = db.prepare(`
@@ -318,7 +323,11 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
         tenant_id, name, active_ingredient, manufacturer, dosage, form, presentation, barcode,
         cost_price, sale_price, original_price, is_promotion, stock_quantity, min_stock, reserved_quantity, requires_prescription,
         prescription_type, category, supplier_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+      ) VALUES (
+        @tenant_id, @name, @active_ingredient, @manufacturer, @dosage, @form, @presentation, @barcode,
+        @cost_price, @sale_price, @original_price, @is_promotion, @stock_quantity, @min_stock, 0, @requires_prescription,
+        @prescription_type, @category, @supplier_id
+      )
     `);
 
     const upsertProductSupplier = db.prepare(`
@@ -349,26 +358,22 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
 
         if (existing && update_existing) {
           if (item.is_promotion === 1 && item.original_price > 0) {
-            updatePromoProd.run(
-              Number(item.original_price),
-              Number(item.sale_price),
-              existing.id
-            );
+            updatePromoProd.run({
+              original_price: Number(item.original_price),
+              sale_price: Number(item.sale_price),
+              id: existing.id
+            });
             promosUpdatedCount++;
           } else {
-            updateStockProd.run(
-              Number(item.sale_price) || 0,
-              Number(item.sale_price) || 0,
-              Number(item.sale_price) || 0,
-              Number(item.cost_price) || 0,
-              Number(item.cost_price) || 0,
-              item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-              item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-              item.manufacturer || '',
-              item.manufacturer || '',
-              itemSupplierId,
-              existing.id
-            );
+            updateStockProd.run({
+              sale_price: Number(item.sale_price) || 0,
+              original_price: Number(item.original_price) || Number(item.sale_price) || 0,
+              cost_price: Number(item.cost_price) || 0,
+              stock_quantity: item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
+              manufacturer: item.manufacturer || '',
+              supplier_id: itemSupplierId || null,
+              id: existing.id
+            });
           }
 
           if (itemSupplierId) {
@@ -379,26 +384,26 @@ router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
 
           updatedCount++;
         } else if (!existing) {
-          const res = insertProd.run(
+          const res = insertProd.run({
             tenant_id,
-            item.name,
-            item.active_ingredient || '',
-            item.manufacturer || '',
-            item.dosage || '',
-            item.form || 'Comprimido',
-            item.presentation || '',
-            item.barcode || item.code || '',
-            Number(item.cost_price) || 0,
-            Number(item.sale_price) || 0,
-            item.original_price ? Number(item.original_price) : Number(item.sale_price) || 0,
-            item.is_promotion ? 1 : 0,
-            Number(item.stock_quantity) || 10,
-            Number(item.min_stock) || 5,
-            item.requires_prescription ? 1 : 0,
-            item.prescription_type || 'livre',
-            item.category || 'Medicamentos',
-            itemSupplierId
-          );
+            name: item.name,
+            active_ingredient: item.active_ingredient || '',
+            manufacturer: item.manufacturer || '',
+            dosage: item.dosage || '',
+            form: item.form || 'Comprimido',
+            presentation: item.presentation || '',
+            barcode: item.barcode || item.code || '',
+            cost_price: Number(item.cost_price) || 0,
+            sale_price: Number(item.sale_price) || 0,
+            original_price: item.original_price ? Number(item.original_price) : Number(item.sale_price) || 0,
+            is_promotion: item.is_promotion ? 1 : 0,
+            stock_quantity: Number(item.stock_quantity) || 10,
+            min_stock: Number(item.min_stock) || 5,
+            requires_prescription: item.requires_prescription ? 1 : 0,
+            prescription_type: item.prescription_type || 'livre',
+            category: item.category || 'Medicamentos',
+            supplier_id: itemSupplierId || null
+          });
 
           if (itemSupplierId && res.lastInsertRowid) {
             try {
