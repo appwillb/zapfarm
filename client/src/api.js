@@ -1,12 +1,12 @@
 const API_BASE = '/api';
 
 // Wrapper de fetch que injeta o token JWT em toda requisicao e
-// trata sessao expirada (401/403) limpando o login salvo.
-function authFetch(url, options = {}) {
+// trata sessao expirada (401/403) e respostas com erro (evitando falhas de JSON em HTML)
+async function authFetch(url, options = {}) {
   const headers = {
     ...(options.headers || {}),
   };
-  if (options.body && !headers['Content-Type']) {
+  if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
   const token = localStorage.getItem('zapfarm_token');
@@ -14,14 +14,38 @@ function authFetch(url, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(url, { ...options, headers }).then((r) => {
-    if (r.status === 401) {
-      // Sessao expirada ou invalida: limpa login local para forcar re-login
-      localStorage.removeItem('zapfarm_token');
-      localStorage.removeItem('zapfarm_user');
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    // Sessao expirada ou invalida: limpa login local para forcar re-login
+    localStorage.removeItem('zapfarm_token');
+    localStorage.removeItem('zapfarm_user');
+  }
+
+  if (!res.ok) {
+    let errorMessage = `Erro na requisição (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data && (data.error || data.message)) {
+        errorMessage = data.error || data.message;
+      }
+    } catch (_) {
+      try {
+        const text = await res.text();
+        if (text.includes('413')) {
+          errorMessage = 'Arquivo ou lote muito grande para o servidor.';
+        } else if (text.includes('504')) {
+          errorMessage = 'Tempo limite esgotado no servidor (Gateway Timeout).';
+        } else if (text.includes('502')) {
+          errorMessage = 'Servidor temporariamente indisponível (Bad Gateway).';
+        } else {
+          errorMessage = `Erro ${res.status}: Resposta inesperada do servidor.`;
+        }
+      } catch (_) {}
     }
-    return r;
-  });
+    throw new Error(errorMessage);
+  }
+
+  return res;
 }
 
 export const api = {
@@ -71,16 +95,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ tenant_id: tenantId, products, supplier_id: supplierId, update_existing: updateExisting }),
     }).then((r) => r.json()),
-  parsePdfCatalog: (formData) => {
-    const token = localStorage.getItem('zapfarm_token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return fetch(`${API_BASE}/products/parse-pdf`, {
+  parsePdfCatalog: (formData) =>
+    authFetch(`${API_BASE}/products/parse-pdf`, {
       method: 'POST',
-      headers,
       body: formData,
-    }).then((r) => r.json());
-  },
+    }).then((r) => r.json()),
 
   // Suppliers / Representantes
   getSuppliers: (tenantId) => authFetch(`${API_BASE}/suppliers?tenant_id=${tenantId}`).then((r) => r.json()),

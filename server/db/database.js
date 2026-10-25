@@ -50,6 +50,7 @@ function initDb() {
       permissions TEXT,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
@@ -73,6 +74,7 @@ function initDb() {
       category TEXT DEFAULT 'Medicamentos',
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
@@ -99,6 +101,7 @@ function initDb() {
       fee_amount REAL DEFAULT 7.00,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
@@ -240,6 +243,7 @@ function initDb() {
       notes TEXT,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     );
 
@@ -286,6 +290,11 @@ function initDb() {
 
   try {
     db.exec(`ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE products ADD COLUMN updated_at DATETIME`);
+    db.exec(`UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL`);
   } catch (e) {}
 
   try {

@@ -276,117 +276,118 @@ router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('file')
 
 // POST /api/products/batch-import - Import array of items (from CSV or PDF parsing) with sync/update mode support
 router.post('/batch-import', authenticateToken, requireAdmin, (req, res) => {
-  const { tenant_id = 1, products, supplier_id = null, update_existing = true } = req.body;
-  if (!Array.isArray(products) || products.length === 0) {
-    return res.status(400).json({ error: 'Nenhum produto enviado para importação.' });
-  }
-
-  const defaultSupplierId = supplier_id ? Number(supplier_id) : null;
-
-  const checkByBarcode = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND barcode = ? AND barcode != \'\' LIMIT 1');
-  const checkByName = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?)) LIMIT 1');
-
-  const updateProd = db.prepare(`
-    UPDATE products 
-    SET sale_price = CASE WHEN ? > 0 THEN ? ELSE sale_price END,
-        cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
-        stock_quantity = CASE WHEN ? >= 0 THEN ? ELSE stock_quantity END,
-        manufacturer = CASE WHEN ? != '' THEN ? ELSE manufacturer END,
-        supplier_id = COALESCE(?, supplier_id),
-        active = 1,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-
-  const insert = db.prepare(`
-    INSERT INTO products (
-      tenant_id, name, active_ingredient, manufacturer, dosage, form, presentation, barcode,
-      cost_price, sale_price, stock_quantity, min_stock, reserved_quantity, requires_prescription,
-      prescription_type, category, supplier_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-  `);
-
-  const upsertProductSupplier = db.prepare(`
-    INSERT INTO product_suppliers (tenant_id, product_id, supplier_id, is_primary)
-    VALUES (?, ?, ?, 1)
-    ON CONFLICT(product_id, supplier_id) DO UPDATE SET is_primary = 1
-  `);
-
-  const processMany = db.transaction((items) => {
-    let createdCount = 0;
-    let updatedCount = 0;
-
-    for (const item of items) {
-      if (!item.name || !item.sale_price) continue;
-      const itemSupplierId = item.supplier_id ? Number(item.supplier_id) : defaultSupplierId;
-
-      let existing = null;
-      if (item.barcode && String(item.barcode).trim()) {
-        existing = checkByBarcode.get(tenant_id, String(item.barcode).trim());
-      }
-      if (!existing && item.name) {
-        existing = checkByName.get(tenant_id, item.name);
-      }
-
-      if (existing && update_existing) {
-        // Atualiza preço, estoque e fornecedor do produto existente
-        updateProd.run(
-          Number(item.sale_price) || 0,
-          Number(item.sale_price) || 0,
-          Number(item.cost_price) || 0,
-          Number(item.cost_price) || 0,
-          item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-          item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
-          item.manufacturer || '',
-          item.manufacturer || '',
-          itemSupplierId,
-          existing.id
-        );
-
-        if (itemSupplierId) {
-          try {
-            upsertProductSupplier.run(tenant_id, existing.id, itemSupplierId);
-          } catch (e) {}
-        }
-
-        updatedCount++;
-      } else if (!existing) {
-        // Insere novo produto
-        const res = insert.run(
-          tenant_id,
-          item.name,
-          item.active_ingredient || '',
-          item.manufacturer || '',
-          item.dosage || '',
-          item.form || 'Comprimido',
-          item.presentation || '',
-          item.barcode || '',
-          Number(item.cost_price) || 0,
-          Number(item.sale_price) || 0,
-          Number(item.stock_quantity) || 10,
-          Number(item.min_stock) || 5,
-          item.requires_prescription ? 1 : 0,
-          item.prescription_type || 'livre',
-          item.category || 'Medicamentos',
-          itemSupplierId
-        );
-
-        if (itemSupplierId && res.lastInsertRowid) {
-          try {
-            upsertProductSupplier.run(tenant_id, res.lastInsertRowid, itemSupplierId);
-          } catch (e) {}
-        }
-
-        createdCount++;
-      }
-    }
-    return { created: createdCount, updated: updatedCount, total: createdCount + updatedCount };
-  });
-
   try {
+    const { tenant_id = 1, products, supplier_id = null, update_existing = true } = req.body;
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'Nenhum produto enviado para importação.' });
+    }
+
+    const defaultSupplierId = supplier_id ? Number(supplier_id) : null;
+
+    const checkByBarcode = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND barcode = ? AND barcode != \'\' LIMIT 1');
+    const checkByName = db.prepare('SELECT id, name, sale_price, stock_quantity, supplier_id FROM products WHERE tenant_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?)) LIMIT 1');
+
+    const updateProd = db.prepare(`
+      UPDATE products 
+      SET sale_price = CASE WHEN ? > 0 THEN ? ELSE sale_price END,
+          cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
+          stock_quantity = CASE WHEN ? >= 0 THEN ? ELSE stock_quantity END,
+          manufacturer = CASE WHEN ? != '' THEN ? ELSE manufacturer END,
+          supplier_id = COALESCE(?, supplier_id),
+          active = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    const insert = db.prepare(`
+      INSERT INTO products (
+        tenant_id, name, active_ingredient, manufacturer, dosage, form, presentation, barcode,
+        cost_price, sale_price, stock_quantity, min_stock, reserved_quantity, requires_prescription,
+        prescription_type, category, supplier_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `);
+
+    const upsertProductSupplier = db.prepare(`
+      INSERT INTO product_suppliers (tenant_id, product_id, supplier_id, is_primary)
+      VALUES (?, ?, ?, 1)
+      ON CONFLICT(product_id, supplier_id) DO UPDATE SET is_primary = 1
+    `);
+
+    const processMany = db.transaction((items) => {
+      let createdCount = 0;
+      let updatedCount = 0;
+
+      for (const item of items) {
+        if (!item.name || !item.sale_price) continue;
+        const itemSupplierId = item.supplier_id ? Number(item.supplier_id) : defaultSupplierId;
+
+        let existing = null;
+        if (item.barcode && String(item.barcode).trim()) {
+          existing = checkByBarcode.get(tenant_id, String(item.barcode).trim());
+        }
+        if (!existing && item.name) {
+          existing = checkByName.get(tenant_id, item.name);
+        }
+
+        if (existing && update_existing) {
+          // Atualiza preço, estoque e fornecedor do produto existente
+          updateProd.run(
+            Number(item.sale_price) || 0,
+            Number(item.sale_price) || 0,
+            Number(item.cost_price) || 0,
+            Number(item.cost_price) || 0,
+            item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
+            item.stock_quantity !== undefined ? Number(item.stock_quantity) : -1,
+            item.manufacturer || '',
+            item.manufacturer || '',
+            itemSupplierId,
+            existing.id
+          );
+
+          if (itemSupplierId) {
+            try {
+              upsertProductSupplier.run(tenant_id, existing.id, itemSupplierId);
+            } catch (e) {}
+          }
+
+          updatedCount++;
+        } else if (!existing) {
+          // Insere novo produto
+          const res = insert.run(
+            tenant_id,
+            item.name,
+            item.active_ingredient || '',
+            item.manufacturer || '',
+            item.dosage || '',
+            item.form || 'Comprimido',
+            item.presentation || '',
+            item.barcode || '',
+            Number(item.cost_price) || 0,
+            Number(item.sale_price) || 0,
+            Number(item.stock_quantity) || 10,
+            Number(item.min_stock) || 5,
+            item.requires_prescription ? 1 : 0,
+            item.prescription_type || 'livre',
+            item.category || 'Medicamentos',
+            itemSupplierId
+          );
+
+          if (itemSupplierId && res.lastInsertRowid) {
+            try {
+              upsertProductSupplier.run(tenant_id, res.lastInsertRowid, itemSupplierId);
+            } catch (e) {}
+          }
+
+          createdCount++;
+        }
+      }
+      return { created: createdCount, updated: updatedCount, total: createdCount + updatedCount };
+    });
+
     const stats = processMany(products);
     res.json({ success: true, ...stats, imported: stats.total });
   } catch (err) {
+    console.error('Erro em batch-import:', err);
     res.status(500).json({ error: 'Erro ao processar importação: ' + err.message });
   }
 });
