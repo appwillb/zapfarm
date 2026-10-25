@@ -290,19 +290,26 @@ function parseGenericCatalogLines(rawLines) {
 }
 
 /**
- * Função principal para analisar um arquivo PDF com auto-detecção de formato
+ * Função principal para analisar um arquivo PDF com auto-detecção ou tipo forçado
  */
-async function parsePdfCatalog(pdfBuffer) {
+async function parsePdfCatalog(pdfBuffer, forceType = null) {
   const fullText = await extractTextFromPdf(pdfBuffer);
   const rawLines = fullText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
   let fileType = 'generic';
   let items = [];
 
-  if (fullText.includes('Lista de Preços de Tabela e Preços de Promoção') || fullText.includes('Preços de Promoção')) {
+  const isAutoPromo = fullText.includes('Lista de Preços de Tabela e Preços de Promoção') || 
+                      fullText.includes('Preços de Promoção') || 
+                      fullText.includes('Promoção :');
+
+  const isAutoBalanco = fullText.includes('Balanço para') || 
+                        (fullText.includes('Uni.Venda') && fullText.includes('Qtde'));
+
+  if (forceType === 'promotions' || (!forceType && isAutoPromo)) {
     fileType = 'promotions';
     items = parsePromoLines(rawLines);
-  } else if (fullText.includes('Balanço para') || (fullText.includes('Uni.Venda') && fullText.includes('Qtde'))) {
+  } else if (forceType === 'stock_balance' || (!forceType && isAutoBalanco)) {
     fileType = 'stock_balance';
     items = parseBalancoLines(rawLines);
   } else {

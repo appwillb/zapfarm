@@ -13,6 +13,7 @@ export default function CatalogImportModal({ isOpen, onClose, tenantId, onImport
   const [pdfFile, setPdfFile] = useState(null);
   const [pdfParsing, setPdfParsing] = useState(false);
   const [parsedPdfResult, setParsedPdfResult] = useState(null);
+  const [pdfMode, setPdfMode] = useState('auto'); // 'auto' | 'stock' | 'promo'
   const fileInputRef = useRef(null);
 
   // CSV Import states
@@ -93,22 +94,19 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
     setParsedRows(parseCsv(sampleCsv));
   };
 
-  // PDF File Upload Handler
-  const handlePdfFileSelect = async (e) => {
-    const file = e.target.files?.[0];
+  // PDF File Upload Handler com Suporte a Forçar Tipo (Promoções vs Balanço de Estoque)
+  const parseFileWithMode = async (file, mode) => {
     if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione um arquivo no formato PDF.');
-      return;
-    }
-
-    setPdfFile(file);
     setPdfParsing(true);
     setParsedPdfResult(null);
 
     const formData = new FormData();
     formData.append('file', file);
+    if (mode === 'promo') {
+      formData.append('force_type', 'promotions');
+    } else if (mode === 'stock') {
+      formData.append('force_type', 'stock_balance');
+    }
 
     try {
       const res = await api.parsePdfCatalog(formData);
@@ -124,6 +122,26 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
       alert('Erro na leitura do PDF: ' + err.message);
     } finally {
       setPdfParsing(false);
+    }
+  };
+
+  const handlePdfFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Por favor, selecione um arquivo no formato PDF.');
+      return;
+    }
+
+    setPdfFile(file);
+    await parseFileWithMode(file, pdfMode);
+  };
+
+  const handleModeChange = async (newMode) => {
+    setPdfMode(newMode);
+    if (pdfFile) {
+      await parseFileWithMode(pdfFile, newMode);
     }
   };
 
@@ -164,7 +182,9 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
     setLoading(true);
     try {
       const supplierIdToSend = selectedSupplierId ? Number(selectedSupplierId) : null;
-      const fileType = activeTab === 'pdf' ? (parsedPdfResult?.fileType || 'generic') : 'generic';
+      let fileType = activeTab === 'pdf' ? (parsedPdfResult?.fileType || 'generic') : 'generic';
+      if (pdfMode === 'promo') fileType = 'promotions';
+      if (pdfMode === 'stock') fileType = 'stock_balance';
       const res = await api.importProducts(tenantId, itemsToImport, supplierIdToSend, updateExisting, fileType);
       
       const supplierName = suppliers.find(s => s.id === Number(selectedSupplierId))?.name;
@@ -334,9 +354,77 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
         {/* Tab 1: PDF Upload Content */}
         {activeTab === 'pdf' && (
           <div className="space-y-3">
+            {/* Seletor explícito de tipo de arquivo / promoção */}
+            <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-2">
+              <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span>🎯 O que você deseja importar neste arquivo?</span>
+                <span className="text-[10px] text-slate-400 font-normal">Escolha o tipo ou deixe no Automático</span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange('auto')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    pdfMode === 'auto'
+                      ? 'bg-white border-indigo-400 text-indigo-900 shadow-xs ring-1 ring-indigo-200'
+                      : 'bg-white/70 hover:bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  <p className="text-xs font-bold flex items-center gap-1.5">
+                    <span>🤖</span>
+                    <span>Auto-detectar</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                    O sistema lê o cabeçalho e identifica sozinho
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleModeChange('stock')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    pdfMode === 'stock'
+                      ? 'bg-white border-emerald-500 text-emerald-900 shadow-xs ring-1 ring-emerald-200'
+                      : 'bg-white/70 hover:bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  <p className="text-xs font-bold flex items-center gap-1.5">
+                    <span>📦</span>
+                    <span>Balanço de Estoque</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                    Atualiza Estoque Físico e Preço de Venda
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleModeChange('promo')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    pdfMode === 'promo'
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-xs ring-1 ring-amber-400'
+                      : 'bg-amber-50 hover:bg-amber-100/70 text-amber-900 border-amber-200'
+                  }`}
+                >
+                  <p className="text-xs font-bold flex items-center gap-1.5">
+                    <span>🔥</span>
+                    <span>Subir Promoções</span>
+                  </p>
+                  <p className={`text-[10px] leading-tight mt-0.5 ${pdfMode === 'promo' ? 'text-amber-100' : 'text-amber-700'}`}>
+                    Ativa Preço "De" / "Por" para WhatsApp
+                  </p>
+                </button>
+              </div>
+            </div>
+
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2"
+              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2 ${
+                pdfMode === 'promo' || parsedPdfResult?.fileType === 'promotions'
+                  ? 'border-amber-400 bg-amber-50/40 hover:bg-amber-50/80'
+                  : 'border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50/80'
+              }`}
             >
               <input
                 ref={fileInputRef}
@@ -345,21 +433,41 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
                 onChange={handlePdfFileSelect}
                 className="hidden"
               />
-              <div className="w-12 h-12 bg-white rounded-2xl text-emerald-600 shadow-xs flex items-center justify-center mx-auto border border-emerald-100">
-                <FileUp size={24} />
+              <div className={`w-12 h-12 bg-white rounded-2xl shadow-xs flex items-center justify-center mx-auto border ${
+                pdfMode === 'promo' || parsedPdfResult?.fileType === 'promotions'
+                  ? 'text-amber-600 border-amber-200'
+                  : 'text-emerald-600 border-emerald-100'
+              }`}>
+                {pdfMode === 'promo' || parsedPdfResult?.fileType === 'promotions' ? (
+                  <span className="text-2xl">🔥</span>
+                ) : (
+                  <FileUp size={24} />
+                )}
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  {pdfFile ? pdfFile.name : 'Clique para selecionar o PDF (Balanço de Estoque ou Lista de Promoções)'}
+                  {pdfFile 
+                    ? pdfFile.name 
+                    : pdfMode === 'promo' 
+                    ? 'Clique para selecionar o PDF da Lista de Promoções'
+                    : pdfMode === 'stock'
+                    ? 'Clique para selecionar o PDF do Balanço de Estoque'
+                    : 'Clique para selecionar o PDF (Balanço de Estoque ou Lista de Promoções)'}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  O sistema reconhece automaticamente se é o <b>Balanço Geral de Estoque</b> ou a <b>Lista de Promoções</b>!
+                  {pdfMode === 'promo'
+                    ? 'Os remédios serão ativados em promoção com desconto no WhatsApp sem alterar a quantidade de estoque.'
+                    : pdfMode === 'stock'
+                    ? 'O sistema atualizará as quantidades exatas de estoque físico e preços de venda normais.'
+                    : 'O sistema reconhece automaticamente se é o Balanço Geral de Estoque ou a Lista de Promoções!'}
                 </p>
               </div>
               {pdfParsing && (
-                <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-700 pt-2">
+                <div className={`flex items-center justify-center gap-2 text-xs font-semibold pt-2 ${
+                  pdfMode === 'promo' ? 'text-amber-700' : 'text-emerald-700'
+                }`}>
                   <RefreshCw size={14} className="animate-spin" />
-                  <span>Analisando páginas do PDF e identificando produtos com precisão...</span>
+                  <span>Analisando páginas do PDF e extraindo dados com precisão...</span>
                 </div>
               )}
             </div>
@@ -367,24 +475,24 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
             {/* Banner Informativo do Tipo de Arquivo Reconhecido */}
             {parsedPdfResult && (
               <div className={`p-3 rounded-2xl flex items-center gap-3 border transition-all ${
-                parsedPdfResult.fileType === 'promotions' 
+                parsedPdfResult.fileType === 'promotions' || pdfMode === 'promo'
                   ? 'bg-amber-50 border-amber-200 text-amber-900' 
                   : 'bg-emerald-50 border-emerald-200 text-emerald-900'
               }`}>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-xs ${
-                  parsedPdfResult.fileType === 'promotions' ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'
+                  parsedPdfResult.fileType === 'promotions' || pdfMode === 'promo' ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'
                 }`}>
-                  {parsedPdfResult.fileType === 'promotions' ? '🔥' : '📦'}
+                  {parsedPdfResult.fileType === 'promotions' || pdfMode === 'promo' ? '🔥' : '📦'}
                 </div>
                 <div className="text-xs flex-1">
                   <p className="font-bold">
-                    {parsedPdfResult.fileType === 'promotions' 
+                    {parsedPdfResult.fileType === 'promotions' || pdfMode === 'promo'
                       ? 'Lista de Promoções da Semana Identificada!' 
                       : 'Balanço de Estoque Geral Identificado!'}
                   </p>
                   <p className="text-[11px] opacity-80">
-                    {parsedPdfResult.fileType === 'promotions' 
-                      ? `Detectamos ${parsedPdfResult.totalExtracted} produtos em oferta com Preço De / Preço Por. Eles serão ativados nas Ofertas da Semana do WhatsApp!` 
+                    {parsedPdfResult.fileType === 'promotions' || pdfMode === 'promo'
+                      ? `Detectamos ${parsedPdfResult.totalExtracted} produtos em oferta com Preço De / Preço Por. Eles serão ativados nas Ofertas do WhatsApp sem alterar seu estoque físico!` 
                       : `Detectamos ${parsedPdfResult.totalExtracted} medicamentos com as quantidades exatas em estoque e preços de venda.`}
                   </p>
                 </div>
@@ -433,7 +541,7 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
             <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left text-[11px]">
                 <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 sticky top-0">
-                  {parsedPdfResult?.fileType === 'promotions' ? (
+                  {parsedPdfResult?.fileType === 'promotions' || pdfMode === 'promo' ? (
                     <tr>
                       <th className="p-2">Nome</th>
                       <th className="p-2">Código</th>
@@ -459,7 +567,7 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
                       <td className="p-2 font-medium text-slate-800">{r.name}</td>
                       <td className="p-2 text-slate-500 font-mono text-[10px]">{r.barcode || r.code || '—'}</td>
                       
-                      {parsedPdfResult?.fileType === 'promotions' ? (
+                      {parsedPdfResult?.fileType === 'promotions' || pdfMode === 'promo' ? (
                         <>
                           <td className="p-2 text-slate-400 line-through">
                             R$ {Number(r.original_price).toFixed(2)}
@@ -508,7 +616,7 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
             onClick={handleImport}
             disabled={currentItems.length === 0 || loading || pdfParsing}
             className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5 ${
-              parsedPdfResult?.fileType === 'promotions'
+              parsedPdfResult?.fileType === 'promotions' || pdfMode === 'promo'
                 ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
                 : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
             }`}
@@ -518,7 +626,7 @@ Vitamina C 1g,Ácido Ascórbico,1000mg,Tubo 10 comprimidos,18.00,50,10,Cimed,0,7
                 <RefreshCw size={14} className="animate-spin" />
                 <span>Processando...</span>
               </>
-            ) : parsedPdfResult?.fileType === 'promotions' ? (
+            ) : parsedPdfResult?.fileType === 'promotions' || pdfMode === 'promo' ? (
               `🔥 Ativar ${currentItems.length} Promoções no Bot`
             ) : (
               `📦 Atualizar Estoque de ${currentItems.length} Medicamento(s)`

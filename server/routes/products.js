@@ -261,10 +261,12 @@ router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('file')
       return res.status(400).json({ error: 'Nenhum arquivo PDF foi enviado.' });
     }
 
-    const parsed = await parsePdfCatalog(req.file.buffer);
+    const forceType = req.body.force_type || null;
+    const parsed = await parsePdfCatalog(req.file.buffer, forceType);
     res.json({
       success: true,
       filename: req.file.originalname,
+      fileType: parsed.fileType,
       totalExtracted: parsed.totalExtracted,
       items: parsed.items,
       rawTextPreview: parsed.rawTextPreview
