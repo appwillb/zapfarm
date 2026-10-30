@@ -207,4 +207,31 @@ router.post('/:tenantId/test-ai', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/chat/:tenantId/suggest-reply - Generate Copilot sales response for CRM attendant
+router.post('/:tenantId/suggest-reply', authenticateToken, async (req, res) => {
+  const { tenantId } = req.params;
+  const { customerPhone } = req.body;
+  const { suggestSalesResponse } = require('../bot/aiEngine');
+
+  if (!customerPhone) {
+    return res.status(400).json({ error: 'customerPhone é obrigatório.' });
+  }
+
+  try {
+    const result = await suggestSalesResponse({
+      tenantId: Number(tenantId),
+      customerPhone,
+    });
+
+    res.json({
+      success: true,
+      suggestion: result?.suggestion || '',
+      candidates: result?.candidates || [],
+      source: result?.source || 'local',
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar sugestão de venda: ' + err.message });
+  }
+});
+
 module.exports = router;

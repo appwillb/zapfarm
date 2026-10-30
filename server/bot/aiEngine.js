@@ -13,7 +13,6 @@ function parseProductQueries(text) {
     .replace(/[?!.,;:\\/()"'`~_—*#]/g, ' ')
     .toLowerCase();
 
-  // Stopwords e expressões comuns de perguntas em farmácia
   const stopwords = [
     'qual', 'quais', 'o', 'a', 'os', 'as', 'de', 'do', 'da', 'dos', 'das',
     'um', 'uma', 'uns', 'umas', 'no', 'na', 'nos', 'nas', 'em', 'pra', 'para',
@@ -23,7 +22,8 @@ function parseProductQueries(text) {
     'vende', 'vendem', 'gostaria', 'queria', 'saber', 'favor', 'por', 'sobre',
     'olá', 'ola', 'bom', 'dia', 'boa', 'tarde', 'noite', 'oi', 'opa', 'alo', 'alô',
     'porfavor', 'pfv', 'pf', 'preciso', 'procura', 'procuro', 'teria', 'teriam',
-    'se', 'possivel', 'possível', 'tem aí', 'tem ai', 'aí', 'ai', 'aqui'
+    'se', 'possivel', 'possível', 'tem aí', 'tem ai', 'aí', 'ai', 'aqui',
+    'quero', 'queria', 'separar', 'separa', 'comprar', 'levar', 'mandar'
   ];
 
   const stopRegex = new RegExp(`\\b(${stopwords.join('|')})\\b`, 'gi');
@@ -37,7 +37,6 @@ function parseProductQueries(text) {
     .map((t) => t.trim())
     .filter((t) => t.length >= 2);
 
-  // Se a divisão não gerou nada ou se era um produto composto longo (ex: "fralda pampers m"), mantém o termo original limpo
   if (terms.length === 0 && cleaned.length >= 2) {
     return [cleaned];
   }
@@ -46,7 +45,7 @@ function parseProductQueries(text) {
 }
 
 /**
- * Busca produtos no banco de dados SQLite para os termos informados
+ * Busca produtos no banco de dados SQLite com inteligência de relevância
  */
 function searchProductsInDb(tenantId, query) {
   if (!query || query.length < 2) return [];
@@ -68,7 +67,7 @@ function searchProductsInDb(tenantId, query) {
         ELSE 4
       END,
       stock_quantity DESC
-    LIMIT 4
+    LIMIT 3
   `;
 
   try {
@@ -92,10 +91,26 @@ function formatMoney(val) {
 }
 
 /**
- * Chamada à API oficial do Google Gemini (REST)
+ * Chamada à API oficial do Google Gemini (REST) com histórico conversacional
  */
-async function callGeminiApi({ apiKey, systemInstruction, userPrompt, model = 'gemini-2.5-flash' }) {
+async function callGeminiApi({ apiKey, systemInstruction, userPrompt, history = [], model = 'gemini-2.5-flash' }) {
   const modelsToTry = [model, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+  // Constrói formato multi-turn do Gemini
+  const contents = [];
+  if (Array.isArray(history) && history.length > 0) {
+    for (const h of history.slice(-6)) {
+      contents.push({
+        role: h.from_me === 1 ? 'model' : 'user',
+        parts: [{ text: h.text || '' }],
+      });
+    }
+  }
+
+  contents.push({
+    role: 'user',
+    parts: [{ text: userPrompt }],
+  });
 
   for (const currentModel of modelsToTry) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
@@ -104,21 +119,16 @@ async function callGeminiApi({ apiKey, systemInstruction, userPrompt, model = 'g
       systemInstruction: {
         parts: [{ text: systemInstruction }],
       },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }],
-        },
-      ],
+      contents,
       generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: 800,
+        temperature: 0.3,
+        maxOutputTokens: 600,
       },
     };
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7500); // 7.5s max timeout
+      const timeoutId = setTimeout(() => controller.abort(), 7500);
 
       const res = await fetch(url, {
         method: 'POST',
@@ -131,8 +141,8 @@ async function callGeminiApi({ apiKey, systemInstruction, userPrompt, model = 'g
 
       if (!res.ok) {
         const errText = await res.text();
-        console.warn(`[aiEngine] Gemini (${currentModel}) retornou status ${res.status}: ${errText.substring(0, 120)}`);
-        continue; // Tenta o próximo modelo
+        console.warn(`[aiEngine] Gemini (${currentModel}) retornou status ${res.status}: ${errText.substring(0, 100)}`);
+        continue;
       }
 
       const data = await res.json();
@@ -149,117 +159,155 @@ async function callGeminiApi({ apiKey, systemInstruction, userPrompt, model = 'g
 }
 
 /**
- * Gerador local inteligente de resposta para quando a chave da IA não estiver configurada
- * ou a internet/Google falhar. NUNCA responde erro robótico!
+ * Motor de Vendas Humanizado (Local) - Conduz o cliente até o fechamento da compra
+ * sem menus robóticos, sem barras ASCII e sem "digite 0"
  */
-function buildLocalNlpResponse({ tenant, customerName, searchResults, rawText, cart = [] }) {
-  const lower = rawText.toLowerCase();
+function buildConversationalSalesResponse({ tenant, customerName, searchResults, rawText, context = {} }) {
+  const lower = rawText.toLowerCase().trim();
 
-  // 1. Perguntas sobre Entrega / Frete
-  if (lower.includes('entrega') || lower.includes('frete') || lower.includes('entregam') || lower.includes('taxa')) {
+  // 1. Cliente escolhendo ENTREGA
+  if (
+    lower === 'entrega' ||
+    lower === 'entregar' ||
+    lower === 'pode entregar' ||
+    lower === 'manda entregar' ||
+    lower === 'quero entrega' ||
+    lower === 'prefiro entrega' ||
+    lower.includes('pode ser entrega') ||
+    lower.includes('faz entrega') ||
+    lower.includes('entrega em casa')
+  ) {
     const feeText = Number(tenant.delivery_fee_default) > 0
       ? `R$ ${formatMoney(tenant.delivery_fee_default)}`
-      : 'GRÁTIS';
-    const freeThreshold = Number(tenant.free_shipping_threshold) > 0
-      ? `\n🎉 Compras a partir de *R$ ${formatMoney(tenant.free_shipping_threshold)}* têm *FRETE GRÁTIS!*`
-      : '';
+      : 'grátis';
 
-    return (
-      `🛵 *ENTREGA RÁPIDA - ${tenant.name.toUpperCase()}* 📦\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Olá, *${customerName}*! Sim, fazemos entrega direta na sua casa!\n\n` +
-      `📍 *Taxa padrão:* ${feeText}${freeThreshold}\n` +
-      `⏰ *Horário:* ${tenant.business_hours || 'Durante nosso horário comercial'}\n\n` +
-      `Qual medicamento ou produto você gostaria de pedir hoje? Basta me mandar o nome! 💚`
-    );
+    return {
+      text:
+        `Maravilha, ${customerName}! 🛵\n\n` +
+        `Nossa entrega sai por apenas ${feeText} e o motoboy leva rapidinho aí para você.\n\n` +
+        `Por favor, me passa o seu *endereço completo com número, bairro e um ponto de referência* para eu já calcular e agendar o envio?`,
+      candidates: context.candidates || [],
+      intent: 'asking_address'
+    };
   }
 
-  // 2. Perguntas sobre Endereço / Onde fica
-  if (lower.includes('onde fica') || lower.includes('endereco') || lower.includes('endereço') || lower.includes('localizacao') || lower.includes('localização') || lower.includes('bairro')) {
-    return (
-      `📍 *NOSSA LOCALIZAÇÃO - ${tenant.name.toUpperCase()}*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Olá, *${customerName}*! Estamos te esperando no balcão da nossa loja:\n\n` +
-      `🏠 *Endereço:* ${tenant.address || 'Venha nos visitar no balcão!'}\n` +
-      `⏰ *Horário de Funcionamento:* ${tenant.business_hours || '08:00 às 22:00'}\n\n` +
-      `🛵 *Prefere receber em casa?* Fazemos entrega rápida também! Basta mandar os medicamentos que procura.`
-    );
+  // 2. Cliente escolhendo RETIRADA NO BALCÃO
+  if (
+    lower === 'retirar' ||
+    lower === 'retirada' ||
+    lower === 'vou retirar' ||
+    lower === 'vou passar aí' ||
+    lower === 'passo aí' ||
+    lower === 'pego no balcão' ||
+    lower.includes('retirar no balcão') ||
+    lower.includes('vou buscar')
+  ) {
+    return {
+      text:
+        `Perfeito, ${customerName}! 😊\n\n` +
+        `Nosso endereço é: *${tenant.address || 'no nosso balcão central'}* (estamos abertos ${tenant.business_hours || 'das 08:00 às 22:00'}).\n\n` +
+        `Já deixo tudo separadinho com seu nome aqui no caixa para você só chegar e retirar!\n\n` +
+        `Você prefere pagar antecipado no Pix para já adiantar ou vai pagar direto aqui no caixa na retirada?`,
+      candidates: context.candidates || [],
+      intent: 'pickup_confirmed'
+    };
   }
 
-  // 3. Perguntas sobre Pagamento
-  if (lower.includes('pagamento') || lower.includes('cartao') || lower.includes('cartão') || lower.includes('pix') || lower.includes('dinheiro') || lower.includes('pagar')) {
-    return (
-      `💳 *FORMAS DE PAGAMENTO ACEITAS*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Olá, *${customerName}*! Facilitamos o pagamento para você:\n\n` +
-      `💠 *Pix Instantâneo* (Copia e Cola gerado aqui mesmo no WhatsApp)\n` +
-      `💳 *Cartão de Crédito e Débito* (o motoboy leva a maquininha até você)\n` +
-      `💵 *Dinheiro* (com troco se precisar)\n\n` +
-      `Qual remédio você gostaria de pedir agora? 💊`
-    );
+  // 3. Cliente informando ENDEREÇO
+  const hasAddressSignal =
+    (lower.includes('rua') || lower.includes('av') || lower.includes('avenida') || lower.includes('bairro') || lower.includes('casa') || lower.includes('apto') || lower.includes('número') || lower.includes('numero') || lower.includes('nº')) &&
+    /\d+/.test(lower);
+
+  if (hasAddressSignal) {
+    const deliveryFee = Number(tenant.delivery_fee_default) || 7.00;
+    return {
+      text:
+        `Endereço anotado com sucesso, ${customerName}! ✅\n\n` +
+        `Nossa entrega já vai ser despachada para você.\n\n` +
+        `Como você prefere fazer o pagamento? Pode ser no *Pix* (Copia e Cola instantâneo) ou na *maquininha de cartão* quando o motoboy chegar?`,
+      candidates: context.candidates || [],
+      intent: 'asking_payment'
+    };
   }
 
-  // 4. Produtos Encontrados
+  // 4. Cliente escolhendo FORMA DE PAGAMENTO PIX
+  if (lower === 'pix' || lower.includes('no pix') || lower.includes('chave pix') || lower.includes('manda o pix') || lower.includes('pode mandar o pix')) {
+    const pixKey = tenant.pix_key || '12345678000190';
+    return {
+      text:
+        `Ótimo! Aqui está a chave Pix oficial da ${tenant.name}:\n\n` +
+        `💠 *Chave Pix (${(tenant.pix_type || 'CNPJ').toUpperCase()}):*\n` +
+        `\`${pixKey}\`\n\n` +
+        `Assim que fizer a transferência, só me manda o comprovante aqui nessa conversa que já libero a saída imediata do motoboy para você! 🛵💨`,
+      candidates: context.candidates || [],
+      intent: 'pix_sent'
+    };
+  }
+
+  // 5. Cliente escolhendo CARTÃO OU DINHEIRO
+  if (lower.includes('cartao') || lower.includes('cartão') || lower.includes('crédito') || lower.includes('credito') || lower.includes('débito') || lower.includes('debito') || lower.includes('maquininha')) {
+    return {
+      text:
+        `Combinado! Já separei seus medicamentos e nosso motoboy vai levar a maquininha de cartão até você. 💳\n\n` +
+        `Qualquer dúvida ou se precisar de mais alguma coisa, é só me chamar aqui! Muito obrigado pela preferência e estimo melhoras! 💚`,
+      candidates: context.candidates || [],
+      intent: 'order_completed'
+    };
+  }
+
+  if (lower.includes('dinheiro')) {
+    return {
+      text:
+        `Perfeito! Pagamento em dinheiro na entrega. 💵\n\n` +
+        `Você vai precisar de troco para quanto? Me avisa aqui que o entregador já leva certinho para você!`,
+      candidates: context.candidates || [],
+      intent: 'asking_change'
+    };
+  }
+
+  // 6. Produtos encontrados para a pergunta
   if (searchResults && searchResults.length > 0) {
-    let msg = `👋 Olá, *${customerName}*! Tudo bem? 💚\n\n` +
-      `Consultei nosso estoque aqui na *${tenant.name}*:\n\n`;
-
-    let totalShown = 0;
     const candidates = [];
+    const productLines = [];
 
     searchResults.forEach((group) => {
-      group.products.forEach((p) => {
-        totalShown++;
+      const p = group.products[0];
+      if (!candidates.some((c) => c.id === p.id)) {
         candidates.push(p);
-        const available = p.stock_quantity - p.reserved_quantity;
-        const inStock = available > 0;
         const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
+        const priceStr = isPromo
+          ? `*R$ ${formatMoney(p.sale_price)}* (em oferta especial, era R$ ${formatMoney(p.original_price)})`
+          : `*R$ ${formatMoney(p.sale_price)}*`;
 
-        msg += `💊 *${p.name}*\n`;
-        if (p.active_ingredient && p.active_ingredient.toLowerCase() !== p.name.toLowerCase()) {
-          msg += `   ▫️ Princípio: _${p.active_ingredient}_\n`;
-        }
-        if (p.presentation) {
-          msg += `   ▫️ Apresentação: ${p.presentation}\n`;
-        }
-        if (isPromo) {
-          msg += `   ▫️ Preço: *De ~R$ ${formatMoney(p.original_price)}~ por R$ ${formatMoney(p.sale_price)}* 🔥\n`;
-        } else {
-          msg += `   ▫️ Preço: *R$ ${formatMoney(p.sale_price)}*\n`;
-        }
-        msg += `   ▫️ Estoque: ${inStock ? `Disponível (${available} un.) ✅` : 'Temporariamente esgotado ⚠️'}\n`;
-        if (p.requires_prescription) {
-          msg += `   ▫️ ⚠️ _Necessita de receita médica médica retida_\n`;
-        }
-        msg += `\n`;
-      });
+        const desc = p.presentation ? ` (${p.presentation})` : '';
+        productLines.push(`• *${p.name}*${desc} por ${priceStr}`);
+      }
     });
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🛵 *Fazemos entrega rápida!* (Taxa: R$ ${formatMoney(tenant.delivery_fee_default)})\n`;
-    msg += `Gostaria que eu separe algum deles para você retirar ou prefere receber na sua casa?\n\n`;
-    msg += `💬 *Deseja falar com atendente?* Digite *0*`;
+    const msg =
+      `Olá, ${customerName}! Tudo bem? 😊\n\n` +
+      `Temos em nosso estoque sim:\n` +
+      `${productLines.join('\n')}\n\n` +
+      `Você prefere que a gente envie por entrega rápida na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separado para você!`;
 
-    return { text: msg, candidates };
+    return { text: msg, candidates, intent: 'products_offered' };
   }
 
-  // 5. Nenhum produto localizado com os termos informados
+  // 7. Não encontrou o produto específico
   return {
     text:
-      `👋 Olá, *${customerName}*! Tudo bem? 💚\n\n` +
-      `Não encontrei nenhum produto exatamente com esse nome no nosso catálogo digital no momento.\n\n` +
-      `👨‍⚕️ *Nosso farmacêutico de plantão está no balcão da ${tenant.name}* e pode conferir se temos marcas similares, genéricos ou encomendar para você na distribuidora!\n\n` +
-      `👉 *Digite 0* para falar com o farmacêutico agora mesmo no balcão.\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📸 _Se você tiver a foto da receita médica ou da embalagem, pode enviar aqui pelo WhatsApp que analisamos na hora!_`,
-    candidates: []
+      `Olá, ${customerName}! Tudo bem? 😊\n\n` +
+      `Consultei nosso sistema e não localizei esse produto cadastrado com esse nome no momento.\n\n` +
+      `Nosso farmacêutico de plantão está no balcão agora e pode verificar para você se temos genéricos com o mesmo princípio ativo ou encomendar para chegar hoje mesmo! Quer que eu te passe para ele?`,
+    candidates: [],
+    intent: 'not_found'
   };
 }
 
 /**
  * Função principal do Atendente Virtual de Inteligência Artificial
  */
-async function processAiMessage({ tenantId, customerPhone, customerName, rawText, context = {} }) {
+async function processAiMessage({ tenantId, customerPhone, customerName, rawText, history = [], context = {} }) {
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
   if (!tenant) return null;
 
@@ -274,7 +322,6 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
     }
   }
 
-  // Flat list de produtos encontrados para candidatos de escolha
   const allCandidates = [];
   searchResults.forEach((group) => {
     group.products.forEach((p) => {
@@ -287,41 +334,40 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
   const apiKey = tenant.gemini_api_key || process.env.GEMINI_API_KEY;
   const isAiActive = tenant.ai_enabled !== 0;
 
-  // Se houver chave Gemini e IA ativada, chama a IA generativa
+  // Se houver chave Gemini e IA ativada, chama a IA generativa com foco em vendas
   if (apiKey && isAiActive) {
     let productsContextStr = 'Nenhum medicamento específico encontrado diretamente pelo termo.';
     if (allCandidates.length > 0) {
       productsContextStr = allCandidates
         .map(
           (p) =>
-            `- [ID ${p.id}] ${p.name} | Princípio: ${p.active_ingredient || 'N/A'} | Apresentação: ${p.presentation || 'N/A'} | Preço: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${p.stock_quantity - p.reserved_quantity} un. | Exige receita: ${p.requires_prescription ? 'SIM' : 'NÃO'}`
+            `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${p.stock_quantity - p.reserved_quantity} un.`
         )
         .join('\n');
     }
 
     const systemInstruction = `
-Você é o atendente virtual e assistente farmacêutico oficial da farmácia "${tenant.name}".
-Seu objetivo é atender os clientes no WhatsApp com simpatia, calor humano, clareza profissional e agilidade.
+Você é o atendente de vendas e consultor farmacêutico da farmácia "${tenant.name}" no WhatsApp.
+Seu objetivo é conversar com o cliente de forma 100% humana, acolhedora, simpática e CONDUZIR O CLIENTE COM ELEGÂNCIA ATÉ O FECHAMENTO DA COMPRA.
 
 DADOS DA FARMÁCIA:
 - Nome: ${tenant.name}
 - Endereço: ${tenant.address || 'Nossa loja no centro da cidade'}
-- Horário de atendimento: ${tenant.business_hours || '08:00 às 22:00'}
-- Taxa de entrega: R$ ${formatMoney(tenant.delivery_fee_default)} ${Number(tenant.free_shipping_threshold) > 0 ? `(Frete GRÁTIS em compras acima de R$ ${formatMoney(tenant.free_shipping_threshold)})` : ''}
-- Formas de pagamento: Pix Copia e Cola instantâneo, Cartão de crédito/débito na maquininha na entrega, e Dinheiro.
+- Horário: ${tenant.business_hours || '08:00 às 22:00'}
+- Taxa de entrega padrão: R$ ${formatMoney(tenant.delivery_fee_default)} ${Number(tenant.free_shipping_threshold) > 0 ? `(Frete GRÁTIS acima de R$ ${formatMoney(tenant.free_shipping_threshold)})` : ''}
+- Formas de pagamento: Pix instantâneo, Cartão de crédito/débito na maquininha na entrega, Dinheiro. Chave Pix: ${tenant.pix_key || 'Chave da farmácia'}
 
-PRODUTOS ENCONTRADOS NO ESTOQUE DA FARMÁCIA PARA A PERGUNTA:
+PRODUTOS EM ESTOQUE NO SISTEMA:
 ${productsContextStr}
 
-REGRAS OBRIGATÓRIAS DE ATENDIMENTO:
-1. Responda em Português do Brasil com tom humano, acolhedor, empático e educado (use emojis moderados: 💊, 😊, 💚, 🛵, 📦).
-2. Se o cliente perguntar o valor de um ou mais remédios (ex: "Qual o valor do loratadina e Suprema?"), cite os nomes e os valores exatos de TODOS os remédios encontrados no estoque acima.
-3. Se algum produto procurado não foi encontrado, explique com delicadeza e diga que o farmacêutico no balcão pode verificar opções similares ou encomendar.
-4. NUNCA invente medicamentos ou preços que não estejam nos produtos acima.
-5. Se o produto exigir receita médica retida (antibióticos, controlados), avise com cuidado que precisa da receita médica.
-6. Sempre convide o cliente a concluir: pergunte se ele quer que separe para entrega rápida na casa dele ou para retirar no balcão.
-7. Se o cliente quiser falar com uma pessoa, atendente humano ou farmacêutico, seja cortês e adicione no fim da mensagem a tag [TRANSF_HUMANO].
-8. Mantenha as mensagens bem formatadas para WhatsApp (use *negrito* nos nomes dos remédios e nos preços). Não escreva textos gigantescos, seja direto e prestativo.
+DIRETRIZES DE ATENDIMENTO DE ALTA CONVERSÃO:
+1. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "Apresentação:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp!
+2. Quando o cliente perguntar o valor de um ou mais remédios, cite os preços reais com clareza e pergunte logo em seguida: "Você prefere que a gente entregue na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separadinho para você!"
+3. Se o cliente preferir entrega, peça o endereço com número e bairro para calcular e despachar.
+4. Quando o cliente der o endereço, confirme e pergunte a forma de pagamento (Pix ou Cartão na maquininha).
+5. Se for Pix, informe a chave Pix e peça o comprovante para liberar o motoboy.
+6. Mantenha as mensagens curtas, naturais e com emojis amigáveis (😊, 💊, 🛵, 💚).
+7. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
 `.trim();
 
     const userPrompt = `Mensagem do cliente (${customerName || 'Cliente'}): "${rawText}"`;
@@ -331,6 +377,7 @@ REGRAS OBRIGATÓRIAS DE ATENDIMENTO:
         apiKey,
         systemInstruction,
         userPrompt,
+        history,
       });
 
       if (aiReply) {
@@ -345,38 +392,69 @@ REGRAS OBRIGATÓRIAS DE ATENDIMENTO:
         };
       }
     } catch (e) {
-      console.warn('[aiEngine] Erro na execução da IA, caindo para NLP local:', e.message);
+      console.warn('[aiEngine] Erro na execução da IA, caindo para motor de vendas local:', e.message);
     }
   }
 
-  // Fallback para o NLP Local Inteligente (sempre disponível, 100% humanizado e sem erros)
-  const localResult = buildLocalNlpResponse({
+  // Motor Conversacional de Vendas Local (sempre ativo, zero custo e altamente vendedor)
+  const salesResult = buildConversationalSalesResponse({
     tenant,
     customerName: customerName || 'Cliente',
     searchResults,
     rawText,
-    cart: context.cart || [],
+    context,
   });
 
-  if (typeof localResult === 'string') {
-    return {
-      text: localResult,
-      candidates: allCandidates,
-      wantsHuman: false,
-      source: 'local_nlp',
-    };
-  }
+  return {
+    text: salesResult.text,
+    candidates: salesResult.candidates || allCandidates,
+    wantsHuman: false,
+    source: 'local_sales_nlp',
+    intent: salesResult.intent,
+  };
+}
+
+/**
+ * Gera uma sugestão de resposta para o atendente/farmacêutico usar no painel do CRM
+ */
+async function suggestSalesResponse({ tenantId, customerPhone }) {
+  const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
+  if (!tenant) return null;
+
+  // Busca as últimas mensagens da conversa
+  const history = db
+    .prepare('SELECT from_me, text, timestamp FROM messages WHERE tenant_id = ? AND customer_phone = ? ORDER BY id DESC LIMIT 6')
+    .all(tenantId, customerPhone)
+    .reverse();
+
+  const conv = db
+    .prepare('SELECT customer_name FROM conversations WHERE tenant_id = ? AND customer_phone = ?')
+    .get(tenantId, customerPhone);
+  const customerName = conv?.customer_name || 'Cliente';
+
+  // Última mensagem enviada pelo cliente
+  const lastCustomerMsg = [...history].reverse().find((m) => m.from_me === 0);
+  const textToAnalyze = lastCustomerMsg?.text || '';
+
+  const result = await processAiMessage({
+    tenantId,
+    customerPhone,
+    customerName,
+    rawText: textToAnalyze,
+    history,
+    context: {},
+  });
 
   return {
-    text: localResult.text,
-    candidates: localResult.candidates || allCandidates,
-    wantsHuman: false,
-    source: 'local_nlp',
+    suggestion: result?.text || '',
+    candidates: result?.candidates || [],
+    source: result?.source || 'local',
   };
 }
 
 module.exports = {
   processAiMessage,
+  suggestSalesResponse,
   parseProductQueries,
   searchProductsInDb,
 };

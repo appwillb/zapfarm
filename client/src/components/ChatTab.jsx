@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt, RotateCw, RotateCcw, ZoomIn, ZoomOut, Maximize2, X } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt, RotateCw, RotateCcw, ZoomIn, ZoomOut, Maximize2, X, Sparkles } from 'lucide-react';
 import { api } from '../api';
 import { wsClient } from '../services/websocket';
 
@@ -43,6 +43,8 @@ export default function ChatTab({
   const [lightboxImage, setLightboxImage] = useState(null);
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [aiSuggestion, setAiSuggestion] = useState('');
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
 
   // Refs to avoid stale closures in intervals/WebSockets and enable smooth auto-scrolling
   const selectedPhoneRef = useRef(selectedPhone);
@@ -110,7 +112,27 @@ export default function ChatTab({
     selectedPhoneRef.current = phone;
     if (onPhoneSelected) onPhoneSelected(phone);
     setMobileView('chat');
+    setAiSuggestion('');
     loadMessages(phone);
+  };
+
+  const handleGetAiSuggestion = async () => {
+    const phone = selectedPhoneRef.current || selectedPhone;
+    if (!phone) return;
+    setLoadingSuggestion(true);
+    try {
+      const res = await api.suggestReply(tenantId, phone);
+      if (res?.suggestion) {
+        setAiSuggestion(res.suggestion);
+      } else {
+        alert('Nenhuma sugestão gerada para esta mensagem.');
+      }
+    } catch (err) {
+      console.error('Erro ao gerar sugestão de IA:', err);
+      alert('Erro ao gerar sugestão de IA: ' + err.message);
+    } finally {
+      setLoadingSuggestion(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -383,6 +405,18 @@ export default function ChatTab({
                   <span className="hidden md:inline">Excluir</span>
                 </button>
 
+                {/* AI Sales Copilot Button */}
+                <button
+                  type="button"
+                  onClick={handleGetAiSuggestion}
+                  disabled={loadingSuggestion}
+                  className="p-1.5 sm:px-3 sm:py-1.5 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                  title="Pedir para a IA sugerir uma resposta de venda"
+                >
+                  <Sparkles size={14} className={loadingSuggestion ? 'animate-spin text-purple-600' : 'text-purple-600'} />
+                  <span className="hidden sm:inline">{loadingSuggestion ? 'Gerando...' : 'IA Vender'}</span>
+                </button>
+
                 {/* Toggle Human Handover */}
                 <button
                   onClick={handleToggleHuman}
@@ -555,8 +589,76 @@ export default function ChatTab({
               <div ref={messagesEndRef} className="h-1" />
             </div>
 
+            {/* AI Sales Copilot Suggestion Card */}
+            {aiSuggestion && (
+              <div className="bg-gradient-to-r from-purple-50 via-indigo-50/70 to-purple-50/40 border-t border-purple-200/90 p-2.5 sm:px-4 sm:py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <Sparkles size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-extrabold uppercase text-purple-900 tracking-wider block">
+                      Sugestão da IA para Fechar Venda:
+                    </span>
+                    <p className="text-xs text-slate-700 line-clamp-2 italic">"{aiSuggestion}"</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageInput(aiSuggestion);
+                      setAiSuggestion('');
+                    }}
+                    className="px-2.5 py-1.5 bg-white hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-xl text-xs font-bold transition-all shadow-xs"
+                    title="Colocar o texto no campo para editar antes de enviar"
+                  >
+                    Inserir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const textToSend = aiSuggestion;
+                      setAiSuggestion('');
+                      const current = selectedPhoneRef.current || selectedPhone;
+                      if (!textToSend || !current) return;
+                      try {
+                        await api.sendChatMessage(tenantId, current, textToSend);
+                        await loadMessages(current);
+                        await loadConversations();
+                        setTimeout(() => scrollToBottom('smooth'), 50);
+                      } catch (err) {
+                        alert('Erro ao enviar mensagem: ' + err.message);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95"
+                    title="Enviar esta resposta sugerida diretamente ao cliente"
+                  >
+                    <Send size={12} />
+                    <span>Enviar Direto</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiSuggestion('')}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50"
+                    title="Dispensar sugestão"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Input Bar */}
             <form onSubmit={handleSendMessage} className="p-2.5 sm:p-3 border-t border-slate-200 bg-white flex gap-2">
+              <button
+                type="button"
+                onClick={handleGetAiSuggestion}
+                disabled={loadingSuggestion}
+                className="p-2 sm:px-3 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200 text-xs font-bold flex items-center gap-1.5 shadow-xs shrink-0"
+                title="Pedir para a IA sugerir uma resposta de venda"
+              >
+                <Sparkles size={14} className={loadingSuggestion ? 'animate-spin text-purple-600' : 'text-purple-600'} />
+                <span className="hidden sm:inline">{loadingSuggestion ? 'Gerando...' : 'Sugerir com IA'}</span>
+              </button>
               <input
                 type="text"
                 placeholder={

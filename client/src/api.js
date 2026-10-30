@@ -233,6 +233,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ queryText }),
     }).then((r) => r.json()),
+  suggestReply: (tenantId, customerPhone) =>
+    authFetch(`${API_BASE}/chat/${tenantId}/suggest-reply`, {
+      method: 'POST',
+      body: JSON.stringify({ customerPhone }),
+    }).then((r) => r.json()),
 
   // Simulator
   simulateMessage: (tenantId, phone, name, text) =>
