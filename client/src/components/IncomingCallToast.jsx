@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PhoneCall, MessageSquare, X, Volume2, ArrowRight, ShieldAlert, Receipt, CheckCircle, ExternalLink } from 'lucide-react';
+import { PhoneCall, MessageSquare, X, Volume2, ArrowRight, ShieldAlert, Receipt, CheckCircle, ExternalLink, FileText } from 'lucide-react';
 
 function formatPhone(phone) {
   if (!phone) return '';
@@ -21,7 +21,7 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
     if (!alert) return;
 
     setProgress(100);
-    const duration = alert.type === 'pix_receipt' ? 20000 : 12000; // 20s for receipts so attendant has time to see
+    const duration = alert.type === 'prescription' ? 25000 : alert.type === 'pix_receipt' ? 20000 : 12000;
     const interval = 100;
     const step = (interval / duration) * 100;
 
@@ -43,13 +43,16 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
 
   const isHuman = alert.type === 'human_support';
   const isPixReceipt = alert.type === 'pix_receipt';
+  const isPrescription = alert.type === 'prescription';
   const displayName = alert.customerName || 'Cliente';
 
   return (
     <div className="fixed top-20 right-4 z-50 max-w-md w-full animate-in slide-in-from-top-4 fade-in duration-300">
       <div
         className={`relative overflow-hidden rounded-2xl shadow-2xl border ${
-          isPixReceipt
+          isPrescription
+            ? 'bg-slate-900/98 border-2 border-purple-400 text-white shadow-purple-500/40 ring-4 ring-purple-500/20'
+            : isPixReceipt
             ? 'bg-slate-900/98 border-2 border-emerald-400 text-white shadow-emerald-500/40 ring-4 ring-emerald-500/20'
             : isHuman
             ? 'bg-amber-900/95 border-amber-500 text-white shadow-amber-900/30'
@@ -60,7 +63,7 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/10">
           <div
             className={`h-full transition-all ease-linear ${
-              isPixReceipt ? 'bg-emerald-400' : isHuman ? 'bg-amber-400' : 'bg-emerald-400'
+              isPrescription ? 'bg-purple-400' : isPixReceipt ? 'bg-emerald-400' : isHuman ? 'bg-amber-400' : 'bg-emerald-400'
             }`}
             style={{ width: `${progress}%` }}
           />
@@ -71,14 +74,18 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
           <div className="relative shrink-0">
             <div
               className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-inner ${
-                isPixReceipt
+                isPrescription
+                  ? 'bg-gradient-to-tr from-purple-600 to-indigo-400 text-white ring-2 ring-purple-300'
+                  : isPixReceipt
                   ? 'bg-gradient-to-tr from-emerald-600 to-teal-400 text-white ring-2 ring-emerald-300'
                   : isHuman
                   ? 'bg-gradient-to-tr from-amber-600 to-amber-400 text-white'
                   : 'bg-gradient-to-tr from-emerald-600 to-emerald-400 text-white'
               }`}
             >
-              {isPixReceipt ? (
+              {isPrescription ? (
+                <span className="text-2xl animate-pulse select-none">🩺</span>
+              ) : isPixReceipt ? (
                 <Receipt size={26} className="animate-pulse" />
               ) : isHuman ? (
                 <ShieldAlert size={26} />
@@ -89,12 +96,12 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
             {/* Ping Radar */}
             <span
               className={`absolute -top-1 -right-1 flex h-4 w-4 rounded-full ${
-                isPixReceipt ? 'bg-emerald-300' : isHuman ? 'bg-amber-400' : 'bg-emerald-400'
+                isPrescription ? 'bg-purple-400' : isPixReceipt ? 'bg-emerald-300' : isHuman ? 'bg-amber-400' : 'bg-emerald-400'
               } animate-ping opacity-75`}
             />
             <span
               className={`absolute -top-1 -right-1 flex h-4 w-4 rounded-full ${
-                isPixReceipt ? 'bg-emerald-400' : isHuman ? 'bg-amber-500' : 'bg-emerald-500'
+                isPrescription ? 'bg-purple-400' : isPixReceipt ? 'bg-emerald-400' : isHuman ? 'bg-amber-500' : 'bg-emerald-500'
               } border-2 border-slate-900`}
             />
           </div>
@@ -105,14 +112,18 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
               <div className="flex items-center gap-1.5">
                 <span
                   className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider ${
-                    isPixReceipt
+                    isPrescription
+                      ? 'bg-purple-500/30 text-purple-300 border border-purple-400 animate-pulse'
+                      : isPixReceipt
                       ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400 animate-pulse'
                       : isHuman
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   }`}
                 >
-                  {isPixReceipt
+                  {isPrescription
+                    ? '🩺 Receita Médica (Orçamento)'
+                    : isPixReceipt
                     ? '🧾 Comprovante Pix Recebido'
                     : isHuman
                     ? '👨‍⚕️ Atendente Solicitado'
@@ -132,7 +143,19 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
               </button>
             </div>
 
-            {isPixReceipt ? (
+            {isPrescription ? (
+              <div className="mt-1">
+                <h4 className="text-base font-extrabold text-white truncate flex items-center gap-2">
+                  <span>Receita de {displayName}</span>
+                </h4>
+                <p className="text-xs text-purple-200 truncate">
+                  WhatsApp: <span className="font-semibold text-white font-mono">{formatPhone(alert.customerPhone)}</span>
+                </p>
+                <p className="text-[11px] text-purple-300/90 mt-0.5 font-medium">
+                  Bot pausado. Farmacêutico deve analisar e orçar.
+                </p>
+              </div>
+            ) : isPixReceipt ? (
               <div className="mt-1">
                 <h4 className="text-base font-extrabold text-white truncate flex items-center gap-2">
                   <span>Pedido #{alert.orderId}</span>
@@ -157,6 +180,20 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
               </>
             )}
 
+            {/* Prescription Preview Thumbnail if available */}
+            {isPrescription && alert.mediaUrl && alert.mediaUrl.match(/\.(jpg|jpeg|png|webp)$/i) && (
+              <div className="mt-2 relative rounded-xl overflow-hidden border border-purple-500/40 max-h-28 bg-black/40 flex items-center justify-center">
+                <img
+                  src={alert.mediaUrl}
+                  alt="Prévia da Receita Médica"
+                  className="max-h-28 object-contain"
+                />
+                <span className="absolute bottom-1 right-1.5 text-[9px] bg-purple-900/90 text-purple-200 px-1.5 py-0.5 rounded font-bold">
+                  Foto da Receita
+                </span>
+              </div>
+            )}
+
             {/* Receipt Preview Thumbnail if available */}
             {isPixReceipt && alert.receiptUrl && alert.receiptUrl.match(/\.(jpg|jpeg|png|webp)$/i) && (
               <div className="mt-2 relative rounded-xl overflow-hidden border border-emerald-500/40 max-h-24 bg-black/40 flex items-center justify-center">
@@ -171,7 +208,7 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
               </div>
             )}
 
-            {alert.text && !isPixReceipt && (
+            {alert.text && !isPixReceipt && !isPrescription && (
               <p className="text-xs text-slate-300/90 mt-1.5 line-clamp-2 bg-black/25 px-2.5 py-1.5 rounded-lg border border-white/5 italic">
                 "{alert.text}"
               </p>
@@ -179,7 +216,24 @@ export default function IncomingCallToast({ alert, onOpenChat, onOpenOrder, onDi
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {isPixReceipt ? (
+              {isPrescription ? (
+                <>
+                  <button
+                    onClick={() => onOpenChat(alert.customerPhone)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30"
+                  >
+                    <span>🩺</span>
+                    <span>Abrir Receita & Orçar</span>
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    onClick={onDismiss}
+                    className="px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    Dispensar
+                  </button>
+                </>
+              ) : isPixReceipt ? (
                 <>
                   <button
                     onClick={() => onOpenOrder && onOpenOrder(alert.orderId)}

@@ -286,38 +286,81 @@ class BotEngine {
       return;
     }
 
-    // Check if attendant has taken over human support
+    // Check for media attachments (prescription photo, PDF, document)
+    const hasMedia = Boolean(mediaUrl);
+    const isImageOrDoc = hasMedia && (mediaType === 'image' || mediaType === 'document' || String(mediaUrl).match(/\.(jpg|jpeg|png|webp|pdf)$/i));
+
+    const isPrescriptionKeyword =
+      lowerText.includes('receita') ||
+      lowerText.includes('receituario') ||
+      lowerText.includes('receituário') ||
+      lowerText.includes('prescricao') ||
+      lowerText.includes('prescrição') ||
+      lowerText.includes('orçamento') ||
+      lowerText.includes('orcamento') ||
+      lowerText.includes('orçar') ||
+      lowerText.includes('orcar') ||
+      lowerText.includes('cotar') ||
+      lowerText.includes('cotação') ||
+      lowerText.includes('cotacao') ||
+      lowerText.includes('quanto fica') ||
+      lowerText.includes('quanto custa') ||
+      lowerText.includes('quanto sai') ||
+      lowerText.includes('tem esses') ||
+      lowerText.includes('tem esse') ||
+      lowerText.includes('manipula') ||
+      lowerText.includes('foto da receita') ||
+      lowerText.includes('olha a foto') ||
+      lowerText.includes('mandei a foto') ||
+      lowerText.includes('mandei foto') ||
+      lowerText.includes('segue a foto');
+
+    // 2. Check if attendant has taken over human support
     if (conv.is_human_agent === 1) {
+      // If customer sends a prescription photo or document while in human mode, alert dashboard immediately
+      if (isImageOrDoc) {
+        try {
+          db.prepare(`
+            UPDATE conversations 
+            SET has_pending_prescription = 1, last_message_at = CURRENT_TIMESTAMP 
+            WHERE tenant_id = ? AND customer_phone = ?
+          `).run(tenantId, customerPhone);
+        } catch (e) {}
+
+        this.broadcast(tenantId, 'prescription_received', {
+          customerPhone,
+          customerName,
+          text: rawText,
+          mediaUrl,
+          mediaType: mediaType || (mediaUrl ? 'image' : null),
+          hasMedia: true,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       const isReactivateBot =
-        lowerText === 'menu' ||
-        lowerText === '#menu' ||
         lowerText === '#bot' ||
         lowerText === 'bot' ||
-        lowerText === 'robo' ||
-        lowerText === 'robô' ||
         lowerText === '#robo' ||
         lowerText === '#robô' ||
-        lowerText === 'inicio' ||
-        lowerText === 'início' ||
+        lowerText === 'robo' ||
+        lowerText === 'robô' ||
+        lowerText === '#menu' ||
+        lowerText === 'menu' ||
         lowerText === '#inicio' ||
         lowerText === '#início' ||
-        lowerText === 'recomecar' ||
-        lowerText === 'recomeçar' ||
+        lowerText === 'inicio' ||
+        lowerText === 'início' ||
         lowerText === '#recomecar' ||
         lowerText === '#recomeçar' ||
-        lowerText === 'reiniciar' ||
-        lowerText === '#reiniciar' ||
-        lowerText === 'voltar' ||
-        lowerText === '#voltar' ||
-        lowerText === 'cancelar' ||
-        lowerText === '#cancelar' ||
-        lowerText === '1' ||
-        lowerText === '[1]' ||
-        lowerText === '2' ||
-        lowerText === '[2]';
+        lowerText === 'recomecar' ||
+        lowerText === 'recomeçar';
 
       if (isReactivateBot) {
         this.updateConversation(tenantId, customerPhone, 'idle', {}, 0);
+        try {
+          db.prepare(`UPDATE conversations SET has_pending_prescription = 0 WHERE tenant_id = ? AND customer_phone = ?`).run(tenantId, customerPhone);
+        } catch (e) {}
         await this.sendReply(
           tenantId,
           customerPhone,
@@ -333,6 +376,99 @@ class BotEngine {
         return;
       }
       // Attendant is chatting manually; bot doesn't interfere
+      return;
+    }
+
+    // 3. Automatic Prescription & Quote Detection (Immediate Bot Pause for Human Handover)
+    // Whenever a customer sends an image/doc or mentions a prescription without an active cart checkout:
+    if (conv.state !== 'prescription_check' && (isImageOrDoc || isPrescriptionKeyword)) {
+      const updatedContext = {
+        ...conv.context,
+        prescription_url: mediaUrl || conv.context?.prescription_url || null,
+        prescription_received_at: new Date().toISOString(),
+      };
+
+      try {
+        db.prepare(`
+          UPDATE conversations 
+          SET state = 'prescription_review',
+              is_human_agent = 1,
+              has_pending_prescription = 1,
+              context_data = ?,
+              last_message_at = CURRENT_TIMESTAMP
+          WHERE tenant_id = ? AND customer_phone = ?
+        `).run(JSON.stringify(updatedContext), tenantId, customerPhone);
+      } catch (e) {
+        console.error('Erro ao salvar estado de receita na conversa:', e);
+      }
+
+      // Real-time broadcast loud prescription alert to pharmacy balcão
+      this.broadcast(tenantId, 'prescription_received', {
+        customerPhone,
+        customerName,
+        text: rawText,
+        mediaUrl,
+        mediaType: mediaType || (mediaUrl ? 'image' : null),
+        hasMedia: Boolean(mediaUrl),
+        timestamp: new Date().toISOString(),
+      });
+
+      this.broadcast(tenantId, 'human_support_requested', {
+        customerPhone,
+        customerName,
+        text: rawText,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Audit log
+      try {
+        db.prepare(`
+          INSERT INTO audit_logs (tenant_id, user_name, action, details)
+          VALUES (?, 'Robô WhatsApp', 'RECEITA_ORCAMENTO_RECEBIDA', ?)
+        `).run(
+          tenantId,
+          `Cliente ${customerName} (${customerPhone}) enviou receita médica/orçamento para análise.`
+        );
+      } catch (e) {}
+
+      // Send clear, warm reassurance to customer on WhatsApp
+      if (isImageOrDoc) {
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `📋 *RECEITA RECEBIDA COM SUCESSO!* 🩺\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Olá, *${customerName}*! Já recebemos a foto da sua receita médica aqui no balcão da *${tenant.name}*.\n\n` +
+          `👨‍⚕️ O robô foi pausado e nosso *farmacêutico de plantão* já está analisando os medicamentos para calcular o seu orçamento e verificar as melhores opções (genéricos e similares).\n\n` +
+          `⏳ Em poucos minutos você receberá o valor completo e os prazos aqui mesmo no WhatsApp! 💚\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💬 Se desejar acrescentar endereço de entrega ou marca de preferência, pode enviar aqui enquanto conferimos.`
+        );
+      } else {
+        await this.sendReply(
+          tenantId,
+          customerPhone,
+          `📋 *ORÇAMENTO DE RECEITA MÉDICA* 🩺\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Olá, *${customerName}*! Sim, fazemos o orçamento completo da sua receita! 💚\n\n` +
+          `📸 *Por favor, envie uma foto nítida da sua receita médica aqui pelo WhatsApp.*\n\n` +
+          `👨‍⚕️ O robô já foi pausado para atendimento humano e nosso farmacêutico de plantão vai analisar a foto assim que você enviar para calcular o menor preço e verificar o estoque para você!\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━`
+        );
+      }
+
+      // Optional WhatsApp alert to Pharmacist / Store Manager's personal phone
+      if (tenant.pharmacist_alert_phone && tenant.pharmacist_alert_phone !== customerPhone) {
+        const cleanAlertPhone = tenant.pharmacist_alert_phone.replace(/\D/g, '');
+        const formattedAlertPhone = cleanAlertPhone.length === 10 || cleanAlertPhone.length === 11 ? '55' + cleanAlertPhone : cleanAlertPhone;
+        const alertMsg =
+          `🚨 *ALERTA ZAPFARM - NOVA RECEITA MÉDICA!* 📋\n\n` +
+          `O cliente *${customerName}* (${customerPhone}) acabou de enviar uma receita para orçamento.\n\n` +
+          `O robô foi pausado e a conversa está aguardando atendimento no painel da *${tenant.name}*!\n\n` +
+          `👉 Acesse o painel para orçar e responder ao cliente.`;
+        this.sendReply(tenantId, formattedAlertPhone, alertMsg).catch((err) => console.error('Erro ao avisar farmacêutico:', err));
+      }
+
       return;
     }
 

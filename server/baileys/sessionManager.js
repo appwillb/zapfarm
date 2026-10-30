@@ -246,12 +246,12 @@ class SessionManager {
             '';
 
           if (!text && isImage) {
-            text = '📸 [Comprovante Pix / Foto enviada]';
+            text = '📸 [Foto / Receita Médica]';
           } else if (!text && isDocument) {
             const fileName = msg.message.documentMessage?.fileName ||
                              msg.message.documentWithCaptionMessage?.message?.documentMessage?.fileName ||
-                             'Comprovante.pdf';
-            text = `📄 [Documento / Comprovante: ${fileName}]`;
+                             'Documento.pdf';
+            text = `📄 [Documento / Receita: ${fileName}]`;
           }
 
           // Check for WhatsApp Location (pin / live location)

@@ -141,6 +141,26 @@ export default function App() {
       loadTenantData();
     });
 
+    const unsubPrescription = wsClient.subscribe('prescription_received', (payload) => {
+      unlockAudio();
+      playIncomingMessageAlert({
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        text: payload.text || 'Receita médica enviada para orçamento',
+        isPrescription: true,
+        force: true,
+      });
+
+      setActiveAlert({
+        id: Date.now(),
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        mediaUrl: payload.mediaUrl,
+        text: payload.text,
+        type: 'prescription',
+      });
+    });
+
     const unsubOrdersChanged = wsClient.subscribe('orders_changed', () => {
       loadTenantData();
     });
@@ -152,6 +172,7 @@ export default function App() {
     return () => {
       unsubChat();
       unsubHuman();
+      unsubPrescription();
       unsubOrder();
       unsubReceipt();
       unsubOrdersChanged();

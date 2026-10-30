@@ -129,6 +129,7 @@ router.put('/:id', authenticateToken, (req, res) => {
     address,
     business_hours,
     welcome_message,
+    pharmacist_alert_phone,
     status,
     plan,
     logo_url,
@@ -151,6 +152,7 @@ router.put('/:id', authenticateToken, (req, res) => {
         address = COALESCE(?, address),
         business_hours = COALESCE(?, business_hours),
         welcome_message = COALESCE(?, welcome_message),
+        pharmacist_alert_phone = COALESCE(?, pharmacist_alert_phone),
         status = COALESCE(?, status),
         plan = COALESCE(?, plan),
         logo_url = CASE WHEN ? IS NOT NULL THEN ? ELSE logo_url END
@@ -168,6 +170,7 @@ router.put('/:id', authenticateToken, (req, res) => {
       address,
       business_hours,
       welcome_message,
+      pharmacist_alert_phone !== undefined ? (pharmacist_alert_phone ? String(pharmacist_alert_phone).replace(/\D/g, '') : '') : null,
       status,
       plan,
       logo_url !== undefined ? logo_url : null,

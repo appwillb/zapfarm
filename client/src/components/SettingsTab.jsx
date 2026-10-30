@@ -66,6 +66,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     address: tenant?.address || '',
     business_hours: tenant?.business_hours || '08:00 às 22:00',
     welcome_message: tenant?.welcome_message || '',
+    pharmacist_alert_phone: tenant?.pharmacist_alert_phone || '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -264,6 +265,7 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
         address: tenant.address || '',
         business_hours: tenant.business_hours || '08:00 às 22:00',
         welcome_message: tenant.welcome_message || '',
+        pharmacist_alert_phone: tenant.pharmacist_alert_phone || '',
       });
     }
   }, [tenant]);
@@ -462,6 +464,28 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          {/* WhatsApp de Alerta do Farmacêutico (Receitas & Orçamentos) */}
+          <div className="p-3.5 bg-purple-50/80 rounded-2xl border border-purple-200/90 space-y-2">
+            <div className="flex items-start gap-2.5">
+              <span className="text-lg shrink-0 mt-0.5">🩺</span>
+              <div className="flex-1 min-w-0">
+                <label className="font-bold text-purple-950 block text-xs">
+                  WhatsApp do Farmacêutico de Plantão (Alertas de Receitas & Orçamentos - Opcional)
+                </label>
+                <p className="text-[11px] text-purple-800/80 leading-relaxed">
+                  Quando um cliente enviar foto de receita médica pelo WhatsApp, o bot pausa imediatamente para atendimento humano. Se você preencher este número, o farmacêutico receberá um WhatsApp avisando instantaneamente com o link e contato do cliente!
+                </p>
+              </div>
+            </div>
+            <input
+              type="text"
+              placeholder="Ex: 5511999998888 (com DDD e 55)"
+              value={formData.pharmacist_alert_phone || ''}
+              onChange={(e) => setFormData({ ...formData, pharmacist_alert_phone: e.target.value })}
+              className="w-full p-2.5 bg-white border border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 font-mono text-xs text-purple-950 placeholder:text-purple-300"
             />
           </div>
         </div>

@@ -210,6 +210,7 @@ export function playIncomingMessageAlert({
   isHumanRequest = false,
   isNewOrder = false,
   isPixReceipt = false,
+  isPrescription = false,
   orderId = null,
   force = false,
 }) {
@@ -220,8 +221,8 @@ export function playIncomingMessageAlert({
   const phoneKey = customerPhone || 'unknown';
   const lastSpoken = lastSpokenMap.get(phoneKey) || 0;
 
-  // Debounce unless forced, human support, new order or pix receipt
-  if (!force && !isHumanRequest && !isNewOrder && !isPixReceipt) {
+  // Debounce unless forced, human support, new order, pix receipt or prescription
+  if (!force && !isHumanRequest && !isNewOrder && !isPixReceipt && !isPrescription) {
     const elapsedSeconds = (now - lastSpoken) / 1000;
     if (elapsedSeconds < config.throttleSeconds) {
       // Still throttled, skip audio repeat
@@ -235,7 +236,11 @@ export function playIncomingMessageAlert({
 
   // Construct natural Portuguese phrase (without English foreign words like 'WhatsApp' that TTS mispronounces)
   let speechPhrase = '';
-  if (isPixReceipt) {
+  if (isPrescription) {
+    speechPhrase = cleanName
+      ? `Atenção balcão! Nova receita médica recebida de ${cleanName} para orçamento!`
+      : 'Atenção balcão! Nova receita médica recebida para orçamento!';
+  } else if (isPixReceipt) {
     speechPhrase = cleanName
       ? `Atenção balcão! Comprovante Pix recebido de ${cleanName} para o pedido número ${orderId || ''}!`
       : `Atenção balcão! Novo comprovante Pix recebido para o pedido número ${orderId || ''}!`;

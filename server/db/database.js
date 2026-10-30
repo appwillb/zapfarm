@@ -370,6 +370,14 @@ function initDb() {
   } catch (e) {}
 
   try {
+    db.exec(`ALTER TABLE conversations ADD COLUMN has_pending_prescription INTEGER DEFAULT 0`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN pharmacist_alert_phone TEXT`);
+  } catch (e) {}
+
+  try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS supplier_manufacturers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

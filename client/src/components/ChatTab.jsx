@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt } from 'lucide-react';
+import { MessageSquare, User, Bot, Send, ShieldAlert, CheckCircle2, UserCheck, RefreshCw, Trash2, Copy, Check, Volume2, ArrowLeft, FileText, ExternalLink, Receipt, RotateCw, RotateCcw, ZoomIn, ZoomOut, Maximize2, X } from 'lucide-react';
 import { api } from '../api';
 import { wsClient } from '../services/websocket';
 
@@ -40,6 +40,9 @@ export default function ChatTab({
   const [loading, setLoading] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [rotation, setRotation] = useState(0);
+  const [zoom, setZoom] = useState(1);
 
   // Refs to avoid stale closures in intervals/WebSockets and enable smooth auto-scrolling
   const selectedPhoneRef = useRef(selectedPhone);
@@ -265,11 +268,15 @@ export default function ChatTab({
                       <p className="font-bold text-xs text-slate-800 truncate">
                         {c.customer_name || 'Cliente WhatsApp'}
                       </p>
-                      {c.is_human_agent === 1 && (
+                      {c.has_pending_prescription === 1 ? (
+                        <span className="text-[9px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded border border-purple-300 animate-pulse flex items-center gap-0.5">
+                          🩺 Receita
+                        </span>
+                      ) : c.is_human_agent === 1 ? (
                         <span className="text-[9px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.2 rounded">
                           Humano
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-[10px] text-slate-400">{formatPhone(c.customer_phone)}</p>
                     <p className="text-[11px] text-slate-600 truncate mt-1">
@@ -401,6 +408,26 @@ export default function ChatTab({
               </div>
             </div>
 
+            {/* Prescription Review Alert Banner */}
+            {(activeChat.conversation.has_pending_prescription === 1 || activeChat.conversation.state === 'prescription_review') && (
+              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white px-3 sm:px-4 py-2.5 flex items-center justify-between border-b border-purple-800 shrink-0 shadow-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-xl shrink-0 animate-bounce select-none">🩺</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-purple-100 truncate">
+                      Receita Médica / Orçamento Pendente
+                    </p>
+                    <p className="text-[11px] text-purple-200/80 truncate">
+                      O bot foi pausado automaticamente. Verifique a receita e passe o valor ao cliente.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-extrabold uppercase bg-purple-500/30 text-purple-200 border border-purple-400/50 px-2.5 py-1 rounded-full shrink-0 animate-pulse ml-2">
+                  Farmacêutico
+                </span>
+              </div>
+            )}
+
             {/* Messages Area */}
             <div 
               ref={messagesContainerRef}
@@ -427,13 +454,47 @@ export default function ChatTab({
                       {m.media_url && (
                         <div className="mb-2">
                           {m.media_type === 'image' || m.media_url.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                            <div className="rounded-xl overflow-hidden border border-slate-200/80 bg-black/10">
-                              <img
-                                src={m.media_url}
-                                alt="Anexo / Comprovante"
-                                className="max-h-60 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                                onClick={() => window.open(m.media_url, '_blank')}
-                              />
+                            <div className="space-y-1.5">
+                              <div className="rounded-xl overflow-hidden border border-slate-200/80 bg-black/10 relative group">
+                                <img
+                                  src={m.media_url}
+                                  alt="Anexo / Receita / Comprovante"
+                                  className="max-h-60 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                  onClick={() => {
+                                    setLightboxImage(m.media_url);
+                                    setRotation(0);
+                                    setZoom(1);
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setLightboxImage(m.media_url);
+                                    setRotation(0);
+                                    setZoom(1);
+                                  }}
+                                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Ampliar e Girar Imagem"
+                                >
+                                  <Maximize2 size={13} />
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLightboxImage(m.media_url);
+                                  setRotation(0);
+                                  setZoom(1);
+                                }}
+                                className={`w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[10px] font-bold transition-colors ${
+                                  isMe
+                                    ? 'bg-emerald-700/80 hover:bg-emerald-700 text-white'
+                                    : 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200'
+                                }`}
+                              >
+                                <RotateCw size={11} className="text-purple-600" />
+                                <span>🩺 Ampliar & Girar Receita</span>
+                              </button>
                             </div>
                           ) : (
                             <a
@@ -532,6 +593,116 @@ export default function ChatTab({
           </div>
         )}
       </div>
+
+      {/* Prescription / Image Lightbox Modal with 90° Rotate & Zoom */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* Top Controls Toolbar */}
+          <div
+            className="w-full max-w-4xl flex items-center justify-between mb-3 text-white px-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold flex items-center gap-1.5">
+                <span>🩺</span>
+                <span className="hidden sm:inline">Visualizador de Receita & Anexos</span>
+                <span className="sm:hidden">Receita</span>
+              </span>
+              <span className="text-xs text-slate-300 font-mono">
+                ({rotation}° | {Math.round(zoom * 100)}%)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                title="Girar 90° para a esquerda"
+              >
+                <RotateCcw size={15} />
+                <span className="hidden md:inline">-90°</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                title="Girar 90° para a direita"
+              >
+                <RotateCw size={15} />
+                <span className="hidden md:inline">+90°</span>
+              </button>
+              <div className="h-5 w-px bg-white/20 mx-0.5 hidden sm:block" />
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Diminuir Zoom"
+              >
+                <ZoomOut size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Aumentar Zoom"
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoom(1);
+                  setRotation(0);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 transition-colors hidden sm:block"
+                title="Redefinir visualização"
+              >
+                Reset
+              </button>
+              <div className="h-5 w-px bg-white/20 mx-0.5 hidden sm:block" />
+              <button
+                type="button"
+                onClick={() => window.open(lightboxImage, '_blank')}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Abrir imagem original em nova aba"
+              >
+                <ExternalLink size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors ml-1"
+                title="Fechar (ESC)"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Display Area */}
+          <div
+            className="relative max-w-4xl max-h-[78vh] w-full flex items-center justify-center overflow-auto rounded-2xl bg-black/50 border border-white/15 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage}
+              alt="Receita Médica Ampliada"
+              style={{
+                transform: `rotate(${rotation}deg) scale(${zoom})`,
+                transition: 'transform 0.2s ease-in-out',
+                maxWidth: '100%',
+                maxHeight: '72vh',
+                objectFit: 'contain',
+              }}
+              className="select-none shadow-2xl rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

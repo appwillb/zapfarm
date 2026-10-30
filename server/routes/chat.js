@@ -69,7 +69,9 @@ router.post('/:tenantId/send', authenticateToken, async (req, res) => {
   // 1. Mark as human agent so the automated bot does not interfere with attendant's chat
   db.prepare(`
     UPDATE conversations 
-    SET is_human_agent = 1, last_message_at = CURRENT_TIMESTAMP 
+    SET is_human_agent = 1, 
+        has_pending_prescription = 0,
+        last_message_at = CURRENT_TIMESTAMP 
     WHERE tenant_id = ? AND customer_phone = ?
   `).run(tenantId, customerPhone);
 
@@ -106,8 +108,11 @@ router.post('/:tenantId/toggle-human', authenticateToken, (req, res) => {
   const { customerPhone, isHuman } = req.body;
 
   db.prepare(`
-    UPDATE conversations SET is_human_agent = ? WHERE tenant_id = ? AND customer_phone = ?
-  `).run(isHuman ? 1 : 0, tenantId, customerPhone);
+    UPDATE conversations 
+    SET is_human_agent = ?,
+        has_pending_prescription = CASE WHEN ? = 0 THEN 0 ELSE has_pending_prescription END
+    WHERE tenant_id = ? AND customer_phone = ?
+  `).run(isHuman ? 1 : 0, isHuman ? 1 : 0, tenantId, customerPhone);
 
   res.json({ success: true, is_human_agent: isHuman ? 1 : 0 });
 });
