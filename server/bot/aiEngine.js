@@ -45,45 +45,149 @@ function parseProductQueries(text) {
 }
 
 /**
- * Busca produtos no banco de dados SQLite com inteligência de relevância
+ * Dicionário bidirecional de marcas de referência, genéricos e similares intercambiáveis
+ * comuns no varejo farmacêutico brasileiro (permite encontrar genéricos e outras marcas).
+ */
+const DRUG_SYNONYMS = {
+  'ibuprofeno': ['ibuprofeno', 'alivium', 'advil', 'buscofem', 'spidufen', 'dalsy', 'ibumax', 'ibupril'],
+  'alivium': ['alivium', 'ibuprofeno', 'advil', 'buscofem', 'spidufen', 'ibupril'],
+  'advil': ['advil', 'ibuprofeno', 'alivium', 'buscofem', 'spidufen', 'ibupril'],
+  'buscofem': ['buscofem', 'ibuprofeno', 'alivium', 'advil', 'ibupril'],
+  'spidufen': ['spidufen', 'ibuprofeno', 'alivium', 'advil', 'ibupril'],
+  'ibupril': ['ibupril', 'ibuprofeno', 'alivium', 'advil', 'buscofem'],
+  'dipirona': ['dipirona', 'novalgina', 'anador', 'doralgina', 'dorflex', 'neosaldina', 'maxalgina', 'aberalgina', 'lisador'],
+  'novalgina': ['novalgina', 'dipirona', 'anador', 'aberalgina', 'maxalgina'],
+  'anador': ['anador', 'dipirona', 'novalgina', 'aberalgina'],
+  'dorflex': ['dorflex', 'dipirona', 'doralgina'],
+  'neosaldina': ['neosaldina', 'dipirona', 'doralgina', 'doril'],
+  'doralgina': ['doralgina', 'neosaldina', 'dipirona'],
+  'paracetamol': ['paracetamol', 'tylenol', 'parador', 'pacemol', 'resfenol', 'cimegripe'],
+  'tylenol': ['tylenol', 'paracetamol', 'parador'],
+  'cetoprofeno': ['cetoprofeno', 'profenid', 'artrosil', 'flamador', 'bi-profenid'],
+  'profenid': ['profenid', 'cetoprofeno', 'artrosil', 'flamador'],
+  'diclofenaco': ['diclofenaco', 'cataflam', 'voltaren', 'biofenac', 'flogan', 'zotac'],
+  'cataflam': ['cataflam', 'diclofenaco', 'voltaren', 'biofenac'],
+  'voltaren': ['voltaren', 'diclofenaco', 'cataflam'],
+  'nimesulida': ['nimesulida', 'nisulid', 'cimelide', 'scaflam', 'deocil'],
+  'nisulid': ['nisulid', 'nimesulida', 'cimelide'],
+  'cimelide': ['cimelide', 'nimesulida', 'nisulid'],
+  'loratadina': ['loratadina', 'claritin', 'lorasliv', 'loralerg'],
+  'claritin': ['claritin', 'loratadina', 'lorasliv'],
+  'desloratadina': ['desloratadina', 'desalex', 'sigmaliv', 'destadin'],
+  'desalex': ['desalex', 'desloratadina', 'sigmaliv'],
+  'allegra': ['allegra', 'fexofenadina', 'allexofedrina'],
+  'fexofenadina': ['fexofenadina', 'allegra'],
+  'omeprazol': ['omeprazol', 'losec', 'peprazol', 'omepramix', 'gaspiren'],
+  'losec': ['losec', 'omeprazol', 'peprazol'],
+  'pantoprazol': ['pantoprazol', 'pantocal', 'pantozol', 'peptulan'],
+  'pantocal': ['pantocal', 'pantoprazol'],
+  'simeticona': ['simeticona', 'luftal', 'flagass', 'simetil'],
+  'luftal': ['luftal', 'simeticona', 'flagass'],
+  'buscopan': ['buscopan', 'escopolamina', 'atroveran'],
+  'escopolamina': ['escopolamina', 'buscopan', 'atroveran'],
+  'atroveran': ['atroveran', 'buscopan', 'escopolamina'],
+  'dramin': ['dramin', 'dimenidrinato'],
+  'bepantol': ['bepantol', 'bepantriz', 'dexpantenol', 'probentol'],
+  'bepantriz': ['bepantriz', 'bepantol', 'dexpantenol'],
+  'nebacetin': ['nebacetin', 'neomicina', 'cicatren'],
+  'doril': ['doril', 'dipirona', 'neosaldina', 'aspirina'],
+  'aspirina': ['aspirina', 'acido acetilsalicilico', 'somalgin', 'buferin'],
+  'losartana': ['losartana', 'cozaar', 'aradois', 'losapress', 'corus'],
+  'atenolol': ['atenolol', 'angipress', 'ablok', 'atenorese'],
+  'amoxicilina': ['amoxicilina', 'amoxil', 'novocilin', 'velamox']
+};
+
+/**
+ * Busca produtos no banco de dados SQLite com inteligência de relevância,
+ * sinônimos de marcas/genéricos e agrupamento por princípio ativo idêntico.
  */
 function searchProductsInDb(tenantId, query) {
   if (!query || query.length < 2) return [];
-  const cleanQ = query.trim();
+  const cleanQ = query.trim().toLowerCase();
 
-  const sql = `
-    SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
-           sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
-           requires_prescription
-    FROM products
-    WHERE tenant_id = ? AND active = 1 AND (
-      name LIKE ? OR active_ingredient LIKE ? OR barcode = ?
-    )
-    ORDER BY 
-      CASE 
-        WHEN name LIKE ? THEN 1
-        WHEN name LIKE ? THEN 2
-        WHEN active_ingredient LIKE ? THEN 3
-        ELSE 4
-      END,
-      stock_quantity DESC
-    LIMIT 3
-  `;
-
-  try {
-    return db.prepare(sql).all(
-      tenantId,
-      `%${cleanQ}%`,
-      `%${cleanQ}%`,
-      cleanQ,
-      `${cleanQ}%`,
-      `% ${cleanQ}%`,
-      `${cleanQ}%`
-    );
-  } catch (err) {
-    console.error('[aiEngine] Erro ao buscar produtos:', err.message);
-    return [];
+  // Expande busca para termos equivalentes (ex: ibuprofeno -> alivium, advil, buscofem, ibupril)
+  const searchTerms = new Set([cleanQ]);
+  for (const [key, synonyms] of Object.entries(DRUG_SYNONYMS)) {
+    if (cleanQ.includes(key) || key.includes(cleanQ)) {
+      synonyms.forEach((s) => searchTerms.add(s));
+    }
   }
+
+  const results = [];
+  const seenIds = new Set();
+  const activeIngredientsFound = new Set();
+
+  // 1. Busca direta e por equivalentes/sinônimos
+  for (const term of searchTerms) {
+    const sql = `
+      SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
+             sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
+             requires_prescription
+      FROM products
+      WHERE tenant_id = ? AND active = 1 AND (
+        name LIKE ? OR active_ingredient LIKE ? OR barcode = ?
+      )
+      ORDER BY 
+        CASE 
+          WHEN name LIKE ? THEN 1
+          WHEN name LIKE ? THEN 2
+          WHEN active_ingredient LIKE ? THEN 3
+          ELSE 4
+        END,
+        stock_quantity DESC
+      LIMIT 4
+    `;
+
+    try {
+      const rows = db.prepare(sql).all(
+        tenantId,
+        `%${term}%`,
+        `%${term}%`,
+        term,
+        `${term}%`,
+        `% ${term}%`,
+        `${term}%`
+      );
+
+      for (const r of rows) {
+        if (!seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          results.push(r);
+          if (r.active_ingredient && r.active_ingredient.trim().length >= 3) {
+            activeIngredientsFound.add(r.active_ingredient.trim());
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[aiEngine] Erro ao buscar produtos:', err.message);
+    }
+  }
+
+  // 2. Busca automática por medicamentos com o MESMO princípio ativo (similares/genéricos diretos)
+  for (const act of activeIngredientsFound) {
+    try {
+      const sameActRows = db.prepare(`
+        SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
+               sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
+               requires_prescription
+        FROM products
+        WHERE tenant_id = ? AND active = 1 AND stock_quantity > 0 AND active_ingredient LIKE ?
+        ORDER BY sale_price ASC
+        LIMIT 4
+      `).all(tenantId, `%${act}%`);
+
+      for (const r of sameActRows) {
+        if (!seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          results.push(r);
+        }
+      }
+    } catch (actErr) {
+      console.error('[aiEngine] Erro ao buscar por princípio ativo:', actErr.message);
+    }
+  }
+
+  return results.slice(0, 8);
 }
 
 /**
@@ -529,12 +633,13 @@ DIRETRIZES DE ATENDIMENTO, ÉTICA FARMACÊUTICA E LEGISLAÇÃO ANVISA (COMPLIANC
 1. NUNCA, SOB HIPÓTESE ALGUMA, INDIQUE OU PRESCREVA ANTIBIÓTICOS (ex: Amoxicilina, Azitromicina, Cefalexina, Ciprofloxacino, etc.) OU MEDICAMENTOS CONTROLADOS (Tarja Preta / Vermelha sob Retenção). É PROIBIDO por lei e pelas normas da ANVISA indicar antibiótico sem prescrição médica!
 2. O QUE VOCÊ PODE INDICAR PARA SINTOMAS: Somente Medicamentos Isentos de Prescrição (MIPs / Venda Livre) que constam no estoque real acima (ex: pastilhas para garganta como Ciflogex/Benalet, sprays bucais, analgésicos e antitérmicos simples como Dipirona/Paracetamol)!
 3. FIDELIDADE ABSOLUTA AOS PREÇOS DO ESTOQUE: Você NUNCA deve inventar, estimar ou chutar preços! Cite exclusivamente o nome e o preço exato em R$ dos produtos cadastrados no estoque informado acima. Se o produto que o cliente perguntou NÃO estiver na lista de estoque acima, diga com clareza: "Consultei nosso sistema agora e não localizei esse produto em estoque no momento. Quer que eu chame nosso farmacêutico de plantão para verificar se temos algum genérico/similar com o mesmo princípio ativo ou encomendar para você?". NUNCA CHUTE NENHUM VALOR QUE NÃO ESTEJA NO ESTOQUE!
-4. Se o cliente perguntar de antibióticos ou se os sintomas forem severos (febre alta persistente, pus): oriente com carinho que antibióticos exigem receita médica com retenção pela ANVISA. Se o cliente já tiver a receita médica em mãos, peça para enviar uma foto nítida dela aqui pelo WhatsApp que o farmacêutico orça na hora!
-5. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão.
-6. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
-7. Se for Pix, informe a chave Pix oficial e peça o comprovante para liberar a saída imediata do motoboy.
-8. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp com emojis amigáveis (😊, 💊, 🛵, 📍, 💚).
-9. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
+4. OFERTA CONSULTIVA DE GENÉRICOS E SIMILARES: Quando o cliente perguntar de um medicamento (ex: Ibuprofeno, Alivium, Advil, Dipirona, etc.), apresente com simpatia as opções disponíveis no estoque (o genérico mais em conta e os similares de outras marcas consagradas), destacando os preços reais para o cliente poder escolher!
+5. Se o cliente perguntar de antibióticos ou se os sintomas forem severos (febre alta persistente, pus): oriente com carinho que antibióticos exigem receita médica com retenção pela ANVISA. Se o cliente já tiver a receita médica em mãos, peça para enviar uma foto nítida dela aqui pelo WhatsApp que o farmacêutico orça na hora!
+6. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão.
+7. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
+8. Se for Pix, informe a chave Pix oficial e peça o comprovante para liberar a saída imediata do motoboy.
+9. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp com emojis amigáveis (😊, 💊, 🛵, 📍, 💚).
+10. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
 `.trim();
 
     const userPrompt = `Mensagem do cliente (${customerName || 'Cliente'}): "${rawText}"`;
