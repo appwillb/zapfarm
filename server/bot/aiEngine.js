@@ -86,6 +86,101 @@ function searchProductsInDb(tenantId, query) {
   }
 }
 
+/**
+ * Mapeamento de sintomas comuns para Medicamentos Isentos de Prescrição (MIPs / Venda Livre)
+ * ANVISA Compliance: Apenas medicamentos que NÃO precisam de receita médica e que constam no estoque da farmácia!
+ */
+const SYMPTOM_OTC_MAPPINGS = [
+  {
+    triggers: [
+      'garganta', 'inflamacao', 'inflamação', 'inflamada', 'inflamar',
+      'arranhando', 'rouquidao', 'rouquidão', 'rouco', 'rouca', 'engolir',
+      'amigdala', 'amígdala', 'amigdalite'
+    ],
+    searchKeywords: ['ciflogex', 'benalet', 'flogoral', 'pastilha', 'spray', 'dipirona', 'ibuprofeno'],
+    categoryLabel: 'Alívio para dor e inflamação na garganta'
+  },
+  {
+    triggers: [
+      'cabeca', 'cabeça', 'enxaqueca', 'dor de cabeca', 'dor de cabeça', 'tontura'
+    ],
+    searchKeywords: ['dipirona', 'paracetamol', 'neosaldina', 'doralgina', 'dorflex'],
+    categoryLabel: 'Analgésicos para dor de cabeça'
+  },
+  {
+    triggers: [
+      'gripe', 'gripado', 'gripada', 'resfriado', 'resfriada', 'coriza',
+      'espirro', 'espirros', 'congestao', 'congestão', 'febre', 'corpo dolorido'
+    ],
+    searchKeywords: ['cimegripe', 'coristina', 'resfenol', 'dipirona', 'paracetamol'],
+    categoryLabel: 'Antigripais e antitérmicos'
+  },
+  {
+    triggers: [
+      'azia', 'estomago', 'estômago', 'queimacao', 'queimação', 'refluxo',
+      'ma digestao', 'má digestão', 'empachado', 'empachada', 'enjoo', 'enjôo', 'vomito', 'vômito'
+    ],
+    searchKeywords: ['estomazil', 'eno', 'sonrisal', 'omeprazol', 'epocler', 'dramin'],
+    categoryLabel: 'Antiácidos e digestivos'
+  },
+  {
+    triggers: [
+      'muscular', 'costas', 'coluna', 'torcicolo', 'musculo', 'músculo',
+      'dor no corpo', 'lombar', 'lombalgia', 'distensao', 'distensão', 'contusao', 'contusão'
+    ],
+    searchKeywords: ['dorflex', 'doralgina', 'ibuprofeno', 'tandrilax', 'salonpas', 'cataflam'],
+    categoryLabel: 'Relaxantes musculares e dores no corpo'
+  },
+  {
+    triggers: [
+      'alergia', 'coceira', 'rinite', 'pele vermelha', 'urticaria', 'urticária', 'picada'
+    ],
+    searchKeywords: ['loratadina', 'polaramine', 'desloratadina', 'allegra', 'antialergico'],
+    categoryLabel: 'Antialérgicos de venda livre'
+  }
+];
+
+function findOtcProductsForSymptoms(tenantId, text) {
+  if (!text || typeof text !== 'string') return [];
+  const lower = text.toLowerCase();
+  
+  const matchedKeywords = new Set();
+  for (const map of SYMPTOM_OTC_MAPPINGS) {
+    if (map.triggers.some(t => lower.includes(t))) {
+      map.searchKeywords.forEach(k => matchedKeywords.add(k));
+    }
+  }
+
+  if (matchedKeywords.size === 0) return [];
+
+  const found = [];
+  for (const kw of matchedKeywords) {
+    try {
+      const items = db.prepare(`
+        SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
+               sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
+               requires_prescription
+        FROM products
+        WHERE tenant_id = ? AND active = 1 AND requires_prescription = 0 AND stock_quantity > 0 AND (
+          name LIKE ? OR active_ingredient LIKE ?
+        )
+        ORDER BY stock_quantity DESC
+        LIMIT 2
+      `).all(tenantId, `%${kw}%`, `%${kw}%`);
+
+      for (const it of items) {
+        if (!found.some(f => f.id === it.id)) {
+          found.push(it);
+        }
+      }
+    } catch (e) {
+      console.warn('[aiEngine] Erro ao buscar OTC para sintomas:', e.message);
+    }
+  }
+
+  return found.slice(0, 6);
+}
+
 function formatMoney(val) {
   return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -292,12 +387,15 @@ function buildConversationalSalesResponse({ tenant, customerName, searchResults,
   }
 
   // 6. Produtos encontrados para a pergunta
-  if (searchResults && searchResults.length > 0) {
+  const candidateList = (context?.candidates && context.candidates.length > 0)
+    ? context.candidates
+    : (searchResults && searchResults.length > 0 ? searchResults.flatMap(g => g.products) : []);
+
+  if (candidateList && candidateList.length > 0) {
     const candidates = [];
     const productLines = [];
 
-    searchResults.forEach((group) => {
-      const p = group.products[0];
+    candidateList.forEach((p) => {
       if (!candidates.some((c) => c.id === p.id)) {
         candidates.push(p);
         const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
@@ -357,6 +455,14 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
     });
   });
 
+  // Se o cliente estiver relatando sintomas (ex: dor de garganta, dor de cabeça, febre, azia), busca no estoque real da farmácia apenas MIPs / Venda Livre disponíveis!
+  const symptomOtcItems = findOtcProductsForSymptoms(tenantId, rawText);
+  for (const otc of symptomOtcItems) {
+    if (!allCandidates.some((c) => c.id === otc.id)) {
+      allCandidates.push(otc);
+    }
+  }
+
   // Se a mensagem atual foi apenas confirmação/endereço ("pode entregar", "sim"), busca produtos do contexto ou da última mensagem do cliente
   if (allCandidates.length === 0 && context?.selected_product) {
     allCandidates.push(context.selected_product);
@@ -378,6 +484,12 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
           }
         }
       }
+      const prevOtc = findOtcProductsForSymptoms(tenantId, lastUserMsg.text);
+      for (const otc of prevOtc) {
+        if (!allCandidates.some((c) => c.id === otc.id)) {
+          allCandidates.push(otc);
+        }
+      }
     }
   }
 
@@ -386,19 +498,22 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
 
   // Se houver chave Gemini e IA ativada, chama a IA generativa com foco em vendas
   if (apiKey && isAiActive) {
-    let productsContextStr = 'Nenhum medicamento específico encontrado diretamente pelo termo.';
+    let productsContextStr = 'Nenhum medicamento específico encontrado diretamente no estoque.';
     if (allCandidates.length > 0) {
       productsContextStr = allCandidates
-        .map(
-          (p) =>
-            `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${p.stock_quantity - p.reserved_quantity} un.`
-        )
+        .map((p) => {
+          const avail = p.stock_quantity - (p.reserved_quantity || 0);
+          const rxTag = p.requires_prescription
+            ? '[⚠️ EXIGE RECEITA MÉDICA - RETENÇÃO ANVISA. NUNCA INDIQUE PARA TRATAMENTO SINTOMÁTICO SEM O CLIENTE APRESENTAR RECEITA MÉDICA!]'
+            : '[VENDA LIVRE / MIP - Pode ser indicado para alívio de sintomas leves]';
+          return `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço Real: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${avail} un. | ${rxTag}`;
+        })
         .join('\n');
     }
 
     const systemInstruction = `
 Você é o atendente de vendas e consultor farmacêutico da farmácia "${tenant.name}" no WhatsApp.
-Seu objetivo é conversar com o cliente de forma 100% humana, acolhedora, simpática e CONDUZIR O CLIENTE COM ELEGÂNCIA ATÉ O FECHAMENTO DA COMPRA.
+Seu objetivo é conversar com o cliente de forma 100% humana, acolhedora, ética, responsável e CONDUZIR O CLIENTE COM ELEGÂNCIA ATÉ O FECHAMENTO DA COMPRA.
 
 DADOS DA FARMÁCIA:
 - Nome: ${tenant.name}
@@ -407,17 +522,19 @@ DADOS DA FARMÁCIA:
 - Taxa de entrega padrão: R$ ${formatMoney(tenant.delivery_fee_default)} ${Number(tenant.free_shipping_threshold) > 0 ? `(Frete GRÁTIS acima de R$ ${formatMoney(tenant.free_shipping_threshold)})` : ''}
 - Formas de pagamento: Pix instantâneo, Cartão de crédito/débito na maquininha na entrega, Dinheiro. Chave Pix: ${tenant.pix_key || 'Chave da farmácia'}
 
-PRODUTOS EM ESTOQUE NO SISTEMA:
+PRODUTOS REAIS EM ESTOQUE NO SISTEMA DA FARMÁCIA:
 ${productsContextStr}
 
-DIRETRIZES DE ATENDIMENTO DE ALTA CONVERSÃO:
-1. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "Apresentação:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp!
-2. Quando o cliente perguntar o valor de um ou mais remédios, cite os preços reais com clareza e pergunte logo em seguida: "Você prefere que a gente entregue na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separadinho para você!"
-3. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão. Explique isso com carinho e clareza.
-4. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
-5. Se for Pix, informe a chave Pix oficial e peça o comprovante para liberar a saída imediata do motoboy.
-6. Mantenha as mensagens curtas, naturais e com emojis amigáveis (😊, 💊, 🛵, 📍, 💚).
-7. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
+DIRETRIZES DE ATENDIMENTO, ÉTICA FARMACÊUTICA E LEGISLAÇÃO ANVISA (COMPLIANCE OBRIGATÓRIO):
+1. NUNCA, SOB HIPÓTESE ALGUMA, INDIQUE OU PRESCREVA ANTIBIÓTICOS (ex: Amoxicilina, Azitromicina, Cefalexina, Ciprofloxacino, etc.) OU MEDICAMENTOS CONTROLADOS (Tarja Preta / Vermelha sob Retenção). É PROIBIDO por lei e pelas normas da ANVISA indicar antibiótico sem prescrição médica!
+2. O QUE VOCÊ PODE INDICAR PARA SINTOMAS: Somente Medicamentos Isentos de Prescrição (MIPs / Venda Livre) que constam no estoque real acima (ex: pastilhas para garganta como Ciflogex/Benalet, sprays bucais, analgésicos e antitérmicos simples como Dipirona/Paracetamol)!
+3. FIDELIDADE ABSOLUTA AOS PREÇOS DO ESTOQUE: Você NUNCA deve inventar, estimar ou chutar preços! Cite exclusivamente o nome e o preço exato em R$ dos produtos cadastrados no estoque informado acima. Se um produto não estiver na lista ou você não souber o preço, diga que nosso farmacêutico no balcão vai checar o sistema e NÃO chute valores fictícios!
+4. Se o cliente perguntar de antibióticos ou se os sintomas forem severos (febre alta persistente, pus): oriente com carinho que antibióticos exigem receita médica com retenção pela ANVISA. Se o cliente já tiver a receita médica em mãos, peça para enviar uma foto nítida dela aqui pelo WhatsApp que o farmacêutico orça na hora!
+5. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão.
+6. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
+7. Se for Pix, informe a chave Pix oficial e peça o comprovante para liberar a saída imediata do motoboy.
+8. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp com emojis amigáveis (😊, 💊, 🛵, 📍, 💚).
+9. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
 `.trim();
 
     const userPrompt = `Mensagem do cliente (${customerName || 'Cliente'}): "${rawText}"`;

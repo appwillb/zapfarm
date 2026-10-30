@@ -412,6 +412,21 @@ class SessionManager {
 
       console.log(`[Tenant ${tId}] 📤 Enviando WhatsApp via Baileys para JID: ${jid}${media ? ' (com imagem)' : ''}`);
 
+      // Simulação humana de presença ("digitando..." / composing) para proteger contra bloqueios da Meta
+      try {
+        if (typeof session.socket.sendPresenceUpdate === 'function') {
+          await session.socket.sendPresenceUpdate('composing', jid);
+          const textLen = (text || '').length;
+          // Delay proporcional ao tamanho da mensagem (1.2s a 2.8s) + jitter aleatório
+          const baseDelay = Math.min(Math.max(textLen * 10, 1200), 2800);
+          const jitter = Math.floor(Math.random() * 400);
+          await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
+          await session.socket.sendPresenceUpdate('paused', jid);
+        }
+      } catch (presenceErr) {
+        // Ignora silenciosamente se o socket não suportar presence momentaneamente
+      }
+
       let messagePayload = { text: text || '' };
 
       if (media) {
