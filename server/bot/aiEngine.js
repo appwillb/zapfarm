@@ -321,7 +321,7 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
   if (!tenant) return null;
 
-  // 1. Extração de termos de busca
+  // 1. Extração de termos de busca na mensagem atual
   const queries = parseProductQueries(rawText);
   const searchResults = [];
 
@@ -340,6 +340,30 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
       }
     });
   });
+
+  // Se a mensagem atual foi apenas confirmação/endereço ("pode entregar", "sim"), busca produtos do contexto ou da última mensagem do cliente
+  if (allCandidates.length === 0 && context?.selected_product) {
+    allCandidates.push(context.selected_product);
+  }
+  if (allCandidates.length === 0 && Array.isArray(context?.candidates)) {
+    context.candidates.forEach((c) => {
+      if (!allCandidates.some((p) => p.id === c.id)) allCandidates.push(c);
+    });
+  }
+  if (allCandidates.length === 0 && Array.isArray(history) && history.length > 0) {
+    const lastUserMsg = [...history].reverse().find((h) => h.from_me === 0 && h.text);
+    if (lastUserMsg) {
+      const prevQueries = parseProductQueries(lastUserMsg.text);
+      for (const pq of prevQueries) {
+        const prods = searchProductsInDb(tenantId, pq);
+        for (const p of prods) {
+          if (!allCandidates.some((c) => c.id === p.id)) {
+            allCandidates.push(p);
+          }
+        }
+      }
+    }
+  }
 
   const apiKey = tenant.gemini_api_key || process.env.GEMINI_API_KEY;
   const isAiActive = tenant.ai_enabled !== 0;

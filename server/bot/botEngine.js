@@ -631,6 +631,12 @@ class BotEngine {
     switch (conv.state) {
       case 'idle':
       case 'searching': {
+        if (tenant.ai_enabled !== 0) {
+          // Quando o Atendente Virtual IA está ativo, saudações, dúvidas e buscas são atendidas de forma 100% humanizada pela IA
+          await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+          break;
+        }
+
         const isGreeting = /^(oi|ola|olá|bom dia|boa tarde|boa noite|opa|e ai|e aí|hey|alo|alô)/i.test(lowerText);
         if (isGreeting && lowerText.split(' ').length <= 3) {
           this.updateConversation(tenantId, customerPhone, 'searching', {});
@@ -791,6 +797,10 @@ class BotEngine {
         const selected = conv.context.selected_product;
 
         if (isNaN(qty) || qty <= 0) {
+          if (tenant.ai_enabled !== 0 && rawText.length >= 2) {
+            await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+            return;
+          }
           await this.sendReply(
             tenantId,
             customerPhone,
@@ -1616,12 +1626,24 @@ class BotEngine {
         if (conv?.customer_name) customerName = conv.customer_name;
       } catch (e) {}
 
+      // Busca histórico recente para a IA contextualizar respostas no WhatsApp
+      let history = [];
+      try {
+        const rawHistory = db
+          .prepare('SELECT from_me, text FROM messages WHERE tenant_id = ? AND customer_phone = ? ORDER BY id DESC LIMIT 8')
+          .all(tenantId, customerPhone);
+        if (rawHistory && rawHistory.length > 0) {
+          history = rawHistory.reverse();
+        }
+      } catch (e) {}
+
       // Executa o Atendente de Inteligência Artificial / NLP Inteligente
       const aiResult = await processAiMessage({
         tenantId,
         customerPhone,
         customerName,
         rawText: queryText,
+        history,
         context,
       });
 
