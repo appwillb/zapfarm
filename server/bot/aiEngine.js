@@ -93,8 +93,15 @@ function formatMoney(val) {
 /**
  * Chamada à API oficial do Google Gemini (REST) com histórico conversacional
  */
-async function callGeminiApi({ apiKey, systemInstruction, userPrompt, history = [], model = 'gemini-2.5-flash' }) {
-  const modelsToTry = [model, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+async function callGeminiApi({ apiKey, systemInstruction, userPrompt, history = [], model = 'gemini-3.8-flash' }) {
+  const modelsToTry = [
+    model,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-flash-latest',
+    'gemini-flash-lite-latest',
+    'gemini-2.5-flash'
+  ];
 
   // Constrói formato multi-turn do Gemini
   const contents = [];
@@ -122,13 +129,16 @@ async function callGeminiApi({ apiKey, systemInstruction, userPrompt, history = 
       contents,
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 600,
+        maxOutputTokens: 800,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
       },
     };
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7500);
+      const timeoutId = setTimeout(() => controller.abort(), 8500);
 
       const res = await fetch(url, {
         method: 'POST',
