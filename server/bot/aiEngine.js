@@ -195,9 +195,13 @@ function buildConversationalSalesResponse({ tenant, customerName, searchResults,
       text:
         `Maravilha, ${customerName}! 🛵\n\n` +
         `Nossa entrega sai por apenas ${feeText} e o motoboy leva rapidinho aí para você.\n\n` +
-        `Por favor, me passa o seu *endereço completo com número, bairro e um ponto de referência* para eu já calcular e agendar o envio?`,
+        `📍 *Para traçar a rota exata no GPS do motoboy (sistema Rota88):*\n` +
+        `1. Toque no ícone de *Clipe 📎* (ou *+* no iPhone) aqui embaixo no WhatsApp;\n` +
+        `2. Selecione *Localização*;\n` +
+        `3. Escolha *Enviar sua localização atual*.\n\n` +
+        `E me manda também o *número da casa e complemento* para o entregador achar certinho! 😊`,
       candidates: context.candidates || [],
-      intent: 'asking_address'
+      intent: 'asking_location'
     };
   }
 
@@ -223,20 +227,32 @@ function buildConversationalSalesResponse({ tenant, customerName, searchResults,
     };
   }
 
-  // 3. Cliente informando ENDEREÇO
+  // 3. Cliente enviando LOCALIZAÇÃO GPS ou informando ENDEREÇO
+  const hasGpsSignal = context?.has_gps_location || lower.includes('localização gps') || lower.includes('lat:') || lower.includes('lng:');
   const hasAddressSignal =
     (lower.includes('rua') || lower.includes('av') || lower.includes('avenida') || lower.includes('bairro') || lower.includes('casa') || lower.includes('apto') || lower.includes('número') || lower.includes('numero') || lower.includes('nº')) &&
     /\d+/.test(lower);
 
-  if (hasAddressSignal) {
-    const deliveryFee = Number(tenant.delivery_fee_default) || 7.00;
+  if (hasGpsSignal) {
     return {
       text:
-        `Endereço anotado com sucesso, ${customerName}! ✅\n\n` +
-        `Nossa entrega já vai ser despachada para você.\n\n` +
-        `Como você prefere fazer o pagamento? Pode ser no *Pix* (Copia e Cola instantâneo) ou na *maquininha de cartão* quando o motoboy chegar?`,
+        `Localização GPS recebida com sucesso, ${customerName}! 📍🛵\n\n` +
+        `A rota já foi registrada no nosso sistema de entregas para o motoboy.\n\n` +
+        `Como você prefere fazer o pagamento? Pode ser no *Pix* (Copia e Cola instantâneo) ou na *maquininha de cartão* quando o entregador chegar?`,
       candidates: context.candidates || [],
       intent: 'asking_payment'
+    };
+  }
+
+  if (hasAddressSignal) {
+    return {
+      text:
+        `Endereço anotado: *${rawText}*! 📝\n\n` +
+        `Agora só falta você me enviar a sua *Localização Atual pelo WhatsApp* para o sistema de entregas (Rota88) traçar a rota exata no GPS do motoboy:\n` +
+        `📍 Toque no ícone de *Clipe 📎* (ou *+*) > *Localização* > *Enviar sua localização atual*.\n\n` +
+        `E me fala: você prefere pagar no *Pix* ou na *maquininha de cartão* quando o motoboy chegar? 😊`,
+      candidates: context.candidates || [],
+      intent: 'asking_location'
     };
   }
 
@@ -397,10 +413,10 @@ ${productsContextStr}
 DIRETRIZES DE ATENDIMENTO DE ALTA CONVERSÃO:
 1. NUNCA use marcadores robóticos como "━━━━━━━", "Princípio:", "Apresentação:", "[ 1 ]", "[ 2 ]", ou "Digite 0". Fale como uma pessoa real no WhatsApp!
 2. Quando o cliente perguntar o valor de um ou mais remédios, cite os preços reais com clareza e pergunte logo em seguida: "Você prefere que a gente entregue na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separadinho para você!"
-3. Se o cliente preferir entrega, peça o endereço com número e bairro para calcular e despachar.
-4. Quando o cliente der o endereço, confirme e pergunte a forma de pagamento (Pix ou Cartão na maquininha).
-5. Se for Pix, informe a chave Pix e peça o comprovante para liberar o motoboy.
-6. Mantenha as mensagens curtas, naturais e com emojis amigáveis (😊, 💊, 🛵, 💚).
+3. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão. Explique isso com carinho e clareza.
+4. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
+5. Se for Pix, informe a chave Pix oficial e peça o comprovante para liberar a saída imediata do motoboy.
+6. Mantenha as mensagens curtas, naturais e com emojis amigáveis (😊, 💊, 🛵, 📍, 💚).
 7. Se o cliente pedir expressamente para falar com uma pessoa, atenda com carinho e adicione [TRANSF_HUMANO] no final.
 `.trim();
 

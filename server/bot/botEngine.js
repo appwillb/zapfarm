@@ -197,7 +197,27 @@ class BotEngine {
     const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
     if (!tenant) return;
 
-    const conv = this.getConversation(tenantId, customerPhone);
+    let conv = this.getConversation(tenantId, customerPhone);
+
+    // Se o cliente enviou localização GPS via WhatsApp, registra no contexto imediatamente
+    if (locationData && locationData.latitude && locationData.longitude) {
+      const lat = locationData.latitude;
+      const lng = locationData.longitude;
+      const currentCtx = conv.context || {};
+      const updatedCtx = {
+        ...currentCtx,
+        delivery_lat: lat,
+        delivery_lng: lng,
+        has_gps_location: true,
+        address_temp: locationData.address || `GPS (${lat.toFixed(5)}, ${lng.toFixed(5)})`
+      };
+      this.updateConversation(tenantId, customerPhone, conv.state, updatedCtx);
+      conv = this.getConversation(tenantId, customerPhone);
+    }
+
+    const effectiveText = (locationData && locationData.latitude)
+      ? `[Localização GPS recebida via WhatsApp: Lat ${locationData.latitude.toFixed(5)}, Lng ${locationData.longitude.toFixed(5)}] ${rawText}`.trim()
+      : rawText;
 
     // Update customer name if provided
     if (pushName && (!conv.customer_name || conv.customer_name === 'Cliente')) {
@@ -633,7 +653,7 @@ class BotEngine {
       case 'searching': {
         if (tenant.ai_enabled !== 0) {
           // Quando o Atendente Virtual IA está ativo, saudações, dúvidas e buscas são atendidas de forma 100% humanizada pela IA
-          await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+          await this.searchAndRespondProducts(tenantId, customerPhone, effectiveText, conv.context);
           break;
         }
 
@@ -715,7 +735,7 @@ class BotEngine {
         }
 
         // Perform search
-        await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+        await this.searchAndRespondProducts(tenantId, customerPhone, effectiveText, conv.context);
         break;
       }
 
@@ -743,7 +763,7 @@ class BotEngine {
         if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > candidates.length) {
           // If user typed a new search word instead of a number
           if (rawText.length > 2 && isNaN(choiceNum)) {
-            await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+            await this.searchAndRespondProducts(tenantId, customerPhone, effectiveText, conv.context);
             return;
           }
           await this.sendReply(
@@ -798,7 +818,7 @@ class BotEngine {
 
         if (isNaN(qty) || qty <= 0) {
           if (tenant.ai_enabled !== 0 && rawText.length >= 2) {
-            await this.searchAndRespondProducts(tenantId, customerPhone, rawText, conv.context);
+            await this.searchAndRespondProducts(tenantId, customerPhone, effectiveText, conv.context);
             return;
           }
           await this.sendReply(
