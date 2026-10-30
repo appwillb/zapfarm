@@ -33,6 +33,7 @@ import {
   MessageSquare,
   AlertTriangle,
   ShieldCheck,
+  Bot,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -67,6 +68,9 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     business_hours: tenant?.business_hours || '08:00 às 22:00',
     welcome_message: tenant?.welcome_message || '',
     pharmacist_alert_phone: tenant?.pharmacist_alert_phone || '',
+    gemini_api_key: tenant?.gemini_api_key || '',
+    ai_enabled: tenant?.ai_enabled ?? 1,
+    ai_system_prompt: tenant?.ai_system_prompt || '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -74,6 +78,9 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
   const [audioConfig, setAudioConfig] = useState(getAudioConfig());
   const [testName, setTestName] = useState('Rozana');
   const [testingVoice, setTestingVoice] = useState(false);
+  const [testingAi, setTestingAi] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState(null);
+  const [aiTestQuery, setAiTestQuery] = useState('Qual o valor do loratadina e Suprema ?');
   const [notifGranted, setNotifGranted] = useState(
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
   );
@@ -249,6 +256,20 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
     setTimeout(() => setTestingVoice(false), 3000);
   };
 
+  const handleTestAi = async () => {
+    if (!tenant?.id) return;
+    setTestingAi(true);
+    setAiTestResult(null);
+    try {
+      const res = await api.testAi(tenant.id, aiTestQuery);
+      setAiTestResult(res);
+    } catch (err) {
+      alert('Erro ao testar IA: ' + err.message);
+    } finally {
+      setTestingAi(false);
+    }
+  };
+
   useEffect(() => {
     if (tenant) {
       setFormData({
@@ -266,6 +287,9 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
         business_hours: tenant.business_hours || '08:00 às 22:00',
         welcome_message: tenant.welcome_message || '',
         pharmacist_alert_phone: tenant.pharmacist_alert_phone || '',
+        gemini_api_key: tenant.gemini_api_key || '',
+        ai_enabled: tenant.ai_enabled ?? 1,
+        ai_system_prompt: tenant.ai_system_prompt || '',
       });
     }
   }, [tenant]);
@@ -646,6 +670,113 @@ export default function SettingsTab({ tenant, currentUser, onUpdateCurrentUser, 
             <p className="text-[11px] text-slate-400 mt-1">
               Dica: Utilize <code>{'{nome}'}</code> para inserir o nome da farmácia automaticamente.
             </p>
+          </div>
+        </div>
+
+        {/* Section: Atendente Virtual com Inteligência Artificial (Google Gemini & NLP) */}
+        <div className="space-y-4 pt-6 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+              <Bot size={15} className="text-purple-600" />
+              Atendente Virtual Farmacêutico (Inteligência Artificial & NLP)
+            </h3>
+            <span className="text-[10px] font-bold text-purple-800 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
+              <Sparkles size={11} className="text-purple-600" />
+              Atendimento Humanizado
+            </span>
+          </div>
+
+          <div className="bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-slate-50 p-4 sm:p-5 rounded-2xl border border-purple-200/90 space-y-4">
+            {/* Toggle Switch */}
+            <div className="flex items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-purple-100 shadow-xs">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span>Ativar Atendente Inteligente no WhatsApp</span>
+                  {formData.ai_enabled ? (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Ativo</span>
+                  ) : (
+                    <span className="text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-full">Desativado</span>
+                  )}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Quando ativado, perguntas naturais como <em>"Qual o valor do loratadina e Suprema ?"</em> são respondidas como um atendente humano, consultando preços e estoques reais da farmácia.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.ai_enabled)}
+                  onChange={(e) => setFormData({ ...formData, ai_enabled: e.target.checked ? 1 : 0 })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+              </label>
+            </div>
+
+            {/* Google Gemini API Key Input */}
+            <div className="space-y-1.5 text-xs">
+              <label className="font-bold text-slate-700 flex items-center justify-between">
+                <span>Chave de API Google Gemini (Opcional - Gratuita)</span>
+                <span className="text-[10px] font-normal text-purple-700">
+                  ⚡ O ZapFarm já possui Inteligência Natural embutida que funciona sem chave!
+                </span>
+              </label>
+              <input
+                type="password"
+                placeholder="Ex: AIzaSy... (Obtenha gratuitamente no Google AI Studio)"
+                value={formData.gemini_api_key}
+                onChange={(e) => setFormData({ ...formData, gemini_api_key: e.target.value })}
+                className="w-full p-2.5 bg-white border border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 font-mono text-[11px]"
+              />
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Adicione sua chave do Google Gemini caso queira conversas ainda mais avançadas e personalizadas. Se deixar em branco, o ZapFarm utilizará o motor de NLP local especializado em medicamentos.
+              </p>
+            </div>
+
+            {/* Interactive AI Live Tester */}
+            <div className="pt-2 border-t border-purple-200/60">
+              <p className="text-xs font-bold text-purple-950 mb-2 flex items-center gap-1.5">
+                <span>🧪 Testador em Tempo Real da IA:</span>
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={aiTestQuery}
+                  onChange={(e) => setAiTestQuery(e.target.value)}
+                  placeholder="Digite uma pergunta que o cliente faria no WhatsApp..."
+                  className="flex-1 p-2.5 bg-white border border-purple-200 rounded-xl text-xs focus:outline-none focus:border-purple-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestAi}
+                  disabled={testingAi || !aiTestQuery.trim()}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <Sparkles size={14} className={testingAi ? 'animate-spin' : ''} />
+                  <span>{testingAi ? 'Consultando...' : 'Testar Resposta da IA'}</span>
+                </button>
+              </div>
+
+              {/* Test Output Box */}
+              {aiTestResult && (
+                <div className="mt-3 p-3.5 bg-white rounded-xl border border-purple-200 shadow-sm animate-in fade-in duration-200 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-slate-100">
+                    <span className="font-bold text-purple-900 flex items-center gap-1">
+                      <span>📱 Resposta Simulação WhatsApp</span>
+                      <span className="text-[10px] font-normal text-slate-500">
+                        ({aiTestResult.source === 'gemini' ? 'Google Gemini AI' : 'NLP Local Farmácia'})
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-full">
+                      {aiTestResult.candidatesCount} medicamento(s) cotado(s)
+                    </span>
+                  </div>
+                  <pre className="text-xs text-slate-800 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50/70 p-3 rounded-lg border border-slate-100">
+                    {aiTestResult.response}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

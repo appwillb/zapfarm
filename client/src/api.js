@@ -228,6 +228,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ customerPhone }),
     }).then((r) => r.json()),
+  testAi: (tenantId, queryText) =>
+    authFetch(`${API_BASE}/chat/${tenantId}/test-ai`, {
+      method: 'POST',
+      body: JSON.stringify({ queryText }),
+    }).then((r) => r.json()),
 
   // Simulator
   simulateMessage: (tenantId, phone, name, text) =>

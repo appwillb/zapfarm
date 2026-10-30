@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const qrcode = require('qrcode');
+const { processAiMessage } = require('./aiEngine');
 
 // Helper to clean and format Pix Keys according to Banco Central do Brasil rules
 function formatPixKey(rawKey, pixType) {
@@ -714,8 +715,24 @@ class BotEngine {
 
       case 'choosing_product': {
         const match = lowerText.match(/\d+/);
-        const choiceNum = match ? parseInt(match[0], 10) : NaN;
+        let choiceNum = match ? parseInt(match[0], 10) : NaN;
         const candidates = conv.context.candidates || [];
+
+        // Inteligência adicional: se o cliente digitou o nome do remédio em vez do número (ex: "quero a loratadina", "suprema")
+        if (isNaN(choiceNum) && candidates.length > 0) {
+          const matchedIdx = candidates.findIndex((c) => {
+            const nameLower = (c.name || '').toLowerCase();
+            const actLower = (c.active_ingredient || '').toLowerCase();
+            return (
+              (nameLower && lowerText.includes(nameLower)) ||
+              (actLower && lowerText.includes(actLower)) ||
+              nameLower.split(' ').some((w) => w.length >= 4 && lowerText.includes(w))
+            );
+          });
+          if (matchedIdx !== -1) {
+            choiceNum = matchedIdx + 1;
+          }
+        }
 
         if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > candidates.length) {
           // If user typed a new search word instead of a number
@@ -1590,6 +1607,54 @@ class BotEngine {
   }
 
   async searchAndRespondProducts(tenantId, customerPhone, queryText, context) {
+    try {
+      let customerName = 'Cliente';
+      try {
+        const conv = db
+          .prepare('SELECT customer_name FROM conversations WHERE tenant_id = ? AND customer_phone = ?')
+          .get(tenantId, customerPhone);
+        if (conv?.customer_name) customerName = conv.customer_name;
+      } catch (e) {}
+
+      // Executa o Atendente de Inteligência Artificial / NLP Inteligente
+      const aiResult = await processAiMessage({
+        tenantId,
+        customerPhone,
+        customerName,
+        rawText: queryText,
+        context,
+      });
+
+      if (aiResult && aiResult.text) {
+        if (aiResult.wantsHuman) {
+          this.updateConversation(tenantId, customerPhone, 'human_support', context, 1);
+          this.broadcast(tenantId, 'human_support_requested', {
+            customerPhone,
+            customerName,
+            text: queryText,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (aiResult.candidates && aiResult.candidates.length > 0) {
+          if (aiResult.candidates.length === 1) {
+            this.updateConversation(tenantId, customerPhone, 'choosing_qty', {
+              ...context,
+              selected_product: aiResult.candidates[0],
+            });
+          } else {
+            this.updateConversation(tenantId, customerPhone, 'choosing_product', {
+              ...context,
+              candidates: aiResult.candidates,
+            });
+          }
+        }
+
+        await this.sendReply(tenantId, customerPhone, aiResult.text);
+        return;
+      }
+    } catch (aiErr) {
+      console.error('[botEngine] Erro no processamento de IA/NLP:', aiErr.message);
+    }
+
     const searchParam = `%${queryText}%`;
     const products = db.prepare(`
       SELECT * FROM products

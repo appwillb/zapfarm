@@ -20,6 +20,7 @@ class SessionManager {
   constructor() {
     this.sessions = new Map(); // tenantId -> { socket, qrCodeDataUrl, qrCodeRaw, status, userPhone }
     this.wsBroadcaster = null;
+    this.sentMessageIds = new Set(); // Rastreia mensagens enviadas pelo servidor (bot/painel)
 
     // Connect bot engine to outbound whatsapp sender and broadcaster
     botEngine.setSendFunction(this.sendMessage.bind(this));
@@ -178,7 +179,7 @@ class SessionManager {
         if (m.type !== 'notify') return;
 
         for (const msg of m.messages) {
-          if (!msg.message || msg.key.fromMe) continue;
+          if (!msg.message) continue;
 
           // Only process private 1-on-1 customer chats (never groups, status, broadcasts, newsletters or bot)
           const remoteJid = msg.key.remoteJid;
@@ -192,8 +193,60 @@ class SessionManager {
             continue;
           }
 
-          // Preserve exact remoteJid to ensure replies are routed correctly (whether @lid or @s.whatsapp.net)
           const customerPhone = remoteJid;
+
+          // Se a mensagem partiu do nosso WhatsApp (atendente no celular ou WhatsApp Web):
+          if (msg.key.fromMe) {
+            // Se foi enviada pelo nosso próprio sistema (bot ou painel web), já foi salva e transmitida
+            if (msg.key.id && this.sentMessageIds.has(msg.key.id)) {
+              this.sentMessageIds.delete(msg.key.id);
+              continue;
+            }
+
+            // O atendente humano da farmácia digitou direto no WhatsApp Web ou no celular físico!
+            let attendantText =
+              msg.message.conversation ||
+              msg.message.extendedTextMessage?.text ||
+              msg.message.imageMessage?.caption ||
+              msg.message.documentMessage?.caption ||
+              '';
+            if (!attendantText && msg.message.imageMessage) attendantText = '📸 [Foto enviada pelo atendente]';
+            if (!attendantText && msg.message.documentMessage) attendantText = '📄 [Documento enviado pelo atendente]';
+
+            if (attendantText) {
+              console.log(`[Tenant ${tId}] 👨‍⚕️ Atendente humano digitou diretamente no WhatsApp para ${customerPhone}: "${attendantText}" -> Silenciando robô.`);
+
+              try {
+                // 1. Marca como atendimento humano imediatamente para silenciar o robô!
+                db.prepare(`
+                  UPDATE conversations 
+                  SET is_human_agent = 1,
+                      has_pending_prescription = 0,
+                      last_message = ?,
+                      last_message_at = CURRENT_TIMESTAMP
+                  WHERE tenant_id = ? AND customer_phone = ?
+                `).run(attendantText, tId, customerPhone);
+
+                // 2. Registra na tabela messages para atualizar o chat no painel
+                db.prepare(`
+                  INSERT INTO messages (tenant_id, customer_phone, from_me, text, timestamp)
+                  VALUES (?, ?, 1, ?, CURRENT_TIMESTAMP)
+                `).run(tId, customerPhone, attendantText);
+              } catch (e) {
+                console.error(`[Tenant ${tId}] Erro ao salvar mensagem do atendente:`, e.message);
+              }
+
+              // 3. Notifica o painel web em tempo real
+              this.broadcast(tId, 'new_chat_message', {
+                customerPhone,
+                fromMe: true,
+                text: attendantText,
+                timestamp: new Date().toISOString(),
+              });
+            }
+            continue;
+          }
+
           let pushName = msg.pushName || 'Cliente';
 
           // If pushName is missing or generic, check if we already have the customer's real name saved
@@ -386,6 +439,11 @@ class SessionManager {
       }
 
       const sendResult = await session.socket.sendMessage(jid, messagePayload);
+      if (sendResult?.key?.id) {
+        this.sentMessageIds.add(sendResult.key.id);
+        // Remove após 2 minutos para evitar vazamento de memória
+        setTimeout(() => this.sentMessageIds.delete(sendResult.key.id), 120000);
+      }
       console.log(`[Tenant ${tId}] ✅ Mensagem enviada com sucesso para ${jid}! (ID: ${sendResult?.key?.id})`);
       return true;
     } catch (err) {

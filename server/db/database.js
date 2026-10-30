@@ -378,6 +378,18 @@ function initDb() {
   } catch (e) {}
 
   try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN gemini_api_key TEXT`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN ai_enabled INTEGER DEFAULT 1`);
+  } catch (e) {}
+
+  try {
+    db.exec(`ALTER TABLE tenants ADD COLUMN ai_system_prompt TEXT`);
+  } catch (e) {}
+
+  try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS supplier_manufacturers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

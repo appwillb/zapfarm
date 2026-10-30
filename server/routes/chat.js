@@ -174,4 +174,37 @@ router.delete('/:tenantId/conversations/:customerPhone', authenticateToken, requ
   res.json(result);
 });
 
+// POST /api/chat/:tenantId/test-ai - Test AI & NLP response preview
+router.post('/:tenantId/test-ai', authenticateToken, async (req, res) => {
+  const { tenantId } = req.params;
+  const { queryText } = req.body;
+  const { processAiMessage } = require('../bot/aiEngine');
+
+  try {
+    const result = await processAiMessage({
+      tenantId: Number(tenantId),
+      customerPhone: '5511999998888',
+      customerName: 'Cliente Teste',
+      rawText: queryText || 'Qual o valor do loratadina e Suprema ?',
+      context: {},
+    });
+
+    res.json({
+      success: true,
+      query: queryText || 'Qual o valor do loratadina e Suprema ?',
+      response: result?.text || 'Sem resposta gerada.',
+      source: result?.source || 'local_nlp',
+      candidatesCount: result?.candidates?.length || 0,
+      candidates: result?.candidates?.map((c) => ({
+        id: c.id,
+        name: c.name,
+        price: c.sale_price,
+        stock: c.stock_quantity,
+      })) || [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao testar IA: ' + err.message });
+  }
+});
+
 module.exports = router;
