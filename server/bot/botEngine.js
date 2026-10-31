@@ -1,6 +1,6 @@
 const db = require('../db/database');
 const qrcode = require('qrcode');
-const { processAiMessage } = require('./aiEngine');
+const { processAiMessage, searchProductsInDbDetailed } = require('./aiEngine');
 
 // Helper to clean and format Pix Keys according to Banco Central do Brasil rules
 function formatPixKey(rawKey, pixType) {
@@ -1697,14 +1697,20 @@ class BotEngine {
       console.error('[botEngine] Erro no processamento de IA/NLP:', aiErr.message);
     }
 
-    const searchParam = `%${queryText}%`;
-    const products = db.prepare(`
-      SELECT * FROM products
-      WHERE tenant_id = ? AND active = 1 AND (
-        name LIKE ? OR active_ingredient LIKE ? OR barcode LIKE ?
-      )
-      LIMIT 10
-    `).all(tenantId, searchParam, searchParam, searchParam);
+    let products = [];
+    try {
+      const detailed = searchProductsInDbDetailed(tenantId, queryText);
+      products = detailed.all || [];
+    } catch (e) {
+      const searchParam = `%${queryText}%`;
+      products = db.prepare(`
+        SELECT * FROM products
+        WHERE tenant_id = ? AND active = 1 AND (
+          name LIKE ? OR active_ingredient LIKE ? OR barcode LIKE ?
+        )
+        LIMIT 10
+      `).all(tenantId, searchParam, searchParam, searchParam);
+    }
 
     if (products.length === 0) {
       await this.sendReply(

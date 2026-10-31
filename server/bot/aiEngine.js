@@ -58,27 +58,30 @@ const DRUG_SYNONYMS = {
   'dipirona': ['dipirona', 'novalgina', 'anador', 'doralgina', 'dorflex', 'neosaldina', 'maxalgina', 'aberalgina', 'lisador'],
   'novalgina': ['novalgina', 'dipirona', 'anador', 'aberalgina', 'maxalgina'],
   'anador': ['anador', 'dipirona', 'novalgina', 'aberalgina'],
-  'dorflex': ['dorflex', 'dipirona', 'doralgina'],
-  'neosaldina': ['neosaldina', 'dipirona', 'doralgina', 'doril'],
-  'doralgina': ['doralgina', 'neosaldina', 'dipirona'],
-  'paracetamol': ['paracetamol', 'tylenol', 'parador', 'pacemol', 'resfenol', 'cimegripe'],
-  'tylenol': ['tylenol', 'paracetamol', 'parador'],
+  'dorflex': ['dorflex', 'doralgina', 'dipirona', 'anador'],
+  'neosaldina': ['neosaldina', 'doralgina', 'dipirona', 'doril'],
+  'doralgina': ['doralgina', 'neosaldina', 'dorflex', 'dipirona'],
+  'paracetamol': ['paracetamol', 'tylenol', 'pacemol', 'resfenol', 'cimegripe'],
+  'tylenol': ['tylenol', 'paracetamol', 'pacemol'],
+  'pacemol': ['pacemol', 'paracetamol', 'tylenol'],
   'cetoprofeno': ['cetoprofeno', 'profenid', 'artrosil', 'flamador', 'bi-profenid'],
   'profenid': ['profenid', 'cetoprofeno', 'artrosil', 'flamador'],
   'diclofenaco': ['diclofenaco', 'cataflam', 'voltaren', 'biofenac', 'flogan', 'zotac'],
-  'cataflam': ['cataflam', 'diclofenaco', 'voltaren', 'biofenac'],
-  'voltaren': ['voltaren', 'diclofenaco', 'cataflam'],
-  'nimesulida': ['nimesulida', 'nisulid', 'cimelide', 'scaflam', 'deocil'],
-  'nisulid': ['nisulid', 'nimesulida', 'cimelide'],
-  'cimelide': ['cimelide', 'nimesulida', 'nisulid'],
+  'cataflam': ['cataflam', 'biofenac', 'voltaren', 'diclofenaco', 'flogan'],
+  'voltaren': ['voltaren', 'cataflam', 'biofenac', 'diclofenaco'],
+  'biofenac': ['biofenac', 'cataflam', 'voltaren', 'diclofenaco'],
+  'nimesulida': ['nimesulida', 'nisulid', 'cimelide', 'scaflam', 'deocil', 'nimesilam'],
+  'nisulid': ['nisulid', 'nimesulida', 'cimelide', 'nimesilam'],
+  'cimelide': ['cimelide', 'nimesulida', 'nisulid', 'nimesilam'],
+  'nimesilam': ['nimesilam', 'cimelide', 'nimesulida', 'nisulid'],
   'loratadina': ['loratadina', 'claritin', 'lorasliv', 'loralerg'],
   'claritin': ['claritin', 'loratadina', 'lorasliv'],
-  'desloratadina': ['desloratadina', 'desalex', 'sigmaliv', 'destadin'],
-  'desalex': ['desalex', 'desloratadina', 'sigmaliv'],
+  'desloratadina': ['desloratadina', 'desalex', 'sigmaliv', 'destadin', 'aleradina'],
+  'desalex': ['desalex', 'desloratadina', 'sigmaliv', 'aleradina'],
   'allegra': ['allegra', 'fexofenadina', 'allexofedrina'],
-  'fexofenadina': ['fexofenadina', 'allegra'],
+  'fexofenadina': ['fexofenadina', 'allegra', 'allexofedrina'],
   'omeprazol': ['omeprazol', 'losec', 'peprazol', 'omepramix', 'gaspiren'],
-  'losec': ['losec', 'omeprazol', 'peprazol'],
+  'losec': ['losec', 'omeprazol', 'peprazol', 'omepramix'],
   'pantoprazol': ['pantoprazol', 'pantocal', 'pantozol', 'peptulan'],
   'pantocal': ['pantocal', 'pantoprazol'],
   'simeticona': ['simeticona', 'luftal', 'flagass', 'simetil'],
@@ -87,107 +90,145 @@ const DRUG_SYNONYMS = {
   'escopolamina': ['escopolamina', 'buscopan', 'atroveran'],
   'atroveran': ['atroveran', 'buscopan', 'escopolamina'],
   'dramin': ['dramin', 'dimenidrinato'],
+  'dimenidrinato': ['dimenidrinato', 'dramin'],
   'bepantol': ['bepantol', 'bepantriz', 'dexpantenol', 'probentol'],
   'bepantriz': ['bepantriz', 'bepantol', 'dexpantenol'],
   'nebacetin': ['nebacetin', 'neomicina', 'cicatren'],
   'doril': ['doril', 'dipirona', 'neosaldina', 'aspirina'],
-  'aspirina': ['aspirina', 'acido acetilsalicilico', 'somalgin', 'buferin'],
+  'aspirina': ['aspirina', 'acido acetilsalicilico', 'somalgin', 'buferin', 'aas'],
+  'aas': ['aas', 'aspirina', 'acido acetilsalicilico'],
+  'polaramine': ['polaramine', 'dexclorfeniramina', 'histamin', 'polaren'],
+  'dexclorfeniramina': ['dexclorfeniramina', 'polaramine', 'histamin'],
+  'histamin': ['histamin', 'polaramine', 'dexclorfeniramina'],
+  'hixizine': ['hixizine', 'hidroxizina', 'pruritrat'],
+  'hidroxizina': ['hidroxizina', 'hixizine', 'pruritrat'],
+  'brondilat': ['brondilat', 'acebrofilina', 'filinar'],
+  'acebrofilina': ['acebrofilina', 'brondilat', 'filinar'],
+  'mucosolvan': ['mucosolvan', 'ambroxol', 'anabronc'],
+  'ambroxol': ['ambroxol', 'mucosolvan', 'anabronc'],
+  'motilium': ['motilium', 'domperidona', 'peridal'],
+  'domperidona': ['domperidona', 'motilium', 'peridal'],
+  'plasil': ['plasil', 'metoclopramida'],
+  'metoclopramida': ['metoclopramida', 'plasil'],
+  'bromoprida': ['bromoprida', 'digesan', 'digeplus'],
   'losartana': ['losartana', 'cozaar', 'aradois', 'losapress', 'corus'],
   'atenolol': ['atenolol', 'angipress', 'ablok', 'atenorese'],
-  'amoxicilina': ['amoxicilina', 'amoxil', 'novocilin', 'velamox']
+  'amoxicilina': ['amoxicilina', 'amoxil', 'novocilin', 'velamox'],
+  'albendazol': ['albendazol', 'albel', 'paraxin', 'zentel'],
+  'albel': ['albel', 'albendazol', 'paraxin'],
+  'aerolin': ['aerolin', 'salbutamol', 'aerodini'],
+  'salbutamol': ['salbutamol', 'aerolin', 'aerodini'],
+  'aerodini': ['aerodini', 'aerolin', 'salbutamol']
 };
 
 /**
- * Busca produtos no banco de dados SQLite com inteligência de relevância,
- * sinônimos de marcas/genéricos e agrupamento por princípio ativo idêntico.
+ * Busca produtos no banco de dados SQLite com classificação detalhada entre:
+ * 1. direct: produtos que correspondem diretamente ao termo digitado pelo cliente
+ * 2. similares: medicamentos similares, genéricos e outras marcas com mesmo princípio ativo
  */
-function searchProductsInDb(tenantId, query) {
-  if (!query || query.length < 2) return [];
+function searchProductsInDbDetailed(tenantId, query) {
+  if (!query || query.length < 2) return { direct: [], similares: [], all: [] };
   const cleanQ = query.trim().toLowerCase();
 
-  // Expande busca para termos equivalentes (ex: ibuprofeno -> alivium, advil, buscofem, ibupril)
-  const searchTerms = new Set([cleanQ]);
-  for (const [key, synonyms] of Object.entries(DRUG_SYNONYMS)) {
-    if (cleanQ.includes(key) || key.includes(cleanQ)) {
-      synonyms.forEach((s) => searchTerms.add(s));
-    }
-  }
-
-  const results = [];
+  const direct = [];
+  const similares = [];
   const seenIds = new Set();
   const activeIngredientsFound = new Set();
 
-  // 1. Busca direta e por equivalentes/sinônimos
-  for (const term of searchTerms) {
-    const sql = `
+  // 1. Busca direta pelo termo digitado pelo cliente (com proteção contra falsos positivos em substrings)
+  const directRows = db.prepare(`
+    SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
+           sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
+           requires_prescription
+    FROM products
+    WHERE tenant_id = ? AND active = 1 AND stock_quantity > 0 AND (
+      name LIKE ? OR name LIKE ? OR active_ingredient LIKE ?
+    )
+    ORDER BY stock_quantity DESC
+    LIMIT 4
+  `).all(tenantId, `${cleanQ}%`, `% ${cleanQ}%`, `%${cleanQ}%`);
+
+  for (const r of directRows) {
+    seenIds.add(r.id);
+    r.is_direct_match = true;
+    r.is_similar = false;
+    direct.push(r);
+    if (r.active_ingredient && r.active_ingredient.trim().length >= 3) {
+      activeIngredientsFound.add(r.active_ingredient.trim());
+    }
+  }
+
+  // 2. Busca por similares/sinônimos daquele medicamento (marca de referência <-> similares <-> genéricos)
+  const synonymTerms = new Set();
+  for (const [key, list] of Object.entries(DRUG_SYNONYMS)) {
+    if (cleanQ.includes(key) || key.includes(cleanQ)) {
+      list.forEach(s => {
+        if (s !== cleanQ) synonymTerms.add(s);
+      });
+    }
+  }
+
+  for (const term of synonymTerms) {
+    const synRows = db.prepare(`
       SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
              sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
              requires_prescription
       FROM products
-      WHERE tenant_id = ? AND active = 1 AND (
-        name LIKE ? OR active_ingredient LIKE ? OR barcode = ?
+      WHERE tenant_id = ? AND active = 1 AND stock_quantity > 0 AND (
+        name LIKE ? OR name LIKE ? OR active_ingredient LIKE ?
       )
-      ORDER BY 
-        CASE 
-          WHEN name LIKE ? THEN 1
-          WHEN name LIKE ? THEN 2
-          WHEN active_ingredient LIKE ? THEN 3
-          ELSE 4
-        END,
-        stock_quantity DESC
-      LIMIT 4
-    `;
+      ORDER BY sale_price ASC
+      LIMIT 3
+    `).all(tenantId, `${term}%`, `% ${term}%`, `%${term}%`);
 
-    try {
-      const rows = db.prepare(sql).all(
-        tenantId,
-        `%${term}%`,
-        `%${term}%`,
-        term,
-        `${term}%`,
-        `% ${term}%`,
-        `${term}%`
-      );
-
-      for (const r of rows) {
-        if (!seenIds.has(r.id)) {
-          seenIds.add(r.id);
-          results.push(r);
-          if (r.active_ingredient && r.active_ingredient.trim().length >= 3) {
-            activeIngredientsFound.add(r.active_ingredient.trim());
-          }
+    for (const r of synRows) {
+      if (!seenIds.has(r.id)) {
+        seenIds.add(r.id);
+        r.is_direct_match = false;
+        r.is_similar = true;
+        similares.push(r);
+        if (r.active_ingredient && r.active_ingredient.trim().length >= 3) {
+          activeIngredientsFound.add(r.active_ingredient.trim());
         }
       }
-    } catch (err) {
-      console.error('[aiEngine] Erro ao buscar produtos:', err.message);
     }
   }
 
-  // 2. Busca automática por medicamentos com o MESMO princípio ativo (similares/genéricos diretos)
+  // 3. Busca por outros produtos no banco com o mesmo princípio ativo
   for (const act of activeIngredientsFound) {
     try {
-      const sameActRows = db.prepare(`
+      const actRows = db.prepare(`
         SELECT id, tenant_id, name, active_ingredient, dosage, form, presentation, barcode,
                sale_price, original_price, is_promotion, stock_quantity, reserved_quantity,
                requires_prescription
         FROM products
         WHERE tenant_id = ? AND active = 1 AND stock_quantity > 0 AND active_ingredient LIKE ?
         ORDER BY sale_price ASC
-        LIMIT 4
+        LIMIT 3
       `).all(tenantId, `%${act}%`);
 
-      for (const r of sameActRows) {
+      for (const r of actRows) {
         if (!seenIds.has(r.id)) {
           seenIds.add(r.id);
-          results.push(r);
+          r.is_direct_match = false;
+          r.is_similar = true;
+          similares.push(r);
         }
       }
-    } catch (actErr) {
-      console.error('[aiEngine] Erro ao buscar por princípio ativo:', actErr.message);
+    } catch (e) {
+      console.warn('[aiEngine] Erro ao buscar por princípio ativo:', e.message);
     }
   }
 
-  return results.slice(0, 8);
+  return { direct, similares, all: [...direct, ...similares] };
+}
+
+/**
+ * Busca produtos no banco de dados SQLite (retorna array unificado com direct e similares)
+ */
+function searchProductsInDb(tenantId, query) {
+  const detailed = searchProductsInDbDetailed(tenantId, query);
+  return detailed.all;
 }
 
 /**
@@ -493,32 +534,36 @@ function buildConversationalSalesResponse({ tenant, customerName, searchResults,
   // 6. Produtos encontrados para a pergunta
   const candidateList = (context?.candidates && context.candidates.length > 0)
     ? context.candidates
-    : (searchResults && searchResults.length > 0 ? searchResults.flatMap(g => g.products) : []);
+    : (searchResults && searchResults.length > 0 ? searchResults.flatMap(g => g.all || g.products || []) : []);
 
   if (candidateList && candidateList.length > 0) {
-    const candidates = [];
-    const productLines = [];
+    const directProds = candidateList.filter(p => !p.is_similar);
+    const similarProds = candidateList.filter(p => p.is_similar);
 
-    candidateList.forEach((p) => {
-      if (!candidates.some((c) => c.id === p.id)) {
-        candidates.push(p);
-        const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
-        const priceStr = isPromo
-          ? `*R$ ${formatMoney(p.sale_price)}* (em oferta especial, era R$ ${formatMoney(p.original_price)})`
-          : `*R$ ${formatMoney(p.sale_price)}*`;
+    const formatProd = (p) => {
+      const isPromo = p.is_promotion && p.original_price && Number(p.original_price) > Number(p.sale_price);
+      const priceStr = isPromo
+        ? `*R$ ${formatMoney(p.sale_price)}* (em oferta especial, era R$ ${formatMoney(p.original_price)})`
+        : `*R$ ${formatMoney(p.sale_price)}*`;
 
-        const desc = p.presentation ? ` (${p.presentation})` : '';
-        productLines.push(`• *${p.name}*${desc} por ${priceStr}`);
+      const desc = p.presentation ? ` (${p.presentation})` : '';
+      return `• *${p.name}*${desc} por ${priceStr}`;
+    };
+
+    let msg = `Olá, ${customerName}! Tudo bem? 😊\n\n`;
+
+    if (directProds.length > 0) {
+      msg += `Temos em nosso estoque sim:\n` + directProds.map(formatProd).join('\n') + `\n\n`;
+      if (similarProds.length > 0) {
+        msg += `💡 *Opções similares e genéricas com o mesmo princípio ativo (mesma fórmula):*\n` + similarProds.map(formatProd).join('\n') + `\n\n`;
       }
-    });
+    } else {
+      msg += `Temos opções disponíveis em nosso estoque:\n` + similarProds.map(formatProd).join('\n') + `\n\n`;
+    }
 
-    const msg =
-      `Olá, ${customerName}! Tudo bem? 😊\n\n` +
-      `Temos em nosso estoque sim:\n` +
-      `${productLines.join('\n')}\n\n` +
-      `Você prefere que a gente envie por entrega rápida na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separado para você!`;
+    msg += `Você prefere que a gente envie por entrega rápida na sua casa ou vai passar aqui na farmácia para retirar? Já posso deixar separado para você!`;
 
-    return { text: msg, candidates, intent: 'products_offered' };
+    return { text: msg, candidates: candidateList, intent: 'products_offered' };
   }
 
   // 7. Não encontrou o produto específico
@@ -544,15 +589,29 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
   const searchResults = [];
 
   for (const q of queries) {
-    const prods = searchProductsInDb(tenantId, q);
-    if (prods.length > 0) {
-      searchResults.push({ query: q, products: prods });
+    const res = searchProductsInDbDetailed(tenantId, q);
+    if (res.all.length > 0) {
+      searchResults.push({ query: q, ...res });
     }
   }
 
+  const directCandidates = [];
+  const similaresCandidates = [];
   const allCandidates = [];
+
   searchResults.forEach((group) => {
-    group.products.forEach((p) => {
+    (group.direct || []).forEach((p) => {
+      if (!directCandidates.some((c) => c.id === p.id)) {
+        directCandidates.push(p);
+      }
+      if (!allCandidates.some((c) => c.id === p.id)) {
+        allCandidates.push(p);
+      }
+    });
+    (group.similares || []).forEach((p) => {
+      if (!similaresCandidates.some((c) => c.id === p.id) && !directCandidates.some((c) => c.id === p.id)) {
+        similaresCandidates.push(p);
+      }
       if (!allCandidates.some((c) => c.id === p.id)) {
         allCandidates.push(p);
       }
@@ -564,16 +623,22 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
   for (const otc of symptomOtcItems) {
     if (!allCandidates.some((c) => c.id === otc.id)) {
       allCandidates.push(otc);
+      directCandidates.push(otc);
     }
   }
 
   // Se a mensagem atual foi apenas confirmação/endereço ("pode entregar", "sim"), busca produtos do contexto ou da última mensagem do cliente
   if (allCandidates.length === 0 && context?.selected_product) {
     allCandidates.push(context.selected_product);
+    directCandidates.push(context.selected_product);
   }
   if (allCandidates.length === 0 && Array.isArray(context?.candidates)) {
     context.candidates.forEach((c) => {
-      if (!allCandidates.some((p) => p.id === c.id)) allCandidates.push(c);
+      if (!allCandidates.some((p) => p.id === c.id)) {
+        allCandidates.push(c);
+        if (c.is_similar) similaresCandidates.push(c);
+        else directCandidates.push(c);
+      }
     });
   }
   if (allCandidates.length === 0 && Array.isArray(history) && history.length > 0) {
@@ -581,17 +646,21 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
     if (lastUserMsg) {
       const prevQueries = parseProductQueries(lastUserMsg.text);
       for (const pq of prevQueries) {
-        const prods = searchProductsInDb(tenantId, pq);
-        for (const p of prods) {
-          if (!allCandidates.some((c) => c.id === p.id)) {
-            allCandidates.push(p);
-          }
-        }
+        const res = searchProductsInDbDetailed(tenantId, pq);
+        (res.direct || []).forEach((p) => {
+          if (!directCandidates.some((c) => c.id === p.id)) directCandidates.push(p);
+          if (!allCandidates.some((c) => c.id === p.id)) allCandidates.push(p);
+        });
+        (res.similares || []).forEach((p) => {
+          if (!similaresCandidates.some((c) => c.id === p.id) && !directCandidates.some((c) => c.id === p.id)) similaresCandidates.push(p);
+          if (!allCandidates.some((c) => c.id === p.id)) allCandidates.push(p);
+        });
       }
       const prevOtc = findOtcProductsForSymptoms(tenantId, lastUserMsg.text);
       for (const otc of prevOtc) {
         if (!allCandidates.some((c) => c.id === otc.id)) {
           allCandidates.push(otc);
+          directCandidates.push(otc);
         }
       }
     }
@@ -604,15 +673,34 @@ async function processAiMessage({ tenantId, customerPhone, customerName, rawText
   if (apiKey && isAiActive) {
     let productsContextStr = 'Nenhum medicamento específico encontrado diretamente no estoque.';
     if (allCandidates.length > 0) {
-      productsContextStr = allCandidates
-        .map((p) => {
-          const avail = p.stock_quantity - (p.reserved_quantity || 0);
-          const rxTag = p.requires_prescription
-            ? '[⚠️ EXIGE RECEITA MÉDICA - RETENÇÃO ANVISA. NUNCA INDIQUE PARA TRATAMENTO SINTOMÁTICO SEM O CLIENTE APRESENTAR RECEITA MÉDICA!]'
-            : '[VENDA LIVRE / MIP - Pode ser indicado para alívio de sintomas leves]';
-          return `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço Real: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${avail} un. | ${rxTag}`;
-        })
-        .join('\n');
+      const directLines = directCandidates.map((p) => {
+        const avail = p.stock_quantity - (p.reserved_quantity || 0);
+        const rxTag = p.requires_prescription
+          ? '[⚠️ EXIGE RECEITA MÉDICA - RETENÇÃO ANVISA. NUNCA INDIQUE PARA TRATAMENTO SINTOMÁTICO SEM O CLIENTE APRESENTAR RECEITA MÉDICA!]'
+          : '[VENDA LIVRE / MIP - Pode ser indicado para alívio de sintomas leves]';
+        return `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço Real: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${avail} un. | ${rxTag}`;
+      });
+
+      const similaresLines = similaresCandidates.map((p) => {
+        const avail = p.stock_quantity - (p.reserved_quantity || 0);
+        const rxTag = p.requires_prescription
+          ? '[⚠️ EXIGE RECEITA MÉDICA]'
+          : '[VENDA LIVRE / MIP - Excelente opção intercambiável com economia]';
+        return `- [ID ${p.id}] ${p.name} | Apresentação: ${p.presentation || 'N/A'} | Preço Real: R$ ${formatMoney(p.sale_price)}${p.is_promotion ? ` (Promoção de R$ ${formatMoney(p.original_price)})` : ''} | Estoque disponível: ${avail} un. [SIMILAR / GENÉRICO DE MESMO PRINCÍPIO ATIVO] | ${rxTag}`;
+      });
+
+      productsContextStr = '';
+      if (directLines.length > 0) {
+        productsContextStr += `PRODUTO(S) DIRETAMENTE SOLICITADO(S) PELO CLIENTE NO ESTOQUE:\n${directLines.join('\n')}\n`;
+      }
+      if (similaresLines.length > 0) {
+        productsContextStr += `\nMEDICAMENTOS SIMILARES E GENÉRICOS DISPONÍVEIS NO ESTOQUE DA FARMÁCIA (MESMO PRINCÍPIO ATIVO / MESMA FÓRMULA):\n${similaresLines.join('\n')}\n`;
+      }
+      if (!productsContextStr.trim()) {
+        productsContextStr = allCandidates
+          .map((p) => `- [ID ${p.id}] ${p.name} | Preço Real: R$ ${formatMoney(p.sale_price)} | Estoque: ${p.stock_quantity} un.`)
+          .join('\n');
+      }
     }
 
     const systemInstruction = `
@@ -633,7 +721,10 @@ DIRETRIZES DE ATENDIMENTO, ÉTICA FARMACÊUTICA E LEGISLAÇÃO ANVISA (COMPLIANC
 1. NUNCA, SOB HIPÓTESE ALGUMA, INDIQUE OU PRESCREVA ANTIBIÓTICOS (ex: Amoxicilina, Azitromicina, Cefalexina, Ciprofloxacino, etc.) OU MEDICAMENTOS CONTROLADOS (Tarja Preta / Vermelha sob Retenção). É PROIBIDO por lei e pelas normas da ANVISA indicar antibiótico sem prescrição médica!
 2. O QUE VOCÊ PODE INDICAR PARA SINTOMAS: Somente Medicamentos Isentos de Prescrição (MIPs / Venda Livre) que constam no estoque real acima (ex: pastilhas para garganta como Ciflogex/Benalet, sprays bucais, analgésicos e antitérmicos simples como Dipirona/Paracetamol)!
 3. FIDELIDADE ABSOLUTA AOS PREÇOS DO ESTOQUE: Você NUNCA deve inventar, estimar ou chutar preços! Cite exclusivamente o nome e o preço exato em R$ dos produtos cadastrados no estoque informado acima. Se o produto que o cliente perguntou NÃO estiver na lista de estoque acima, diga com clareza: "Consultei nosso sistema agora e não localizei esse produto em estoque no momento. Quer que eu chame nosso farmacêutico de plantão para verificar se temos algum genérico/similar com o mesmo princípio ativo ou encomendar para você?". NUNCA CHUTE NENHUM VALOR QUE NÃO ESTEJA NO ESTOQUE!
-4. OFERTA CONSULTIVA DE GENÉRICOS E SIMILARES: Quando o cliente perguntar de um medicamento (ex: Ibuprofeno, Alivium, Advil, Dipirona, etc.), apresente com simpatia as opções disponíveis no estoque (o genérico mais em conta e os similares de outras marcas consagradas), destacando os preços reais para o cliente poder escolher!
+4. REGRA MANDATÓRIA DE BALCÃO - OFERTA ATIVA DE SIMILARES E GENÉRICOS DO ESTOQUE:
+   - Sempre que o cliente perguntar o valor de um produto ou medicamento e houver medicamentos na seção "MEDICAMENTOS SIMILARES E GENÉRICOS DISPONÍVEIS NO ESTOQUE", você DEVE OBRIGATORIAMENTE informar o valor do produto solicitado E APRESENTAR TAMBÉM OS MEDICAMENTOS SIMILARES E GENÉRICOS listados no estoque!
+   - Destaque que os similares possuem o mesmo princípio ativo / mesma fórmula química, cite os preços reais exatos do estoque de cada um e mostre a vantagem de preço (especialmente quando forem opções mais econômicas)!
+   - NUNCA responda apenas com o original quando houver opções similares ou genéricas no estoque acima! Mostre as opções com clareza e empatia para o cliente poder escolher.
 5. Se o cliente perguntar de antibióticos ou se os sintomas forem severos (febre alta persistente, pus): oriente com carinho que antibióticos exigem receita médica com retenção pela ANVISA. Se o cliente já tiver a receita médica em mãos, peça para enviar uma foto nítida dela aqui pelo WhatsApp que o farmacêutico orça na hora!
 6. LOGÍSTICA E ROTA88 (OBRIGATÓRIO): Se o cliente escolher ENTREGA ou passar endereço por escrito, é INDISPENSÁVEL pedir para o cliente ENVIAR A SUA LOCALIZAÇÃO ATUAL DO WHATSAPP (pelo botão de Clipe 📎 ou "+" > Localização > Enviar Localização Atual) junto com o número da casa e complemento. O sistema logístico Rota88 exige as coordenadas de GPS para criar a rota do motoboy no mapa e não errar o portão.
 7. Quando o cliente enviar a localização GPS (ou se já tiver enviado), confirme com entusiasmo que a localização foi registrada no GPS da farmácia, informe o valor total incluindo a taxa de entrega (R$ ${formatMoney(tenant.delivery_fee_default)}) e pergunte a forma de pagamento (Pix instantâneo, Cartão de crédito/débito na maquininha ou Dinheiro com troco).
@@ -729,4 +820,5 @@ module.exports = {
   suggestSalesResponse,
   parseProductQueries,
   searchProductsInDb,
+  searchProductsInDbDetailed,
 };
